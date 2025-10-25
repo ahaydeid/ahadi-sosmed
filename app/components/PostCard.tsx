@@ -29,7 +29,7 @@ export default function PostCard({ post }: PostCardProps) {
         </div>
 
         {/* Title */}
-        <h2 className="text-lg font-bold leading-snug line-clamp-2 mt-2 mb-1">{post.title}</h2>
+        <h2 className="text-lg font-bold leading-snug line-clamp-3 mt-2 mb-1">{post.title}</h2>
 
         {/* Description */}
         <p className="text-gray-600 text-sm mb-2 line-clamp-2">{post.description}</p>
