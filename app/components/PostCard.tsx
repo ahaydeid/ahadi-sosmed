@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, Eye, Heart, MessageCircle, MinusCircle } from 'lucide-react';
+import { CalendarDays, Eye, Heart, MessageCircle, X } from 'lucide-react';
 
 export interface PostCardData {
   id: string;
@@ -63,7 +63,7 @@ export default function PostCard({ post }: PostCardProps) {
         className="absolute top-1 right-1 text-gray-400 hover:text-gray-600"
         aria-label="Collapse"
       >
-        <MinusCircle className="w-5 h-5" />
+        <X className="w-5 h-5" />
       </button>
     </div>
   );
