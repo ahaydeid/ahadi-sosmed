@@ -1,7 +1,21 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**.googleusercontent.com", // untuk foto profil Google OAuth
+      },
+      {
+        protocol: "https",
+        hostname: "example.com", // tambahkan contoh domain eksternal
+      },
+      {
+        protocol: "https",
+        hostname: "**.facebook.com", // kalau pakai Facebook
+      },
+    ],
+  },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

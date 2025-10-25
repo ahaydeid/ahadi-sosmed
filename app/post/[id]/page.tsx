@@ -117,7 +117,7 @@ export default function PostDetailPage() {
       <div className="w-full h-48 bg-gray-200 rounded mb-4" />
 
       {/* Isi artikel */}
-      <div className="text-sm text-gray-700 leading-relaxed space-y-4 mb-6">
+      <div className="text-base text-gray-700 leading-relaxed space-y-4 mb-6">
         <p>{post.description}</p>
       </div>
 
