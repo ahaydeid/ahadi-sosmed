@@ -10,11 +10,14 @@ interface PostContent {
   post_id: string;
   title: string | null;
   description: string | null;
+  image_url?: string | null;
+  author_image?: string | null;
 }
 
 interface UserProfile {
   id: string;
   display_name: string;
+  avatar_url?: string | null;
 }
 
 interface PostRow {
@@ -26,8 +29,10 @@ interface PostRow {
 interface PostCardData {
   id: string;
   author: string;
+  authorImage?: string | null;
   title: string;
   description: string;
+  imageUrl?: string | null;
   date: string;
   views: number;
   likes: number;
@@ -42,7 +47,7 @@ export default function Feed() {
     const loadFeed = async () => {
       setLoading(true);
 
-      // 1. Ambil post utama
+      // 1️⃣ Ambil post utama
       const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id, visibility").eq("visibility", "public").order("created_at", { ascending: false });
 
       if (postError) {
@@ -57,12 +62,12 @@ export default function Feed() {
         return;
       }
 
-      const typedPosts: PostRow[] = postData as unknown as PostRow[];
+      const typedPosts: PostRow[] = postData as PostRow[];
       const postIds = typedPosts.map((p) => p.id);
       const userIds = [...new Set(typedPosts.map((p) => p.user_id))];
 
-      // 2. Ambil konten (title, description)
-      const { data: contents, error: contentError } = await supabase.from("post_content").select("post_id, title, description").in("post_id", postIds);
+      // 2️⃣ Ambil konten (title, description, image_url, author_image)
+      const { data: contents, error: contentError } = await supabase.from("post_content").select("post_id, title, description, image_url, author_image").in("post_id", postIds);
 
       if (contentError) {
         console.error("Error loading post_content:", contentError.message);
@@ -71,8 +76,8 @@ export default function Feed() {
       const contentMap = new Map<string, PostContent>();
       (contents ?? []).forEach((c) => contentMap.set(c.post_id, c));
 
-      // 3. Ambil profil user
-      const { data: profiles, error: profileError } = await supabase.from("user_profile").select("id, display_name").in("id", userIds);
+      // 3️⃣ Ambil profil user (display_name + avatar_url)
+      const { data: profiles, error: profileError } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", userIds);
 
       if (profileError) {
         console.error("Error loading user_profile:", profileError.message);
@@ -81,7 +86,7 @@ export default function Feed() {
       const profileMap = new Map<string, UserProfile>();
       (profiles ?? []).forEach((p) => profileMap.set(p.id, p));
 
-      // 4. Hitung jumlah likes, comments, dan views
+      // 4️⃣ Hitung jumlah likes, comments, dan views
       const formattedPosts: PostCardData[] = await Promise.all(
         typedPosts.map(async (p) => {
           const [likes, comments, views] = await Promise.all([
@@ -96,8 +101,10 @@ export default function Feed() {
           return {
             id: p.id,
             author: author?.display_name ?? "Anonim",
+            authorImage: content?.author_image ?? author?.avatar_url ?? null, // ✅ tambahkan fallback avatar
             title: content?.title ?? "(Tanpa judul)",
             description: content?.description ?? "",
+            imageUrl: content?.image_url ?? null, // ✅ ambil gambar post
             date: new Date(p.created_at).toLocaleDateString("id-ID", {
               day: "numeric",
               month: "short",
