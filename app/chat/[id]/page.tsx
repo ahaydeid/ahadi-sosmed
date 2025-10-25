@@ -22,20 +22,20 @@ interface PartnerProfile {
 }
 
 export default function ChatDetailPage() {
-  const { id: partnerId } = useParams<{ id: string }>();
+  const { id: roomId } = useParams<{ id: string }>(); // ✅ Sekarang id = messages.id
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [partner, setPartner] = useState<PartnerProfile | null>(null);
-  const [messageRoomId, setMessageRoomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    if (!partnerId) return;
+    if (!roomId) return;
 
     const loadChat = async () => {
       setLoading(true);
 
+      // Ambil user login
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -43,22 +43,24 @@ export default function ChatDetailPage() {
       if (!userId) return;
       setCurrentUserId(userId);
 
-      const { data: partnerProfile } = await supabase.from("user_profile").select("id, display_name, avatar_url").eq("id", partnerId).single();
+      // Ambil data room dari tabel messages
+      const { data: room, error: roomError } = await supabase.from("messages").select("id, sender_id, receiver_id").eq("id", roomId).single();
 
-      setPartner(partnerProfile ?? null);
-
-      const { data: existingChat } = await supabase.from("messages").select("id").or(`and(sender_id.eq.${userId},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${userId})`).maybeSingle();
-
-      if (!existingChat) {
-        setMessages([]);
-        setMessageRoomId(null);
+      if (roomError || !room) {
+        console.error("Gagal memuat room:", roomError?.message);
         setLoading(false);
         return;
       }
 
-      setMessageRoomId(existingChat.id);
+      const partnerId = room.sender_id === userId ? room.receiver_id : room.sender_id;
 
-      const { data: chatData, error: chatError } = await supabase.from("messages_content").select("id, sender_id, text, image_url, created_at").eq("message_id", existingChat.id).order("created_at", { ascending: true });
+      // Ambil profil partner
+      const { data: partnerProfile } = await supabase.from("user_profile").select("id, display_name, avatar_url").eq("id", partnerId).single();
+
+      setPartner(partnerProfile ?? null);
+
+      // Ambil isi pesan
+      const { data: chatData, error: chatError } = await supabase.from("messages_content").select("id, sender_id, text, image_url, created_at").eq("message_id", roomId).order("created_at", { ascending: true });
 
       if (chatError) {
         console.error("Error fetching chat messages:", chatError.message);
@@ -69,15 +71,16 @@ export default function ChatDetailPage() {
       setMessages(chatData ?? []);
       setLoading(false);
 
+      // Realtime listener
       const channel = supabase
-        .channel(`messages_${existingChat.id}`)
+        .channel(`messages_${roomId}`)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "messages_content",
-            filter: `message_id=eq.${existingChat.id}`,
+            filter: `message_id=eq.${roomId}`,
           },
           (payload) => {
             const newMessage = payload.new as ChatMessage;
@@ -92,7 +95,7 @@ export default function ChatDetailPage() {
     };
 
     loadChat();
-  }, [partnerId]);
+  }, [roomId]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500 text-sm">Memuat chat...</div>;
@@ -100,7 +103,6 @@ export default function ChatDetailPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* --- HEADER (STICKY TOP) --- */}
       <div className="sticky top-0 z-40 bg-white flex items-center justify-between px-3 pb-3 border-b border-gray-200">
         <div className="flex items-center gap-3 pt-3">
           <ArrowLeft className="w-6 h-6 text-gray-800 cursor-pointer" onClick={() => router.back()} />
@@ -112,12 +114,10 @@ export default function ChatDetailPage() {
         <MoreVertical className="w-5 h-5 text-gray-600 cursor-pointer" />
       </div>
 
-      {/* --- CHAT CONTENT (SCROLLABLE AREA) --- */}
-      {/* Menggunakan pb-24 agar konten tidak tertutup oleh ChatInput yang fixed */}
       <div className="flex-1 flex flex-col gap-3 mt-4 overflow-y-auto px-3 pb-24">
         {messages.length === 0 ? (
           <p className="text-center text-gray-500 text-sm mt-10">
-            Belum ada pesan. Mulailah percakapan dengan <span className="font-semibold">{partner?.display_name}</span>.
+            Belum ada pesan. Mulailah percakapan dengan <span className="font-semibold">{partner?.display_name ?? "Pengguna"}</span>.
           </p>
         ) : (
           messages.map((msg) => {
@@ -140,10 +140,8 @@ export default function ChatDetailPage() {
         )}
       </div>
 
-      {/* --- CHAT INPUT (FIXED BOTTOM) --- */}
-      {/* Menggunakan fixed dan memastikan padding horizontal tetap ada (px-3) */}
       <div className="fixed bottom-15 left-0 right-0 bg-white z-40 px-3 pt-2">
-        <ChatInput receiverId={partnerId} messageRoomId={messageRoomId} currentUserId={currentUserId} setMessageRoomId={setMessageRoomId} />
+        <ChatInput receiverId={partner?.id ?? ""} messageRoomId={roomId} currentUserId={currentUserId} />
       </div>
     </div>
   );
