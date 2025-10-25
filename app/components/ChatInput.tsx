@@ -31,31 +31,70 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
     if (!text) return;
 
     setSending(true);
+    console.log("=== Mulai kirim pesan ===");
+    console.log("receiverId:", receiverId);
+    console.log("messageRoomId:", messageRoomId);
+    console.log("currentUserId:", currentUserId);
 
     try {
       let chatId: string = messageRoomId ?? "";
 
+      // 1️⃣ Buat room jika belum ada
       if (!chatId) {
+        console.log("Belum ada chatId, buat room baru...");
         const { data, error } = await supabase
           .from("messages")
           .insert([{ sender_id: currentUserId, receiver_id: receiverId }])
           .select("id")
           .single();
-        if (error || !data?.id) {
-          setSending(false);
+
+        if (error) {
+          console.error("Gagal buat room:", error);
+          alert("Gagal membuat room: " + error.message);
           return;
         }
+        if (!data?.id) {
+          alert("Room tidak terbentuk, data.id kosong");
+          return;
+        }
+
         chatId = data.id;
+        console.log("Room berhasil dibuat:", chatId);
         setMessageRoomId?.(chatId);
       }
 
-      await supabase.from("messages_content").insert([{ message_id: chatId, sender_id: currentUserId, text }]);
+      // 2️⃣ Insert pesan
+      console.log("Kirim pesan ke messages_content...");
+      const { data: inserted, error: msgError, status, statusText } = await supabase
+        .from("messages_content")
+        .insert([{ message_id: chatId, sender_id: currentUserId, text }])
+        .select("id")
+        .single();
 
+      console.log("Insert result:", { inserted, msgError, status, statusText });
+
+      if (msgError) {
+        console.error("Error insert messages_content:", msgError);
+        alert("Gagal insert messages_content: " + msgError.message);
+        return;
+      }
+      if (!inserted?.id) {
+        alert("Insert messages_content tidak mengembalikan ID!");
+        return;
+      }
+
+      console.log("Pesan berhasil dikirim:", inserted.id);
+
+      // 3️⃣ Reset input
       el.value = "";
       el.style.height = "auto";
       el.style.overflowY = "hidden";
+    } catch (err) {
+      console.error("❌ Error tak terduga:", err);
+      alert(err instanceof Error ? err.message : JSON.stringify(err));
     } finally {
       setSending(false);
+      console.log("=== Selesai kirim pesan ===");
     }
   };
 
@@ -78,7 +117,11 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
         />
         <ImageIcon className="w-5 h-5 text-gray-700 cursor-pointer shrink-0 ml-2" />
       </div>
-      <button onClick={handleSend} disabled={sending} className="flex items-center justify-center bg-sky-600 text-white w-10 h-10 rounded-full shadow active:scale-95 transition shrink-0 disabled:opacity-50">
+      <button
+        onClick={handleSend}
+        disabled={sending}
+        className="flex items-center justify-center bg-sky-600 text-white w-10 h-10 rounded-full shadow active:scale-95 transition shrink-0 disabled:opacity-50"
+      >
         <Send className="w-5 h-5" />
       </button>
     </div>
