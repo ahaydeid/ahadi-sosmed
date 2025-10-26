@@ -99,7 +99,7 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
   };
 
   return (
-    <div className="sticky bottom-0 left-0 w-full bg-white flex items-end gap-2 pt-1 border-t border-t-gray-300 z-40">
+    <div className="sticky bottom-0 left-0 w-full flex items-end gap-2 pt-1 z-40">
       <div className="flex items-end w-full bg-white border border-gray-300 rounded-lg px-3 py-2">
         <textarea
           ref={textareaRef}

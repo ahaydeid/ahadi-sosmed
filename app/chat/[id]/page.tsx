@@ -153,7 +153,7 @@ export default function ChatDetailPage() {
       </div>
 
       {/* CHAT CONTENT */}
-      <div className="flex-1 flex flex-col gap-3 mt-4 overflow-y-auto px-3 pb-24">
+      <div className="flex-1 flex flex-col gap-3 mt-4 overflow-y-auto px-3 pt-12 pb-15">
         {messages.length === 0 ? (
           <p className="text-center text-gray-500 text-sm mt-10">
             Belum ada pesan. Mulailah percakapan dengan <span className="font-semibold">{partner?.display_name ?? "Pengguna"}</span>.
@@ -181,7 +181,7 @@ export default function ChatDetailPage() {
       </div>
 
       {/* CHAT INPUT */}
-      <div className="fixed bottom-15 left-0 right-0 bg-white z-40 px-3 pt-2 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-15 left-0 right-0 z-40 px-3 pt-2 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
         <ChatInput receiverId={partner?.id ?? ""} messageRoomId={messageRoomId} currentUserId={currentUserId} setMessageRoomId={setMessageRoomId} />
       </div>
     </div>

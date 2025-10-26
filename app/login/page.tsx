@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   const providers: Provider[] = [
     { name: "Google", icon: Chrome, isDisabled: false },
-    { name: "Facebook", icon: Facebook, isDisabled: false },
+    { name: "Facebook", icon: Facebook, isDisabled: true },
     { name: "GitHub", icon: Github, isDisabled: true },
     { name: "Twitter (X)", icon: Twitter, isDisabled: true },
     { name: "Apple", icon: Apple, isDisabled: true },

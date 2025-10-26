@@ -6,29 +6,44 @@ import PostCard from "@/app/components/PostCard";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, MoreVertical, User } from "lucide-react";
+import { ArrowLeft, MoreVertical, User, UserPlus } from "lucide-react";
+import { PostCardData } from "@/lib/types/post";
+
+const formatPostDate = (dateString: string): string => {
+  const postDate = new Date(dateString);
+  const currentYear = new Date().getFullYear();
+  const postYear = postDate.getFullYear();
+
+  const options: Intl.DateTimeFormatOptions = {
+    day: "numeric",
+    month: "short",
+  };
+
+  if (postYear !== currentYear) {
+    options.year = "numeric";
+  }
+
+  return postDate.toLocaleDateString("id-ID", options).replace(/,$/, "").trim();
+};
 
 interface PostContent {
   post_id: string;
   title: string | null;
   description: string | null;
+  image_url?: string | null;
+  author_image?: string | null;
+}
+
+interface UserProfile {
+  id: string;
+  display_name: string;
+  avatar_url?: string | null;
 }
 
 interface PostRow {
   id: string;
   created_at: string;
   user_id: string;
-}
-
-interface PostCardData {
-  id: string;
-  author: string;
-  title: string;
-  description: string;
-  date: string;
-  views: number;
-  likes: number;
-  comments: number;
 }
 
 export default function ProfilePage() {
@@ -42,7 +57,6 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadUserData = async () => {
       setLoading(true);
-
       const {
         data: { session },
         error: sessionError,
@@ -56,7 +70,6 @@ export default function ProfilePage() {
 
       const userId = session.user.id;
 
-      // 🔹 Ambil profil user (display_name + avatar_url)
       const { data: profile, error: profileError } = await supabase.from("user_profile").select("display_name, avatar_url").eq("id", userId).single();
 
       if (profileError) {
@@ -67,7 +80,12 @@ export default function ProfilePage() {
         setAvatarUrl(profile?.avatar_url || null);
       }
 
-      // 🔹 Ambil posting user
+      const currentProfile: UserProfile = {
+        id: userId,
+        display_name: profile?.display_name || "Anonim",
+        avatar_url: profile?.avatar_url || null,
+      };
+
       const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id, visibility").eq("user_id", userId).order("created_at", { ascending: false });
 
       if (postError) {
@@ -85,10 +103,10 @@ export default function ProfilePage() {
       const typedPosts: PostRow[] = postData as PostRow[];
       const postIds = typedPosts.map((p) => p.id);
 
-      const { data: contents } = await supabase.from("post_content").select("post_id, title, description").in("post_id", postIds);
+      const { data: contents } = await supabase.from("post_content").select("post_id, title, description, image_url, author_image").in("post_id", postIds);
 
       const contentMap = new Map<string, PostContent>();
-      (contents ?? []).forEach((c) => contentMap.set(c.post_id, c));
+      (contents ?? []).forEach((c) => contentMap.set(c.post_id, c as PostContent));
 
       const formattedPosts: PostCardData[] = await Promise.all(
         typedPosts.map(async (p) => {
@@ -99,20 +117,20 @@ export default function ProfilePage() {
           ]);
 
           const content = contentMap.get(p.id);
+          const authorImageToUse = content?.author_image ?? currentProfile.avatar_url ?? null;
 
           return {
             id: p.id,
-            author: profile?.display_name ?? "Anonim",
+            author: currentProfile.display_name,
+            authorImage: authorImageToUse,
             title: content?.title ?? "(Tanpa judul)",
             description: content?.description ?? "",
-            date: new Date(p.created_at).toLocaleDateString("id-ID", {
-              day: "numeric",
-              month: "short",
-            }),
+            imageUrl: content?.image_url ?? null,
+            date: formatPostDate(p.created_at),
             views: views.count ?? 0,
             likes: likes.count ?? 0,
             comments: comments.count ?? 0,
-          };
+          } as PostCardData;
         })
       );
 
@@ -158,7 +176,7 @@ export default function ProfilePage() {
       </header>
 
       {/* PROFIL */}
-      <div className="flex flex-col items-center text-center pt-6 pb-4">
+      <div className="flex flex-col items-center text-center pt-6">
         <div className="w-24 h-24 rounded-full bg-gray-200 mb-3 overflow-hidden flex items-center justify-center">
           {avatarUrl ? <Image src={avatarUrl} alt={displayName} width={96} height={96} className="object-cover w-24 h-24" /> : <User className="w-12 h-12 text-gray-500" />}
         </div>
@@ -178,19 +196,33 @@ export default function ProfilePage() {
             <p className="text-gray-500 text-sm">mengikuti</p>
           </div>
         </div>
+      </div>
 
-        <h2 className="text-lg font-bold mb-4">
-          Tulisan <span className="font-normal text-gray-600">({posts.length})</span>
-        </h2>
+      <div className="flex justify-center gap-3 mb-6">
+        <button className="bg-sky-600 text-white px-4 py-2 min-w-[120px] rounded-md text-sm font-medium hover:bg-sky-700 transition flex items-center justify-center gap-1">
+          <UserPlus className="w-4 h-4" />
+          Ikuti
+        </button>{" "}
+        <button className="bg-gray-100 border border-gray-300 min-w-[120px] text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition">Kirim pesan</button>
+      </div>
+      <div className="mb-5">
+        <hr className="border border-gray-200 max-w-[90%] mx-auto" />
       </div>
 
       {/* POSTINGAN */}
+      <div className="ms-5">
+        <h2 className="text-lg mb-1">
+          Tulisan <span className="font-normal text-gray-600">({posts.length})</span>
+        </h2>
+      </div>
+      <hr className="border border-gray-100 dark:border-gray-100" />
+
       <div className="max-w-full mx-auto space-y-2">
         {loading && <p className="text-center py-5 text-gray-500">Memuat tulisan...</p>}
         {!loading && posts.length === 0 && <p className="text-center py-5 text-gray-500">Belum ada tulisan</p>}
         {!loading &&
           posts.map((post) => (
-            <Link key={post.id} href={`/post/${post.id}`} className="block">
+            <Link key={post.id} href={`/post/${post.id}`} className="block transition hover:bg-gray-100">
               <PostCard post={post} />
             </Link>
           ))}

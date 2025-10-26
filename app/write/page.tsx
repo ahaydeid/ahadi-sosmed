@@ -1,14 +1,36 @@
 "use client";
 
 import { Image as ImageIcon } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+
+import "easymde/dist/easymde.min.css";
+// GANTI IMPORT LANGSUNG DENGAN DYNAMIC IMPORT
+import dynamic from "next/dynamic";
+
+// DEFINISIKAN SimpleMDE SEBAGAI KOMPONEN YANG HANYA DIMUAT DI CLIENT
+const SimpleMdeEditor = dynamic(() => import("react-simplemde-editor"), {
+  ssr: false, // KUNCI PENTING: Mencegah komponen ini dirender di server
+  loading: () => <div className="text-gray-500 p-3">Memuat editor...</div>,
+});
 
 export default function WritePage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // FIX: Opsi Editor menggunakan useMemo
+  const mdeOptions = useMemo(() => {
+    return {
+      spellChecker: false,
+      autofocus: true,
+      toolbar: true,
+      placeholder: "Tulis opini kamu di sini...",
+      // Perluas tinggi agar editor terlihat bagus secara default
+      minHeight: "300px",
+    };
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -25,7 +47,7 @@ export default function WritePage() {
     setLoading(true);
 
     try {
-      // 🔹 Ambil user login
+      // Ambil user login
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -33,13 +55,15 @@ export default function WritePage() {
       const userId = session?.user?.id;
       if (!userId) {
         alert("Kamu belum login!");
+        // Arahkan ke login jika tidak ada user
+        // router.push('/login');
         return;
       }
 
-      // 🔹 Ambil foto profil bawaan OAuth
+      // Ambil foto profil bawaan OAuth
       const authorImage = session?.user?.user_metadata?.avatar_url || null;
 
-      // 🔹 1. Upload gambar post ke storage Supabase
+      // 1. Upload gambar post ke storage Supabase
       let imageUrl: string | null = null;
       if (image) {
         const fileExt = image.name.split(".").pop();
@@ -59,7 +83,7 @@ export default function WritePage() {
         imageUrl = publicUrlData.publicUrl;
       }
 
-      // 🔹 2. Buat data utama post
+      // 2. Buat data utama post
       const { data: newPost, error: postError } = await supabase
         .from("post")
         .insert([{ user_id: userId }])
@@ -72,14 +96,14 @@ export default function WritePage() {
         return;
       }
 
-      // 🔹 3. Simpan ke tabel post_content (termasuk image dan foto author)
+      // 3. Simpan ke tabel post_content (KONTEN MARKDOWN DISIMPAN DI KOLOM 'description')
       const { error: contentError } = await supabase.from("post_content").insert([
         {
           post_id: newPost.id,
           title,
           description: content,
           image_url: imageUrl,
-          author_image: authorImage, // ✅ foto profil user dari OAuth
+          author_image: authorImage,
         },
       ]);
 
@@ -90,6 +114,7 @@ export default function WritePage() {
       }
 
       alert("Tulisan berhasil dikirim!");
+      // Reset form
       setTitle("");
       setContent("");
       setImage(null);
@@ -115,14 +140,16 @@ export default function WritePage() {
           className="w-full bg-white border rounded px-3 py-3 text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500"
         />
 
-        {/* Konten */}
-        <textarea
-          placeholder="Tulis opini kamu di sini..."
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={8}
-          className="w-full bg-white border rounded-md px-3 py-3 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-600"
-        />
+        {/* MENGGUNAKAN KOMPONEN SimpleMdeEditor YANG DI-DYNAMIC-IMPORT */}
+        <div className="border rounded-md focus:ring-1 focus:ring-gray-600">
+          <SimpleMdeEditor
+            value={content}
+            onChange={setContent}
+            options={mdeOptions}
+            // Hapus class w-full karena SimpleMDE mengontrol layoutnya sendiri,
+            // dan wrap div sudah menangani styling border.
+          />
+        </div>
 
         {/* Upload Gambar */}
         <label htmlFor="image" className="flex bg-gray-200 w-full md:w-[20%] items-center gap-2 border rounded-md px-3 py-2 cursor-pointer hover:bg-gray-100 transition">

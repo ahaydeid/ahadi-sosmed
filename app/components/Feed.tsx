@@ -5,6 +5,8 @@ import Link from "next/link";
 import TopBar from "./TopBar";
 import PostCard from "./PostCard";
 import { supabase } from "@/lib/supabaseClient";
+import { PostCardData } from "@/lib/types/post"; 
+
 
 interface PostContent {
   post_id: string;
@@ -26,18 +28,7 @@ interface PostRow {
   user_id: string;
 }
 
-interface PostCardData {
-  id: string;
-  author: string;
-  authorImage?: string | null;
-  title: string;
-  description: string;
-  imageUrl?: string | null;
-  date: string;
-  views: number;
-  likes: number;
-  comments: number;
-}
+// 🛑 HAPUS DEKLARASI PostCardData DI SINI (sudah diimpor dari lib/types/post)
 
 export default function Feed() {
   const [posts, setPosts] = useState<PostCardData[]>([]);
@@ -98,13 +89,16 @@ export default function Feed() {
           const content = contentMap.get(p.id);
           const author = profileMap.get(p.user_id);
 
+          // 🛑 PENTING: Struktur objek ini HARUS sama persis dengan PostCardData yang diimpor
           return {
             id: p.id,
             author: author?.display_name ?? "Anonim",
-            authorImage: content?.author_image ?? author?.avatar_url ?? null, // ✅ tambahkan fallback avatar
+            // authorImage: string | null (diharuskan oleh PostCardData)
+            authorImage: content?.author_image ?? author?.avatar_url ?? null, 
             title: content?.title ?? "(Tanpa judul)",
             description: content?.description ?? "",
-            imageUrl: content?.image_url ?? null, // ✅ ambil gambar post
+            // imageUrl: string | null (diharuskan oleh PostCardData)
+            imageUrl: content?.image_url ?? null, 
             date: new Date(p.created_at).toLocaleDateString("id-ID", {
               day: "numeric",
               month: "short",
@@ -112,7 +106,7 @@ export default function Feed() {
             views: views.count ?? 0,
             likes: likes.count ?? 0,
             comments: comments.count ?? 0,
-          };
+          } as PostCardData; // Menggunakan 'as PostCardData' untuk memastikan tipe data cocok
         })
       );
 
@@ -124,7 +118,7 @@ export default function Feed() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <TopBar />
       <div className="space-y-1">
         {loading && <p className="text-center py-5 text-gray-500">Memuat postingan...</p>}
@@ -132,6 +126,7 @@ export default function Feed() {
         {!loading &&
           posts.map((post) => (
             <Link key={post.id} href={`/post/${post.id}`} className="block transition hover:bg-gray-100">
+              {/* FIX: Meneruskan objek 'post' yang sudah di-type dengan benar */}
               <PostCard post={post} />
             </Link>
           ))}
