@@ -33,6 +33,122 @@ interface PostDetailData {
   views: number;
 }
 
+// tipe Web Share API (dengan dukungan files) + guard
+interface ShareDataWithFiles {
+  title?: string;
+  text?: string;
+  url?: string;
+  files?: File[];
+}
+
+type NavigatorWithShare = Navigator & {
+  canShare?: (data?: ShareDataWithFiles) => boolean;
+  share?: (data?: ShareDataWithFiles) => Promise<void>;
+};
+
+function supportsFileShare(n: Navigator): n is NavigatorWithShare {
+  const nav = n as NavigatorWithShare;
+  return typeof nav.share === "function" && typeof nav.canShare === "function";
+}
+
+// bikin image share ala kartu: judul, author, tanggal, dan thumbnail
+async function buildShareCard(opts: { title: string; author: string; date: string; imageUrl?: string | null }): Promise<Blob> {
+  const W = 1080; // 9:16 friendly juga kalau mau
+  const H = 1350;
+  const pad = 48;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("ctx null");
+
+  // background sederhana
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+
+  // area gambar
+  const imgX = pad;
+  const imgY = pad;
+  const imgW = W - pad * 2;
+  const imgH = Math.round((imgW * 9) / 16);
+
+  // gambar jika ada
+  if (opts.imageUrl) {
+    try {
+      // ambil via fetch agar bisa draw tanpa crossOrigin kalau server izinkan
+      const res = await fetch(opts.imageUrl, { mode: "cors" });
+      const blob = await res.blob();
+      const bmp = await createImageBitmap(blob);
+      // cover
+      const r = bmp.width / bmp.height;
+      const targetR = imgW / imgH;
+      let sx = 0,
+        sy = 0,
+        sw = bmp.width,
+        sh = bmp.height;
+      if (r > targetR) {
+        const newW = bmp.height * targetR;
+        sx = Math.round((bmp.width - newW) / 2);
+        sw = Math.round(newW);
+      } else {
+        const newH = bmp.width / targetR;
+        sy = Math.round((bmp.height - newH) / 2);
+        sh = Math.round(newH);
+      }
+      ctx.drawImage(bmp, sx, sy, sw, sh, imgX, imgY, imgW, imgH);
+    } catch {
+      // kalau gagal, kasih blok abu-abu
+      ctx.fillStyle = "#eee";
+      ctx.fillRect(imgX, imgY, imgW, imgH);
+    }
+  } else {
+    ctx.fillStyle = "#eee";
+    ctx.fillRect(imgX, imgY, imgW, imgH);
+  }
+
+  // title
+  const titleY = imgY + imgH + 36;
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 48px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  // wrap manual sederhana
+  const maxW = W - pad * 2;
+  const words = opts.title.trim() ? opts.title.trim().split(/\s+/) : ["(Tanpa", "judul)"];
+  let line = "";
+  let y = titleY;
+  const lineHeight = 58;
+  for (let i = 0; i < words.length; i++) {
+    const test = line ? line + " " + words[i] : words[i];
+    const m = ctx.measureText(test);
+    if (m.width > maxW) {
+      ctx.fillText(line, pad, y);
+      line = words[i];
+      y += lineHeight;
+      if (y > titleY + lineHeight * 3) break; // batasi 3 baris
+    } else {
+      line = test;
+    }
+  }
+  if (y <= titleY + lineHeight * 3 && line) {
+    ctx.fillText(line, pad, y);
+    y += lineHeight;
+  }
+
+  // meta (author • date)
+  ctx.fillStyle = "#6b7280";
+  ctx.font = "400 32px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  const meta = `${opts.author} • ${opts.date}`;
+  ctx.fillText(meta, pad, y + 8);
+
+  // branding kecil
+  ctx.fillStyle = "#0EA5E9";
+  ctx.font = "600 28px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.fillText("ahadi", pad, H - pad);
+
+  const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b as Blob), "image/png", 0.95));
+  return blob;
+}
+
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -204,17 +320,47 @@ export default function PostDetailPage() {
 
   const handleShare = async () => {
     if (!post) return;
+
     const url = typeof window !== "undefined" ? window.location.href : "";
-    const body = `${url}\n\n${post.title}`;
+    const cardBlob = await buildShareCard({
+      title: post.title,
+      author: post.author,
+      date: post.date,
+      imageUrl: post.image_url ?? undefined,
+    });
+
+    const file = new File([cardBlob], "ahadi-share.png", { type: "image/png" });
 
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        await navigator.share({ text: body });
-      } else {
-        await navigator.clipboard.writeText(body);
-        alert("Tautan disalin");
+      if (typeof navigator !== "undefined" && supportsFileShare(navigator)) {
+        const canFiles = navigator.canShare?.({ files: [file] }) === true;
+        if (canFiles) {
+          await navigator.share?.({
+            files: [file],
+            title: post.title,
+            text: post.title,
+            url,
+          });
+          return;
+        }
       }
-    } catch {}
+
+      // fallback: buka gambar di tab baru + copy link
+      const blobUrl = URL.createObjectURL(cardBlob);
+      window.open(blobUrl, "_blank");
+      try {
+        await navigator.clipboard.writeText(`${post.title}\n${url}`);
+        alert("Gambar dibuka di tab baru. Tautan sudah disalin.");
+      } catch {
+        alert("Gambar dibuka di tab baru.");
+      }
+    } catch {
+      // fallback terakhir: copy link biasa
+      try {
+        await navigator.clipboard.writeText(`${post.title}\n${url}`);
+        alert("Tautan disalin");
+      } catch {}
+    }
   };
 
   if (loading || !post) {
@@ -299,7 +445,8 @@ export default function PostDetailPage() {
             <span>{post.comments}</span>
           </div>
           <button onClick={handleShare} className="flex cursor-pointer items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Bagikan">
-            <Share2 className="w-4 h-4" />bagikan
+            <Share2 className="w-4 h-4" />
+            bagikan
           </button>
         </div>
       </div>
