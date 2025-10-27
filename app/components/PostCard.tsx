@@ -42,9 +42,7 @@ export default function PostCard({ post }: PostCardProps) {
 
   return (
     <div className="relative bg-white p-5 py-7 flex justify-between items-start hover:shadow-md transition-shadow rounded-md border-b border-gray-100">
-      {/* Kiri: Konten */}
       <div className={`flex-1 ${hasImage ? "pr-3" : ""}`}>
-        {/* Header Author */}
         <div className="flex items-center gap-2 mb-2">
           <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
             {post.authorImage ? <Image src={post.authorImage} alt={post.author} width={24} height={24} className="object-cover w-6 h-6" /> : <User className="w-4 h-4 text-gray-500" />}
@@ -52,13 +50,10 @@ export default function PostCard({ post }: PostCardProps) {
           <span className="text-xs text-gray-800 font-medium">{post.author}</span>
         </div>
 
-        {/* Title */}
         <h2 className="text-lg font-bold leading-snug line-clamp-3 mb-1">{post.title}</h2>
 
-        {/* Description */}
         <p className="text-gray-600 text-sm line-clamp-2 mb-2">{plainTextDescription}</p>
 
-        {/* Footer */}
         <div className="flex flex-wrap items-center mt-3 gap-4 text-gray-500 text-sm">
           <div className="flex items-center gap-1">
             <CalendarDays className="w-4 h-4" />
@@ -79,14 +74,12 @@ export default function PostCard({ post }: PostCardProps) {
         </div>
       </div>
 
-      {/* Kanan: Thumbnail Post */}
       {hasImage && (
-        <div className="w-24 h-20 rounded-md overflow-hidden bg-gray-200 shrink-0 flex items-center justify-center mt-2">
+        <div className="w-24 h-20 rounded-xs overflow-hidden bg-gray-200 shrink-0 flex items-center justify-center mt-8 self-start">
           <Image src={post.imageUrl as string} alt={post.title} width={96} height={80} className="object-cover w-24 h-20" />
         </div>
       )}
 
-      {/* Tombol collapse */}
       <button className="absolute top-1 right-1 text-gray-400 hover:text-gray-600" aria-label="Collapse" title="Sembunyikan/Susutkan ranking postingan ini" onClick={handleCollapse}>
         <X className="w-5 h-5" />
       </button>

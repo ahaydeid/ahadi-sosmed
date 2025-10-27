@@ -11,11 +11,12 @@ import ReactMarkdown from "react-markdown";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 
+// PERUBAHAN: Mengganti 'month: "short"' menjadi 'month: "long"'
 const formatPostDate = (dateString: string): string => {
   const postDate = new Date(dateString);
   const currentYear = new Date().getFullYear();
   const postYear = postDate.getFullYear();
-  const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" }; // <-- Perubahan di sini
   if (postYear !== currentYear) options.year = "numeric";
   return postDate.toLocaleDateString("id-ID", options).replace(/,$/, "").trim();
 };
@@ -234,8 +235,9 @@ export default function PostDetailPage() {
         </div>
       </div>
 
-      <h1 className="text-2xl mt-5 font-bold leading-snug mb-2">{post.title}</h1>
-      <p className="text-sm text-gray-500 mb-3">{post.date}</p>
+      <h1 className="text-2xl text-gray-800 mt-5 font-bold leading-snug mb-2">{post.title}</h1>
+
+      <p className="text-sm text-gray-600 mb-3">{post.date}</p>
 
       <div className="flex items-center gap-2 mb-4">
         {authorId ? (
@@ -266,12 +268,18 @@ export default function PostDetailPage() {
       </div>
 
       {post.image_url && (
-        <div className="w-full rounded-md overflow-hidden mb-4 flex">
-          <Image src={post.image_url} alt={post.title} width={800} height={400} className="object-contain w-auto h-auto max-w-full rounded-md" />
+        <div className="relative w-full aspect-video rounded-xs overflow-hidden mb-4">
+          <Image
+            src={post.image_url}
+            alt={post.title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 800px" // Optimalisasi kinerja
+          />
         </div>
       )}
 
-      <div className="text-base text-gray-700 leading-relaxed space-y-4 mb-6 prose max-w-none">
+      <div className="text-base text-gray-800 leading-relaxed space-y-4 mb-6 prose max-w-none">
         <ReactMarkdown>{post.description}</ReactMarkdown>
       </div>
 
