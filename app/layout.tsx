@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import BottomNavbar from "./components/BottomNavbar";
 import AuthListener from "./components/AuthListener";
+import RegisterSW from "./components/RegisterSW";
 import { Suspense } from "react";
 
 const poppins = localFont({
@@ -19,6 +20,12 @@ const poppins = localFont({
 export const metadata: Metadata = {
   title: "ahadi",
   description: "Dibuat oleh ahadi",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0EA5E9",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${poppins.variable} antialiased relative min-h-screen pb-14 bg-gray-50`}>
         <Suspense fallback={null}>
           <AuthListener />
+          <RegisterSW />
           {children}
           <BottomNavbar />
         </Suspense>

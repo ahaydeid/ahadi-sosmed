@@ -29,6 +29,7 @@ interface Profile {
 
 interface Item {
   id: string;
+  createdAt: string; // <-- simpan timestamp mentah untuk sorting
   text: string;
   time: string;
   authorId: string | null;
@@ -40,7 +41,7 @@ interface Item {
   mentionName: string | null;
 }
 
-/* util kecil di level modul, biar bisa dipakai ReplyItem juga */
+/* util kecil */
 function getInitials(name: string): string {
   const p = name.trim().split(/\s+/);
   if (p.length === 0) return "U";
@@ -65,18 +66,15 @@ function formatRelativeTime(createdAt: string): string {
   return `${y} tahun`;
 }
 
-// --- useAutosizeTextArea Hook (Didefinisikan di dalam komponen utama, atau di luar dengan penanganan null yang ketat) ---
-// Kita buat di sini untuk demonstrasi yang lebih bersih dari error fixing.
+/* auto-resize textarea */
 const useAutosizeTextArea = (textareaRef: React.RefObject<HTMLTextAreaElement>, value: string) => {
   useEffect(() => {
-    // Di sini kita yakin textareaRef.current tidak null berkat conditional logic di dalam component
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
   }, [textareaRef, value]);
 };
-// --------------------------------------------------------------------------------------------------------------------
 
 export default function RepliesModal({ postId, rootCommentId, onClose }: RepliesModalProps) {
   const [items, setItems] = useState<Item[]>([]);
@@ -86,13 +84,10 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   const [text, setText] = useState("");
   const [meId, setMeId] = useState<string | null>(null);
 
-  // PERBAIKAN ERROR: Menggunakan tipe non-null, dan menanganinya dengan logic di bawah (atau di dalam useAutosizeTextArea)
   const textareaRef = useRef<HTMLTextAreaElement>(null!);
-
-  // Panggil hook untuk mengaktifkan fitur auto-resize. Kita menggunakan tipe assertion `as any` atau menanganinya di useAutosizeTextArea jika tidak ingin menggunakan non-null assertion.
-  // Dengan `textareaRef = useRef<HTMLTextAreaElement>(null!)`, kita memberitahu TS bahwa ref ini akan terisi (non-null assertion).
   useAutosizeTextArea(textareaRef, text);
 
+  // ambil anak dari daftar parent ids (order di sini tidak krusial karena kita sort manual)
   const fetchLevel = useCallback(
     async (parents: string[]): Promise<Row[]> => {
       if (parents.length === 0) return [];
@@ -101,7 +96,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
         .select("id, post_id, user_id, parent_comment_id, mention_user_id, text, created_at")
         .eq("post_id", postId)
         .in("parent_comment_id", parents)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: true }) // bisa apa saja, nanti disort ulang
         .order("id", { ascending: true });
       if (error) return [];
       return data ?? [];
@@ -109,6 +104,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     [postId]
   );
 
+  // bangun thread, lalu URUTKAN: root tetap paling atas, sisanya sort by createdAt ascending
   const buildThread = useCallback(async () => {
     setLoading(true);
 
@@ -125,7 +121,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     let frontier = [rootRow.id];
     const maxDepth = 5;
-
     for (let depth = 1; depth <= maxDepth; depth++) {
       const rows = await fetchLevel(frontier);
       if (rows.length === 0) break;
@@ -139,6 +134,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       else rows.forEach((r) => flatRows.push({ row: r, level: idx }));
     });
 
+    // siapkan profil
     const authorIds = flatRows.map((x) => x.row.user_id).filter(Boolean) as string[];
     const mentionIds = flatRows.map((x) => x.row.mention_user_id).filter(Boolean) as string[];
     const uniqIds = [...new Set([...authorIds, ...mentionIds])];
@@ -156,6 +152,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       const m = row.mention_user_id ? profMap.get(row.mention_user_id) : undefined;
       return {
         id: row.id,
+        createdAt: row.created_at, // <-- simpan untuk sorting
         text: row.text,
         time: formatRelativeTime(row.created_at),
         authorId: row.user_id,
@@ -168,10 +165,15 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       };
     });
 
-    setItems(mapped);
+    // KEEP root first, then sort the rest by createdAt ASC
+    const root = mapped.find((i) => i.id === rootCommentId)!;
+    const repliesSorted = mapped.filter((i) => i.id !== rootCommentId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    setItems([root, ...repliesSorted]);
     setLoading(false);
   }, [rootCommentId, fetchLevel, profiles]);
 
+  // auth
   useEffect(() => {
     const t = setTimeout(() => {
       supabase.auth.getUser().then(({ data }) => setMeId(data.user?.id ?? null));
@@ -179,6 +181,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     return () => clearTimeout(t);
   }, []);
 
+  // initial load
   useEffect(() => {
     const t = setTimeout(() => {
       void buildThread();
@@ -186,14 +189,14 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     return () => clearTimeout(t);
   }, [buildThread]);
 
-  const rootItem = useMemo(() => items.find((i) => i.level === 0) ?? null, [items]);
+  const rootItem = useMemo(() => items.find((i) => i.id === rootCommentId) ?? null, [items, rootCommentId]);
   const activeTarget = useMemo(() => (replyingTo ? replyingTo : rootItem ? { id: rootItem.id, authorId: rootItem.authorId, authorName: rootItem.authorName, level: 0 } : null), [replyingTo, rootItem]);
 
   useEffect(() => {
     if (!loading && rootItem && !replyingTo) requestAnimationFrame(() => textareaRef.current?.focus());
   }, [loading, rootItem, replyingTo]);
 
-  // realtime insert
+  // realtime insert → push lalu SORT ULANG by createdAt
   useEffect(() => {
     const chan = supabase
       .channel(`replies-modal-${postId}-${rootCommentId}`)
@@ -221,6 +224,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
         const newItem: Item = {
           id: row.id,
+          createdAt: row.created_at,
           text: row.text,
           time: formatRelativeTime(row.created_at),
           authorId: row.user_id,
@@ -232,7 +236,12 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
           mentionName: m?.display_name ?? null,
         };
 
-        setItems((prev) => (prev.some((p) => p.id === newItem.id) ? prev : [...prev, newItem]));
+        setItems((prev) => {
+          if (prev.some((p) => p.id === newItem.id)) return prev;
+          const root = prev.find((i) => i.id === rootCommentId);
+          const rest = [...prev.filter((i) => i.id !== rootCommentId), newItem].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          return root ? [root, ...rest] : rest;
+        });
       })
       .subscribe();
 
@@ -243,7 +252,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
   const handleStartReply = (target: Item) => {
     setReplyingTo({ id: target.id, authorId: target.authorId, authorName: target.authorName, level: target.level });
-    setText(""); // mention dari id, jadi tidak perlu prefill @
+    setText("");
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
@@ -282,6 +291,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     const newItem: Item = {
       id: insertRes.id,
+      createdAt: insertRes.created_at,
       text: payloadText,
       time: formatRelativeTime(insertRes.created_at),
       authorId: meId,
@@ -293,7 +303,13 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       mentionName: m?.display_name ?? null,
     };
 
-    setItems((prev) => [...prev, newItem]);
+    // tambah lalu sort by createdAt ASC (root tetap pertama)
+    setItems((prev) => {
+      const root = prev.find((i) => i.id === rootCommentId);
+      const rest = [...prev.filter((i) => i.id !== rootCommentId), newItem].sort((x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime());
+      return root ? [root, ...rest] : rest;
+    });
+
     setText("");
 
     await createNotificationsAfterReply({
@@ -345,7 +361,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
         <div className="pt-4 pb-3 px-4">
           <div className="flex items-center justify-between">
             <button className="text-gray-700 text-lg" onClick={onClose}>
-              <ArrowLeft/>
+              <ArrowLeft />
             </button>
             <div className="text-gray-800 font-semibold text-lg">Balasan</div>
             <div className="w-16" />
@@ -365,16 +381,14 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
           )}
         </div>
 
-        <div className="border-t border-gray-200 p-3">
-          {/* PERBAIKAN: Gunakan 'items-end' pada flex container agar tombol menempel di bawah */}
-          <div className="flex items-end gap-2 mb-15">
+        <div className="border-t border-gray-200 p-3 mb-12">
+          <div className="flex items-end gap-2">
             <textarea
               ref={textareaRef}
               className="flex-1 border border-gray-300 rounded-sm p-2 text-sm outline-none resize-none min-h-8 max-h-[150px]"
               placeholder={activeTarget ? (activeTarget.level === 0 ? "Balas komentar utama..." : `Balas ${activeTarget.authorName}...`) : "Tulis balasan..."}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              // rows={3} dihapus karena tinggi diatur oleh JS/CSS
             />
             <button onClick={handleSubmit} className="shrink-0 px-4 py-2 rounded-sm bg-sky-600 text-white text-sm disabled:opacity-50" disabled={!meId || !text.trim() || !activeTarget}>
               Kirim
