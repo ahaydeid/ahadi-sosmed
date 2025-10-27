@@ -1,23 +1,44 @@
+// components/PostCard.tsx
 "use client";
 
 import Image from "next/image";
 import { CalendarDays, Eye, Heart, MessageCircle, X, User } from "lucide-react";
-// 🚀 Import helper function untuk konversi teks polos (FILE INI HARUS ADA DI lib/cleanMarkdown.ts)
 import { cleanMarkdownForPreview } from "@/lib/cleanMarkdown";
-// 🚀 Import Tipe Data yang Terstandardisasi
 import { PostCardData } from "@/lib/types/post";
+import { formatCompact } from "@/lib/formatCompact";
 
 interface PostCardProps {
   post: PostCardData;
 }
 
+const COLLAPSE_KEY = "collapsedPosts"; // localStorage key
+
 export default function PostCard({ post }: PostCardProps) {
   // Tentukan apakah ada gambar atau tidak
   const hasImage = !!post.imageUrl;
 
-  // 🚀 LANGKAH PENTING: Konversi Markdown di 'description' menjadi teks polos.
-  // Ini sekarang berjalan karena lib/cleanMarkdown.ts sudah dibuat.
+  // Konversi Markdown di 'description' menjadi teks polos.
   const plainTextDescription = cleanMarkdownForPreview(post.description);
+
+  const handleCollapse: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(COLLAPSE_KEY) : null;
+      const arr: string[] = raw ? JSON.parse(raw) : [];
+      if (!arr.includes(post.id)) arr.push(post.id);
+      localStorage.setItem(COLLAPSE_KEY, JSON.stringify(arr));
+    } catch {
+      // fallback kalau JSON gagal
+      localStorage.setItem(COLLAPSE_KEY, JSON.stringify([post.id]));
+    }
+
+    // Beri tahu Feed untuk menghitung ulang ranking & re-render
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("post:penalize", { detail: { postId: post.id, penalty: -100 } }));
+    }
+  };
 
   return (
     <div className="relative bg-white p-5 py-7 flex justify-between items-start hover:shadow-md transition-shadow rounded-md border-b border-gray-100">
@@ -35,7 +56,6 @@ export default function PostCard({ post }: PostCardProps) {
         <h2 className="text-lg font-bold leading-snug line-clamp-3 mb-1">{post.title}</h2>
 
         {/* Description */}
-        {/* MENGGUNAKAN TEKS POLOS HASIL KONVERSI */}
         <p className="text-gray-600 text-sm line-clamp-2 mb-2">{plainTextDescription}</p>
 
         {/* Footer */}
@@ -46,15 +66,15 @@ export default function PostCard({ post }: PostCardProps) {
           </div>
           <div className="flex items-center gap-1">
             <Eye className="w-4 h-4" />
-            <span>{post.views}</span>
+            <span title={String(post.views)}>{formatCompact(post.views)}</span>
           </div>
           <div className="flex items-center gap-1">
             <Heart className="w-4 h-4" />
-            <span>{post.likes}</span>
+            <span title={String(post.likes)}>{formatCompact(post.likes)}</span>
           </div>
           <div className="flex items-center gap-1">
             <MessageCircle className="w-4 h-4" />
-            <span>{post.comments}</span>
+            <span title={String(post.comments)}>{formatCompact(post.comments)}</span>
           </div>
         </div>
       </div>
@@ -67,7 +87,7 @@ export default function PostCard({ post }: PostCardProps) {
       )}
 
       {/* Tombol collapse */}
-      <button className="absolute top-1 right-1 text-gray-400 hover:text-gray-600" aria-label="Collapse">
+      <button className="absolute top-1 right-1 text-gray-400 hover:text-gray-600" aria-label="Collapse" title="Sembunyikan/Susutkan ranking postingan ini" onClick={handleCollapse}>
         <X className="w-5 h-5" />
       </button>
     </div>

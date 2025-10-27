@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Search, User } from "lucide-react";
 import Image from "next/image";
@@ -9,49 +9,53 @@ import Image from "next/image";
 type TabKey = "teratas" | "followed";
 type SearchItem = { type: "user"; id: string; label: string; avatarUrl?: string | null } | { type: "post"; id: string; label: string; thumbnailUrl?: string | null };
 
-export default function TopBar() {
-  const [activeTab, setActiveTab] = useState<TabKey>("teratas");
+function TopBarInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const tabParam = (searchParams.get("tab") as TabKey) || "teratas";
+  const [activeTab, setActiveTab] = useState<TabKey>(tabParam);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [openSearch, setOpenSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // sinkronkan tombol aktif dgn URL
   useEffect(() => {
-    const checkSession = async () => {
+    setActiveTab(tabParam);
+  }, [tabParam]);
+
+  // session
+  useEffect(() => {
+    const run = async () => {
       const { data } = await supabase.auth.getSession();
       setIsLoggedIn(!!data.session);
     };
-    checkSession();
+    run();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
+    } = supabase.auth.onAuthStateChange((_e, s) => setIsLoggedIn(!!s));
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (openSearch) {
-      const t = setTimeout(() => inputRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [openSearch]);
-
+  // focus input saat open
   useEffect(() => {
     if (!openSearch) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [openSearch]);
 
+  // search debounced
+  useEffect(() => {
+    if (!openSearch) return;
     let cancelled = false;
-    let debounceId: ReturnType<typeof setTimeout> | null = null;
+    let id: ReturnType<typeof setTimeout> | null = null;
 
-    const run = async () => {
-      await Promise.resolve();
-
+    const go = async () => {
       if (!query.trim()) {
         if (!cancelled) {
           setResults([]);
@@ -59,15 +63,13 @@ export default function TopBar() {
         }
         return;
       }
-
       if (!cancelled) setLoading(true);
 
-      debounceId = setTimeout(async () => {
+      id = setTimeout(async () => {
         const [usersRes, postsRes] = await Promise.all([
           supabase.from("user_profile").select("id, display_name, avatar_url").ilike("display_name", `%${query.trim()}%`).limit(8),
           supabase.from("post_content").select("post_id, title, image_url").ilike("title", `%${query.trim()}%`).limit(8),
         ]);
-
         if (cancelled) return;
 
         const users: SearchItem[] =
@@ -91,13 +93,24 @@ export default function TopBar() {
       }, 200);
     };
 
-    run();
-
+    go();
     return () => {
       cancelled = true;
-      if (debounceId) clearTimeout(debounceId);
+      if (id) clearTimeout(id);
     };
   }, [openSearch, query]);
+
+  // util: update ?tab= tanpa hapus query lain
+  const setTabInUrl = (val: TabKey) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("tab", val);
+    router.replace(`${pathname}?${sp.toString()}`);
+  };
+
+  const handleTab = (val: TabKey) => {
+    setActiveTab(val);
+    setTabInUrl(val);
+  };
 
   const handleGoLogin = () => {
     const qs = searchParams?.toString() ?? "";
@@ -106,10 +119,7 @@ export default function TopBar() {
   };
 
   const handleOpenSearch = () => {
-    if (!isLoggedIn) {
-      handleGoLogin();
-      return;
-    }
+    if (!isLoggedIn) return handleGoLogin();
     setOpenSearch((v) => !v);
     if (!openSearch) {
       setQuery("");
@@ -119,11 +129,8 @@ export default function TopBar() {
   };
 
   const handlePick = (item: SearchItem) => {
-    if (item.type === "post") {
-      router.push(`/post/${item.id}`);
-    } else {
-      router.push(`/profile/${item.id}`);
-    }
+    if (item.type === "post") router.push(`/post/${item.id}`);
+    else router.push(`/profile/${item.id}`);
     setOpenSearch(false);
     setQuery("");
     setResults([]);
@@ -141,10 +148,10 @@ export default function TopBar() {
     <div className="sticky top-0 mb-1 z-40 bg-white border-b border-gray-200">
       <div className="flex items-center justify-between px-4 h-12">
         <div className="flex items-center space-x-4">
-          <button onClick={() => setActiveTab("teratas")} className={`text-sm ${activeTab === "teratas" ? "font-semibold text-black" : "text-gray-500"}`}>
+          <button onClick={() => handleTab("teratas")} className={`text-sm ${activeTab === "teratas" ? "font-semibold text-black" : "text-gray-500"}`}>
             Teratas
           </button>
-          <button onClick={() => setActiveTab("followed")} className={`text-sm ${activeTab === "followed" ? "font-semibold text-black" : "text-gray-500"}`}>
+          <button onClick={() => handleTab("followed")} className={`text-sm ${activeTab === "followed" ? "font-semibold text-black" : "text-gray-500"}`}>
             Diikuti
           </button>
         </div>
@@ -163,10 +170,7 @@ export default function TopBar() {
       {openSearch && (
         <div className="px-4">
           <div className="relative">
-            {" "}
-            <div className="border border-gray-300 rounded-md overflow-hidden absolute z-10 w-full bg-white">
-              {" "}
-              {/* PENTING: Tambahkan 'absolute', 'z-10', 'w-full', 'bg-white', dan 'shadow-lg' */}
+            <div className="border border-gray-300 rounded-md overflow-hidden absolute z-10 w-full bg-white shadow-lg">
               <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} placeholder="Cari pengguna atau judul post…" className="w-full px-3 py-2 text-sm outline-none" />
               <div className="max-h-72 overflow-y-auto divide-y border-b border-b-gray-100 divide-gray-100">
                 {loading && <div className="px-3 py-2 text-sm text-gray-500">Mencari…</div>}
@@ -198,5 +202,14 @@ export default function TopBar() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TopBar() {
+  // Bungkus dengan Suspense agar aman untuk useSearchParams (Next 16)
+  return (
+    <Suspense fallback={<div className="h-12" />}>
+      <TopBarInner />
+    </Suspense>
   );
 }

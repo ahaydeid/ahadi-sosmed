@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Heart, Loader2 } from "lucide-react"; // ⬅️ Tambahkan Loader2
+import { Heart, Loader2 } from "lucide-react";
 import Image from "next/image";
 
 interface CommentData {
@@ -20,199 +20,158 @@ interface PostCommentsProps {
   postId: string;
 }
 
-const LIMIT = 10; // Batas komentar per load
+const LIMIT = 10;
 
 export default function PostComments({ postId }: PostCommentsProps) {
   const [comments, setComments] = useState<CommentData[]>([]);
-  const [loadingInitial, setLoadingInitial] = useState(true); 
-  const [loadingMore, setLoadingMore] = useState(false); 
-  const [offset, setOffset] = useState(0); 
-  const [hasMore, setHasMore] = useState(true); 
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  // Menggunakan 'load' dengan parameter offset dan isInitial
+  const hasMoreRef = useRef(true);
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
   const load = useCallback(
     async (currentOffset: number, isInitial: boolean) => {
-      if (!postId || (!hasMore && !isInitial)) return;
+      if (!postId) return;
+      if (!isInitial && !hasMoreRef.current) return;
 
-      if (isInitial) {
-        setLoadingInitial(true);
-      } else {
-        setLoadingMore(true);
-      }
+      if (isInitial) setLoadingInitial(true);
+      else setLoadingMore(true);
 
-      // 🟢 1. Ambil komentar dari Supabase dengan LIMIT dan OFFSET
-      const { data: commentsData, error: commentsError } = await supabase
+      const { data: topLevelRows, error: topErr } = await supabase
         .from("comments")
         .select("id, user_id, text, parent_comment_id, created_at")
         .eq("post_id", postId)
-        .order("created_at", { ascending: false }) 
-        .range(currentOffset, currentOffset + LIMIT - 1); 
+        .is("parent_comment_id", null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(currentOffset, currentOffset + LIMIT - 1);
 
-      if (commentsError) {
-        console.error("Error loading comments:", commentsError.message);
+      if (topErr) {
+        console.error("Error loading top-level comments:", topErr.message);
         setLoadingInitial(false);
         setLoadingMore(false);
         return;
       }
 
-      // 🟢 Cek apakah masih ada data yang bisa dimuat
-      if (!commentsData || commentsData.length < LIMIT) {
-        setHasMore(false);
-      }
-      
-      if (!commentsData || commentsData.length === 0) {
+      if (!topLevelRows || topLevelRows.length === 0) {
         if (isInitial) setComments([]);
+        setHasMore(false);
         setLoadingInitial(false);
         setLoadingMore(false);
         return;
       }
-      
-      const newUserIds = [...new Set(commentsData.map((c) => c.user_id))];
-      const { data: profiles, error: profileError } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", newUserIds);
 
-      if (profileError) console.error("Error loading profiles:", profileError.message);
+      const userIds = [...new Set(topLevelRows.map((c) => c.user_id))].filter(Boolean) as string[];
+      const { data: profiles } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", userIds);
 
       const profileMap = new Map<string, { display_name: string; avatar_url: string | null }>();
-      (profiles ?? []).forEach((p) =>
-        profileMap.set(p.id, {
-          display_name: p.display_name,
-          avatar_url: p.avatar_url ?? null,
-        })
-      );
+      (profiles ?? []).forEach((p) => profileMap.set(p.id, { display_name: p.display_name, avatar_url: p.avatar_url ?? null }));
 
-      // 🟢 3. Proses komentar dan hitung likes
-      const newCommentsWithLikes = await Promise.all(
-        commentsData.map(async (c) => {
-          const { count: likesCount } = await supabase.from("comment_likes").select("*", { count: "exact", head: true }).eq("comment_id", c.id);
+      const ids = topLevelRows.map((r) => r.id);
+      const { data: likeRows } = await supabase.from("comment_likes").select("comment_id").in("comment_id", ids);
 
-          const userProfile = profileMap.get(c.user_id);
-
-          return {
-            id: c.id,
-            author: userProfile?.display_name ?? "Anonim",
-            text: c.text,
-            time: formatRelativeTime(c.created_at),
-            likes: likesCount ?? 0,
-            avatarColor: getRandomColor(c.user_id),
-            avatarUrl: userProfile?.avatar_url ?? null,
-            parent_comment_id: c.parent_comment_id,
-          };
-        })
-      );
-
-      // 🟢 4. Gabungkan komentar
-      setComments((prevComments) => {
-        const all = isInitial ? newCommentsWithLikes : [...prevComments, ...newCommentsWithLikes];
-        const uniqueComments = Array.from(new Map(all.map(item => [item.id, item])).values());
-        return uniqueComments;
+      const likeCountMap = new Map<string, number>();
+      (likeRows ?? []).forEach((r: { comment_id: string }) => {
+        likeCountMap.set(r.comment_id, (likeCountMap.get(r.comment_id) ?? 0) + 1);
       });
-      
-      // 🟢 5. Update offset
-      setOffset(currentOffset + commentsData.length);
-      
+
+      const commentsWithLikes: CommentData[] = topLevelRows.map((c) => {
+        const userProfile = c.user_id ? profileMap.get(c.user_id) : undefined;
+        return {
+          id: c.id,
+          author: userProfile?.display_name ?? "Anonim",
+          text: c.text,
+          time: formatRelativeTime(c.created_at),
+          likes: likeCountMap.get(c.id) ?? 0,
+          avatarColor: getRandomColor(c.user_id ?? c.id),
+          avatarUrl: userProfile?.avatar_url ?? null,
+          parent_comment_id: c.parent_comment_id,
+        };
+      });
+
+      setComments((prev) => (isInitial ? commentsWithLikes : [...prev, ...commentsWithLikes]));
+
+      setOffset(currentOffset + topLevelRows.length);
+      setHasMore(topLevelRows.length === LIMIT);
+
       setLoadingInitial(false);
       setLoadingMore(false);
     },
-    [postId, hasMore]
+    [postId]
   );
-  
-  // ⬅️ FUNGSI RELOAD TANPA PARAMETER UNTUK PROP DI COMMENTITEM/COMMENTINPUT
+
   const handleReload = useCallback(async () => {
-    // Reset state dan mulai pemuatan awal
     setComments([]);
     setOffset(0);
     setHasMore(true);
     await load(0, true);
   }, [load]);
 
+  type CommentsRefreshDetail = { postId: string };
 
-  const handleLoadMore = useCallback(() => {
-    if (loadingMore || loadingInitial || !hasMore) return;
-    load(offset, false);
-  }, [loadingMore, loadingInitial, hasMore, offset, load]);
-  
-  // 🟢 Event listener untuk scroll
   useEffect(() => {
-    if (loadingInitial || !hasMore) return;
-
-    const handleScroll = () => {
-      const scrollThreshold = 300; 
-      // Deteksi jika scroll mendekati akhir halaman
-      if (
-        window.innerHeight + window.scrollY >= document.documentElement.offsetHeight - scrollThreshold &&
-        !loadingMore &&
-        hasMore
-      ) {
-        handleLoadMore();
-      }
+    const onRefresh = (e: Event) => {
+      const ev = e as CustomEvent<CommentsRefreshDetail>;
+      if (ev.detail?.postId !== postId) return;
+      void handleReload();
     };
+    window.addEventListener("comments:refresh", onRefresh as EventListener);
+    return () => window.removeEventListener("comments:refresh", onRefresh as EventListener);
+  }, [postId, handleReload]);
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [loadingInitial, loadingMore, hasMore, handleLoadMore]);
-
-  // 🟢 Pemuatan Awal
+  // efek awal hanya saat postId berubah
   useEffect(() => {
-    let isMounted = true;
-    const run = async () => {
-      await Promise.resolve();
-      if (isMounted) {
-        // Panggil fungsi 'load' yang sudah dimodifikasi
-        await load(0, true); 
-      }
-    };
-    run();
+    let mounted = true;
+    (async () => {
+      if (!mounted) return;
+      await load(0, true);
+    })();
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, [postId, load]);
 
   if (loadingInitial) {
-    return <div className="mt-8 text-gray-500 text-sm flex items-center gap-2">
-      <Loader2 className="w-4 h-4 animate-spin" /> Memuat komentar...
-    </div>;
+    return (
+      <div className="mt-8 text-gray-500 text-sm flex items-center gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" /> Memuat komentar...
+      </div>
+    );
   }
-
-  const topLevelComments = comments.filter((c) => !c.parent_comment_id);
 
   return (
     <div className="mt-1">
-      {topLevelComments.length === 0 && <p className="text-gray-500 ms-2 text-sm">Belum ada komentar</p>}
+      {comments.length === 0 && <p className="text-gray-500 ms-2 text-sm">Belum ada komentar</p>}
 
-      {topLevelComments.map((comment) => (
+      {comments.map((comment) => (
         <div key={comment.id} className="mb-6">
-          {/* ⬅️ Kirim handleReload sebagai prop reload */}
-          <CommentItem comment={comment} allComments={comments} reload={handleReload} /> 
+          <CommentItem comment={comment} reload={handleReload} />
         </div>
       ))}
-      
-      {/* ⬅️ LOADING SPINNER DAN END OF LIST */}
+
       <div className="flex justify-center py-4">
         {loadingMore ? (
           <Loader2 className="w-6 h-6 animate-spin text-sky-500" />
-        ) : hasMore && topLevelComments.length > 0 ? (
-          <button 
-            onClick={handleLoadMore} 
-            className="text-xs text-sky-600 hover:text-sky-700 font-semibold"
-          >
+        ) : hasMore && comments.length > 0 ? (
+          <button onClick={() => load(offset, false)} className="text-xs text-sky-600 hover:text-sky-700 font-semibold">
             Muat lebih banyak komentar
           </button>
-        ) : topLevelComments.length > 0 && (
+        ) : comments.length > 0 ? (
           <p className="text-gray-500 text-xs">Semua komentar telah dimuat</p>
-        )}
+        ) : null}
       </div>
-      
     </div>
   );
 }
 
-// ⬅️ PERBAIKI TYPE RELOAD di CommentItem
-function CommentItem({ comment, allComments, reload }: { comment: CommentData; allComments: CommentData[]; reload: () => Promise<void> }) { 
-  const replies = allComments.filter((c) => c.parent_comment_id === comment.id);
-
+function CommentItem({ comment, reload }: { comment: CommentData; reload: () => Promise<void> }) {
   return (
     <div className="flex items-start gap-3">
-      {/* 🟢 Avatar pakai foto profil kalau ada */}
       {comment.avatarUrl ? (
         <Image src={comment.avatarUrl} alt={comment.author} width={32} height={32} className="w-8 h-8 rounded-full object-cover" />
       ) : (
@@ -230,20 +189,14 @@ function CommentItem({ comment, allComments, reload }: { comment: CommentData; a
         <div className="flex items-center gap-6 mt-2 text-sm text-gray-700">
           <span>{comment.time}</span>
           <button className="hover:underline">Suka</button>
-          <button className="hover:underline">Balas</button>
+          <button className="hover:underline" onClick={reload}>
+            Segarkan
+          </button>
           <div className="flex items-center gap-1">
             <Heart className="w-4 h-4 text-gray-700" />
             <span>{comment.likes}</span>
           </div>
         </div>
-
-        {replies.length > 0 && (
-          <div className="mt-3 border-l-2 border-gray-200 ml-5 pl-4 space-y-3">
-            {replies.map((reply) => (
-              <CommentItem key={reply.id} comment={reply} allComments={allComments} reload={reload} />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -258,7 +211,6 @@ function formatRelativeTime(createdAt: string): string {
   const diffDays = Math.floor(diffHours / 24);
   const diffMonths = Math.floor(diffDays / 30);
   const diffYears = Math.floor(diffDays / 365);
-
   if (diffMinutes < 1) return "Baru saja";
   if (diffMinutes < 60) return `${diffMinutes} menit`;
   if (diffHours < 24) return `${diffHours} jam`;

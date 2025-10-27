@@ -9,6 +9,7 @@ import PostComments from "../../components/PostComments";
 import CommentInput from "@/app/components/CommentInput";
 import ReactMarkdown from "react-markdown";
 import type { User } from "@supabase/supabase-js";
+import Link from "next/link";
 
 const formatPostDate = (dateString: string): string => {
   const postDate = new Date(dateString);
@@ -42,9 +43,16 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+
   const [hasApresiasi, setHasApresiasi] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
+  // --- follow state ---
+  const [authorId, setAuthorId] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [followBusy, setFollowBusy] = useState<boolean>(false);
+
+  // auth wiring
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -65,18 +73,23 @@ export default function PostDetailPage() {
     };
   }, []);
 
+  // load post detail
   useEffect(() => {
     const fetchPost = async () => {
       if (!id) return;
       setLoading(true);
 
       const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", id).single();
+
       if (postError || !postData) {
         setLoading(false);
         return;
       }
 
+      setAuthorId(postData.user_id);
+
       const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image").eq("post_id", id).single();
+
       const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).single();
 
       const [{ count: likesCount }, { count: commentsCount }, { count: viewsCount }] = await Promise.all([
@@ -85,6 +98,7 @@ export default function PostDetailPage() {
         supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", id),
       ]);
 
+      // catat view
       await supabase.from("post_views").insert([{ post_id: id }]);
 
       setPost({
@@ -107,6 +121,7 @@ export default function PostDetailPage() {
     fetchPost();
   }, [id]);
 
+  // check suka/apresiasi
   useEffect(() => {
     const checkApresiasi = async () => {
       if (!user || !id) return;
@@ -116,6 +131,20 @@ export default function PostDetailPage() {
     checkApresiasi();
   }, [user, id]);
 
+  // cek status follow
+  useEffect(() => {
+    const checkFollow = async () => {
+      if (!authorId || !user) return;
+      if (authorId === user.id) {
+        setIsFollowing(false);
+        return;
+      }
+      const { data, error } = await supabase.from("user_followers").select("follower_id").eq("follower_id", user.id).eq("following_id", authorId).maybeSingle();
+      if (!error) setIsFollowing(!!data);
+    };
+    checkFollow();
+  }, [authorId, user]);
+
   const handleApresiasi = async () => {
     if (!user) {
       const qs = searchParams?.toString() ?? "";
@@ -124,6 +153,7 @@ export default function PostDetailPage() {
       return;
     }
     const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
+
     if (!existing) {
       await supabase.from("post_likes").insert([{ post_id: id, user_id: user.id, liked: true }]);
       setHasApresiasi(true);
@@ -136,15 +166,43 @@ export default function PostDetailPage() {
     setLikeCount((prev) => prev + (newLiked ? 1 : -1));
   };
 
-  const handleGoLoginForComment = () => {
+  const redirectToLogin = () => {
     const qs = searchParams?.toString() ?? "";
     const current = pathname ? pathname + (qs ? `?${qs}` : "") : "/";
     router.push(`/login?redirectedFrom=${encodeURIComponent(current)}`);
   };
 
+  const handleToggleFollow = async () => {
+    if (!authorId) return;
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+    if (authorId === user.id) return; // tidak boleh follow diri sendiri
+
+    setFollowBusy(true);
+    try {
+      if (isFollowing) {
+        // UNFOLLOW
+        const { error } = await supabase.from("user_followers").delete().eq("follower_id", user.id).eq("following_id", authorId);
+        if (!error) setIsFollowing(false);
+      } else {
+        // FOLLOW
+        const { error } = await supabase.from("user_followers").insert([{ follower_id: user.id, following_id: authorId }]);
+        if (!error) setIsFollowing(true);
+      }
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
   if (loading || !post) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500 text-sm">Memuat postingan...</div>;
   }
+
+  const showFollow =
+    // tampilkan tombol follow jika ada authorId dan (belum login atau login tapi author != user)
+    authorId && (!user || (user && authorId !== user.id));
 
   return (
     <div className="min-h-screen bg-white p-4">
@@ -161,11 +219,31 @@ export default function PostDetailPage() {
       <p className="text-sm text-gray-500 mb-3">{post.date}</p>
 
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
-          {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
-        </div>
-        <span className="text-sm font-semibold text-gray-800">{post.author}</span>
-        <button className="text-sm font-semibold border border-sky-500 text-sky-500 rounded-full px-3 py-0.5 hover:bg-sky-50 transition">follow</button>
+        {authorId ? (
+          <Link href={`/profile/${authorId}`} className="flex items-center gap-2 group cursor-pointer" aria-label={`Lihat profil ${post.author}`}>
+            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center ring-1 ring-transparent group-hover:ring-gray-300 transition">
+              {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
+            </div>
+            <span className="text-sm font-semibold text-gray-800">{post.author}</span>
+          </Link>
+        ) : (
+          <>
+            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
+              {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
+            </div>
+            <span className="text-sm font-semibold text-gray-800">{post.author}</span>
+          </>
+        )}
+
+        {showFollow && (
+          <button
+            onClick={handleToggleFollow}
+            disabled={followBusy}
+            className={`text-sm rounded-full px-3 py-0.5 transition ${isFollowing ? "border border-gray-300 text-gray-600 italic hover:bg-gray-100" : "border border-sky-500 text-sky-500 hover:bg-sky-50"}`}
+          >
+            {isFollowing ? "mengikuti" : "ikuti"}
+          </button>
+        )}
       </div>
 
       {post.image_url && (
@@ -213,13 +291,13 @@ export default function PostDetailPage() {
         (user ? (
           <CommentInput postId={post.id} />
         ) : (
-          <button onClick={handleGoLoginForComment} className="px-4 py-2 text-left text-sky-600 hover:bg-sky-50 rounded transition text-sm">
+          <button onClick={redirectToLogin} className="px-4 py-2 text-left text-sky-600 hover:bg-sky-50 rounded transition text-sm">
             Login untuk berkomentar
           </button>
         ))}
 
       <h2 className="text-lg font-bold mb-4 mt-4">Komentar</h2>
-      <PostComments postId={post.id} />
+      <PostComments key={post.id} postId={post.id} />
     </div>
   );
 }

@@ -257,7 +257,7 @@ export default function ProfilePage() {
           <button
             onClick={handleToggleFollow}
             className={`px-4 py-2 min-w-[120px] rounded-md text-sm font-medium transition flex items-center justify-center gap-1 ${
-              isFollowing ? "bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300" : "bg-sky-600 text-white hover:bg-sky-700"
+              isFollowing ? "bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300 italic" : "bg-sky-600 text-white hover:bg-sky-700"
             }`}
           >
             <UserPlus className="w-4 h-4" />

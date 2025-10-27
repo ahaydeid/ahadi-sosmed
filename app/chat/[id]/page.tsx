@@ -5,6 +5,7 @@ import ChatInput from "@/app/components/ChatInput";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 import { User, MoreVertical, ArrowLeft } from "lucide-react";
 
 interface ChatMessage {
@@ -143,11 +144,18 @@ export default function ChatDetailPage() {
       {/* HEADER */}
       <div className="sticky top-0 z-40 bg-white flex items-center justify-between px-3 pb-3 border-b border-gray-200">
         <div className="flex items-center gap-3 pt-3">
+          {/* Tombol Kembali (Tetap terpisah) */}
           <ArrowLeft className="w-6 h-6 text-gray-800 cursor-pointer" onClick={() => router.back()} />
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
-            {partner?.avatar_url ? <Image src={partner.avatar_url} alt={partner.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <User className="w-6 h-6 text-gray-600" />}
-          </div>
-          <h1 className="font-semibold text-gray-800">{partner?.display_name ?? "Pengguna"}</h1>
+
+          {/* Area Profil yang Dapat Diklik */}
+          <Link href={`/profile/${partner?.id}`} className="flex items-center gap-3 cursor-pointer p-2 -m-2">
+            {/* Avatar */}
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+              {partner?.avatar_url ? <Image src={partner.avatar_url} alt={partner.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <User className="w-6 h-6 text-gray-600" />}
+            </div>
+            {/* Nama Pengguna */}
+            <h1 className="font-semibold text-gray-800">{partner?.display_name ?? "Pengguna"}</h1>
+          </Link>
         </div>
         <MoreVertical className="w-5 h-5 text-gray-600 cursor-pointer" />
       </div>
