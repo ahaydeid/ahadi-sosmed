@@ -1,28 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import PostCard from "@/app/components/PostCard";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, MoreVertical, User, UserPlus } from "lucide-react";
 import { PostCardData } from "@/lib/types/post";
+import { MoreVertical, UserPlus, ArrowLeft } from "lucide-react";
 
 const formatPostDate = (dateString: string): string => {
   const postDate = new Date(dateString);
   const currentYear = new Date().getFullYear();
   const postYear = postDate.getFullYear();
-
-  const options: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-  };
-
-  if (postYear !== currentYear) {
-    options.year = "numeric";
-  }
-
+  const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  if (postYear !== currentYear) options.year = "numeric";
   return postDate.toLocaleDateString("id-ID", options).replace(/,$/, "").trim();
 };
 
@@ -34,12 +26,6 @@ interface PostContent {
   author_image?: string | null;
 }
 
-interface UserProfile {
-  id: string;
-  display_name: string;
-  avatar_url?: string | null;
-}
-
 interface PostRow {
   id: string;
   created_at: string;
@@ -48,48 +34,71 @@ interface PostRow {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const profileId = params?.id;
+
   const [posts, setPosts] = useState<PostCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>("Memuat...");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  // NEW: counters from DB
+  const [followersCount, setFollowersCount] = useState<number>(0); // orang yang mengikuti profileId
+  const [followingCount, setFollowingCount] = useState<number>(0); // orang yang diikuti profileId
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.auth.getSession();
+      setCurrentUserId(data.session?.user.id ?? null);
+    };
+    load();
+  }, []);
+
+  // Cek status mengikuti
+  useEffect(() => {
+    const checkFollow = async () => {
+      if (!currentUserId || !profileId || currentUserId === profileId) return;
+      const { data } = await supabase.from("user_followers").select("follower_id").eq("follower_id", currentUserId).eq("following_id", profileId).maybeSingle();
+      setIsFollowing(!!data);
+    };
+    checkFollow();
+  }, [currentUserId, profileId]);
 
   useEffect(() => {
     const loadUserData = async () => {
+      if (!profileId) return;
       setLoading(true);
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
 
-      if (sessionError || !session) {
-        console.error("Gagal mengambil session:", sessionError?.message);
-        router.push("/login");
+      const { data: profile, error: profileError } = await supabase.from("user_profile").select("display_name, avatar_url, id").eq("id", profileId).single();
+
+      if (profileError || !profile) {
+        setDisplayName("Profil Tidak Ditemukan");
+        setAvatarUrl(null);
+        setPosts([]);
+        setFollowersCount(0);
+        setFollowingCount(0);
+        setLoading(false);
         return;
       }
 
-      const userId = session.user.id;
+      setDisplayName(profile.display_name || "Pengguna");
+      setAvatarUrl(profile.avatar_url || null);
 
-      const { data: profile, error: profileError } = await supabase.from("user_profile").select("display_name, avatar_url").eq("id", userId).single();
+      // Ambil post + counters followers/following paralel
+      const [{ data: postData, error: postError }, { count: followersCnt }, { count: followingCnt }] = await Promise.all([
+        supabase.from("post").select("id, created_at, user_id, visibility").eq("user_id", profileId).order("created_at", { ascending: false }),
+        supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("following_id", profileId), // orang lain yang mengikuti profileId
+        supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("follower_id", profileId), // profileId mengikuti berapa orang
+      ]);
 
-      if (profileError) {
-        console.error("Error mengambil profil:", profileError.message);
-        setDisplayName("Profil Tidak Ditemukan");
-      } else {
-        setDisplayName(profile?.display_name || "Pengguna");
-        setAvatarUrl(profile?.avatar_url || null);
-      }
-
-      const currentProfile: UserProfile = {
-        id: userId,
-        display_name: profile?.display_name || "Anonim",
-        avatar_url: profile?.avatar_url || null,
-      };
-
-      const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id, visibility").eq("user_id", userId).order("created_at", { ascending: false });
+      setFollowersCount(followersCnt ?? 0);
+      setFollowingCount(followingCnt ?? 0);
 
       if (postError) {
-        console.error("Error loading posts:", postError.message);
+        setPosts([]);
         setLoading(false);
         return;
       }
@@ -111,17 +120,15 @@ export default function ProfilePage() {
       const formattedPosts: PostCardData[] = await Promise.all(
         typedPosts.map(async (p) => {
           const [likes, comments, views] = await Promise.all([
-            supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id),
+            supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id).eq("liked", true),
             supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id),
             supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", p.id),
           ]);
-
           const content = contentMap.get(p.id);
-          const authorImageToUse = content?.author_image ?? currentProfile.avatar_url ?? null;
-
+          const authorImageToUse = content?.author_image ?? profile.avatar_url ?? null;
           return {
             id: p.id,
-            author: currentProfile.display_name,
+            author: profile.display_name,
             authorImage: authorImageToUse,
             title: content?.title ?? "(Tanpa judul)",
             description: content?.description ?? "",
@@ -139,11 +146,57 @@ export default function ProfilePage() {
     };
 
     loadUserData();
-  }, [router]);
+  }, [profileId]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
+  };
+
+  const isOwnProfile = currentUserId !== null && currentUserId === profileId;
+
+  // Toggle Follow/Unfollow
+  const handleToggleFollow = async () => {
+    if (!currentUserId) {
+      router.push("/login");
+      return;
+    }
+    if (!profileId || currentUserId === profileId) return;
+
+    if (isFollowing) {
+      await supabase.from("user_followers").delete().eq("follower_id", currentUserId).eq("following_id", profileId);
+      setIsFollowing(false);
+      // Update counter di UI
+      setFollowersCount((v) => Math.max(0, v - 1));
+    } else {
+      await supabase.from("user_followers").insert([{ follower_id: currentUserId, following_id: profileId }]);
+      setIsFollowing(true);
+      setFollowersCount((v) => v + 1);
+    }
+  };
+
+  // Kirim pesan (ke user lain) atau bagikan profil (profil sendiri)
+  const handleSecondary = async () => {
+    if (isOwnProfile) {
+      const url = `${window.location.origin}/profile/${profileId}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: displayName, url });
+        } catch {
+          // ignored
+        }
+      } else {
+        await navigator.clipboard.writeText(url);
+        alert("Tautan profil disalin ke papan klip");
+      }
+    } else {
+      if (!currentUserId) {
+        router.push("/login");
+        return;
+      }
+      // sesuai permintaan → /chat/[id]/
+      router.push(`/chat/${profileId}/`);
+    }
   };
 
   return (
@@ -161,7 +214,6 @@ export default function ProfilePage() {
           <button onClick={() => setMenuOpen((prev) => !prev)} aria-label="Menu" className="text-gray-700 hover:text-black transition">
             <MoreVertical className="w-6 h-6" />
           </button>
-
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
               <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-gray-100">
@@ -178,38 +230,51 @@ export default function ProfilePage() {
       {/* PROFIL */}
       <div className="flex flex-col items-center text-center pt-6">
         <div className="w-24 h-24 rounded-full bg-gray-200 mb-3 overflow-hidden flex items-center justify-center">
-          {avatarUrl ? <Image src={avatarUrl} alt={displayName} width={96} height={96} className="object-cover w-24 h-24" /> : <User className="w-12 h-12 text-gray-500" />}
+          {avatarUrl ? <Image src={avatarUrl} alt={displayName} width={96} height={96} className="object-cover w-24 h-24" /> : <div className="w-12 h-12 rounded-full bg-gray-300" />}
         </div>
         <h1 className="text-2xl font-bold text-gray-800 mb-2">{displayName}</h1>
 
+        {/* COUNTERS from DB */}
         <div className="flex justify-center gap-6 mb-4">
           <div>
             <p className="font-semibold text-gray-800 text-lg">{posts.length}</p>
             <p className="text-gray-500 text-sm">tulisan</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-800 text-lg">37</p>
+            <p className="font-semibold text-gray-800 text-lg">{followersCount}</p>
             <p className="text-gray-500 text-sm">pengikut</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-800 text-lg">17</p>
+            <p className="font-semibold text-gray-800 text-lg">{followingCount}</p>
             <p className="text-gray-500 text-sm">mengikuti</p>
           </div>
         </div>
       </div>
 
+      {/* ACTIONS */}
       <div className="flex justify-center gap-3 mb-6">
-        <button className="bg-sky-600 text-white px-4 py-2 min-w-[120px] rounded-md text-sm font-medium hover:bg-sky-700 transition flex items-center justify-center gap-1">
-          <UserPlus className="w-4 h-4" />
-          Ikuti
-        </button>{" "}
-        <button className="bg-gray-100 border border-gray-300 min-w-[120px] text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition">Kirim pesan</button>
+        {!isOwnProfile && (
+          <button
+            onClick={handleToggleFollow}
+            className={`px-4 py-2 min-w-[120px] rounded-md text-sm font-medium transition flex items-center justify-center gap-1 ${
+              isFollowing ? "bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300" : "bg-sky-600 text-white hover:bg-sky-700"
+            }`}
+          >
+            <UserPlus className="w-4 h-4" />
+            {isFollowing ? "Mengikuti" : "Ikuti"}
+          </button>
+        )}
+
+        <button onClick={handleSecondary} className="bg-gray-100 border border-gray-300 min-w-[120px] text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition">
+          {isOwnProfile ? "Bagikan profil" : "Kirim pesan"}
+        </button>
       </div>
+
       <div className="mb-5">
         <hr className="border border-gray-200 max-w-[90%] mx-auto" />
       </div>
 
-      {/* POSTINGAN */}
+      {/* POSTS */}
       <div className="ms-5">
         <h2 className="text-lg mb-1">
           Tulisan <span className="font-normal text-gray-600">({posts.length})</span>

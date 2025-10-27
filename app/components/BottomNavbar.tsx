@@ -8,37 +8,46 @@ import { supabase } from "@/lib/supabaseClient";
 
 export default function BottomNavbar() {
   const pathname = usePathname();
-
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
-
-  // MENGHAPUS: const [showNotif, setShowNotif] = useState<boolean>(true);
-
-  // Ikon notifikasi yang dihitung: tampilkan jika pathname BUKAN "/notif"
-  // Asumsi: Anda memiliki mekanisme lain untuk menentukan apakah ada notif yang BACA,
-  // tetapi untuk menghilangkan BUBBLE saat di halaman NOTIF, ini solusinya.
-  const shouldShowNotifBubble = pathname !== "/notif";
-
-  // User aktif (sementara hardcoded, nanti bisa ambil dari session)
-  const currentUserId = "c1228d6b-f95f-477a-8ddc-c0ab97d7e4b2";
 
   const isActive = (path: string) => pathname === path;
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setCurrentUserId(data.session?.user.id ?? null);
+    };
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
     const fetchUnreadMessages = async () => {
-      // Ambil total pesan belum dibaca dari message_reads
       const { count, error } = await supabase.from("message_reads").select("*", { count: "exact", head: true }).eq("user_id", currentUserId).eq("is_read", false);
 
-      if (error) {
-        console.error("Error fetching unread count:", error.message);
-        return;
-      }
-
-      setUnreadChatCount(count ?? 0);
+      if (!error) setUnreadChatCount(count ?? 0);
     };
 
     fetchUnreadMessages();
 
-    // Realtime listener untuk update saat ada perubahan
     const channel = supabase
       .channel("message_reads_changes")
       .on(
@@ -60,15 +69,10 @@ export default function BottomNavbar() {
     };
   }, [currentUserId]);
 
-  // MENGHAPUS EFFECT BERMASALAH INI:
-  /*
-  useEffect(() => {
-    // Hilangkan notif bubble saat user buka /notif
-    if (pathname === "/notif") {
-      setShowNotif(false);
-    }
-  }, [pathname]);
-  */
+  const shouldShowNotifBubble = pathname !== "/notif";
+
+  const profileHref = currentUserId ? `/profile/${currentUserId}` : "/login";
+  const profileActive = currentUserId ? isActive(`/profile/${currentUserId}`) : isActive("/login");
 
   return (
     <nav className="fixed bottom-0 left-0 w-full bg-white shadow z-50">
@@ -103,17 +107,15 @@ export default function BottomNavbar() {
           <Link href="/notif" className="relative flex flex-col items-center">
             <Bell className={`w-6 h-6 ${isActive("/notif") ? "text-black" : "text-gray-500"}`} />
             {isActive("/notif") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
-            {/* MODIFIKASI: Menggunakan shouldShowNotifBubble yang dihitung */}
             {shouldShowNotifBubble && <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">1</span>}
           </Link>
         </li>
 
         {/* Profile */}
         <li>
-          <Link href={`/profile/${currentUserId}`} className="relative flex flex-col items-center">
-            {/* ... (tidak ada perubahan di sini) */}
-            <User className={`w-6 h-6 ${isActive(`/profile/${currentUserId}`) ? "text-black" : "text-gray-500"}`} />
-            {isActive(`/profile/${currentUserId}`) && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
+          <Link href={profileHref} className="relative flex flex-col items-center">
+            <User className={`w-6 h-6 ${profileActive ? "text-black" : "text-gray-500"}`} />
+            {profileActive && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
           </Link>
         </li>
       </ul>

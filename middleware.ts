@@ -1,43 +1,44 @@
+// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export const config = {
-  // Jalankan middleware di semua route kecuali yang publik sepenuhnya
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api|login|signup).*)"],
+  matcher: ["/((?!_next/|favicon.ico|robots.txt|sitemap.xml|site.webmanifest).*)"],
 };
 
 export async function middleware(req: NextRequest) {
+  const p = req.nextUrl.pathname;
+
+  if (p === "/" || p === "/login" || p.startsWith("/auth") || p === "/post" || p.startsWith("/post/")) {
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll().map(({ name, value }) => ({ name, value }));
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          res.cookies.set({ name, value, ...(options as CookieOptions) });
+        });
+      },
+    },
+  });
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const pathname = req.nextUrl.pathname;
-
-  // Daftar rute yang hanya boleh diakses jika user sudah login
-  const protectedRoutes = ["/chat", "/components", "/notif", "/profile", "/write"];
-
-  // 🔓 Halaman "/" dikecualikan — bisa diakses publik meskipun belum login
-  if (pathname === "/") {
-    return res;
+  if (!user) {
+    const url = new URL("/login", req.url);
+    const full = req.nextUrl.pathname + (req.nextUrl.search || "");
+    url.searchParams.set("redirectedFrom", full || "/");
+    return NextResponse.redirect(url);
   }
 
-  // 🚫 Jika user belum login dan akses route dilindungi → redirect ke /login
-  if (protectedRoutes.some((route) => pathname.startsWith(route)) && !session) {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // 🔁 Jika user sudah login tapi akses /login → arahkan ke beranda
-  if (session && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", req.url));
-  }
-
-  // ✅ Jika lolos semua pengecekan, lanjutkan request
   return res;
 }

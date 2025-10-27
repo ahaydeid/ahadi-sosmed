@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Star, Eye, Heart, MessageCircle, ChevronLeft, Share2 } from "lucide-react";
 import Image from "next/image";
@@ -10,9 +10,6 @@ import CommentInput from "@/app/components/CommentInput";
 import ReactMarkdown from "react-markdown";
 import type { User } from "@supabase/supabase-js";
 
-/**
- * Memformat tanggal menjadi "28 Okt" (jika tahun yang sama) atau "28 Okt 2024" (jika tahun berbeda).
- */
 const formatPostDate = (dateString: string): string => {
   const postDate = new Date(dateString);
   const currentYear = new Date().getFullYear();
@@ -38,37 +35,48 @@ interface PostDetailData {
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [post, setPost] = useState<PostDetailData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [hasApresiasi, setHasApresiasi] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
-  // 🔹 Ambil user login
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) setUser(data.user);
+    let mounted = true;
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setUser(session?.user ?? null);
+      setAuthChecked(true);
+    })();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthChecked(true);
+    });
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
     };
-    getUser();
   }, []);
 
-  // 🔹 Ambil data post
   useEffect(() => {
     const fetchPost = async () => {
       if (!id) return;
       setLoading(true);
 
       const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", id).single();
-
       if (postError || !postData) {
         setLoading(false);
         return;
       }
 
       const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image").eq("post_id", id).single();
-
       const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).single();
 
       const [{ count: likesCount }, { count: commentsCount }, { count: viewsCount }] = await Promise.all([
@@ -99,43 +107,39 @@ export default function PostDetailPage() {
     fetchPost();
   }, [id]);
 
-  // 🔹 Cek apakah user sudah apresiasi post ini
   useEffect(() => {
     const checkApresiasi = async () => {
       if (!user || !id) return;
-
       const { data } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
-
       setHasApresiasi(data?.liked === true);
     };
-
     checkApresiasi();
   }, [user, id]);
 
-  // 🔹 Toggle apresiasi
   const handleApresiasi = async () => {
     if (!user) {
-      router.push("/login");
+      const qs = searchParams?.toString() ?? "";
+      const current = pathname ? pathname + (qs ? `?${qs}` : "") : "/";
+      router.push(`/login?redirectedFrom=${encodeURIComponent(current)}`);
       return;
     }
-
-    // Cek apakah sudah ada record
     const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
-
     if (!existing) {
-      // Belum ada → insert baru
       await supabase.from("post_likes").insert([{ post_id: id, user_id: user.id, liked: true }]);
       setHasApresiasi(true);
       setLikeCount((prev) => prev + 1);
       return;
     }
-
-    // Sudah ada → toggle
     const newLiked = !existing.liked;
     await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", id).eq("user_id", user.id);
-
     setHasApresiasi(newLiked);
     setLikeCount((prev) => prev + (newLiked ? 1 : -1));
+  };
+
+  const handleGoLoginForComment = () => {
+    const qs = searchParams?.toString() ?? "";
+    const current = pathname ? pathname + (qs ? `?${qs}` : "") : "/";
+    router.push(`/login?redirectedFrom=${encodeURIComponent(current)}`);
   };
 
   if (loading || !post) {
@@ -144,7 +148,6 @@ export default function PostDetailPage() {
 
   return (
     <div className="min-h-screen bg-white p-4">
-      {/* Header */}
       <div className="sticky top-0 left-0 right-0 h-12 bg-white border-b border-gray-200 z-10 flex items-center px-4 -mx-4">
         <button onClick={() => window.history.back()} className="absolute left-4 rounded-full hover:bg-gray-100 transition z-20" aria-label="Kembali">
           <ChevronLeft className="w-6 h-6 text-gray-800" />
@@ -154,7 +157,6 @@ export default function PostDetailPage() {
         </div>
       </div>
 
-      {/* Judul & Meta */}
       <h1 className="text-2xl mt-5 font-bold leading-snug mb-2">{post.title}</h1>
       <p className="text-sm text-gray-500 mb-3">{post.date}</p>
 
@@ -166,19 +168,16 @@ export default function PostDetailPage() {
         <button className="text-sm font-semibold border border-sky-500 text-sky-500 rounded-full px-3 py-0.5 hover:bg-sky-50 transition">follow</button>
       </div>
 
-      {/* Gambar Post */}
       {post.image_url && (
         <div className="w-full rounded-md overflow-hidden mb-4 flex justify-center">
           <Image src={post.image_url} alt={post.title} width={800} height={400} className="object-contain w-auto h-auto max-w-full rounded-md" />
         </div>
       )}
 
-      {/* Isi Artikel */}
       <div className="text-base text-justify text-gray-700 leading-relaxed space-y-4 mb-6 prose max-w-none">
         <ReactMarkdown>{post.description}</ReactMarkdown>
       </div>
 
-      {/* Tombol Apresiasi */}
       <div className="flex items-center gap-2">
         <button
           onClick={handleApresiasi}
@@ -189,7 +188,6 @@ export default function PostDetailPage() {
           {hasApresiasi ? "diapresiasi" : "apresiasi"}
         </button>
 
-        {/* Statistik */}
         <div className="flex items-center gap-3 border-gray-200 border rounded px-3 py-2 w-fit">
           <div className="flex items-center gap-1 text-gray-700 text-sm">
             <Eye className="w-4 h-4" />
@@ -210,8 +208,17 @@ export default function PostDetailPage() {
       </div>
 
       <hr className="my-4 border-gray-200" />
-      <CommentInput postId={post.id} />
-      <h2 className="text-lg font-bold mb-4">Komentar</h2>
+
+      {authChecked &&
+        (user ? (
+          <CommentInput postId={post.id} />
+        ) : (
+          <button onClick={handleGoLoginForComment} className="px-4 py-2 text-left text-sky-600 hover:bg-sky-50 rounded transition text-sm">
+            Login untuk berkomentar
+          </button>
+        ))}
+
+      <h2 className="text-lg font-bold mb-4 mt-4">Komentar</h2>
       <PostComments postId={post.id} />
     </div>
   );

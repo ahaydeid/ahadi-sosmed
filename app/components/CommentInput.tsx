@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabaseClient"; // gunakan klien yang sama
 import type { User } from "@supabase/supabase-js";
 
 interface CommentInputProps {
@@ -12,38 +12,47 @@ interface CommentInputProps {
 }
 
 export default function CommentInput({ postId, parentCommentId = null, onCommentSent }: CommentInputProps) {
-  const supabase = createClientComponentClient();
-
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [text, setText] = useState("");
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- Auto expand tinggi textarea (maks 200px)
+  // Auto expand tinggi textarea (maks 200px)
   useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
   }, [text]);
 
-  // --- Cek user login
+  // Sinkronkan status auth dengan klien yang sama
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) setUser(data.user);
-      setLoading(false);
-    };
-    fetchUser();
-  }, [supabase]);
+    let mounted = true;
 
-  // --- Kirim komentar
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setUser(session?.user ?? null);
+      setAuthChecked(true);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+      setAuthChecked(true);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
   const handleSendComment = async () => {
     if (!text.trim() || !user) return;
 
-    const { error: insertError } = await supabase.from("comments").insert([
+    const { error } = await supabase.from("comments").insert([
       {
         post_id: postId,
         user_id: user.id,
@@ -52,8 +61,8 @@ export default function CommentInput({ postId, parentCommentId = null, onComment
       },
     ]);
 
-    if (insertError) {
-      console.error("Gagal mengirim komentar:", insertError.message);
+    if (error) {
+      console.error("Gagal mengirim komentar:", error.message);
       return;
     }
 
@@ -61,20 +70,13 @@ export default function CommentInput({ postId, parentCommentId = null, onComment
     onCommentSent?.();
   };
 
-  if (loading) return null;
+  // Tunggu pengecekan auth agar tidak flicker
+  if (!authChecked) return null;
 
-  // --- Jika belum login
-  if (!user) {
-    return (
-      <div className="mt-3">
-        <a href="/login" className="inline-block rounded-md text-blue-600 mb-5 text-sm py-1font-sm hover:bg-sky-600 transition">
-          Login untuk berkomentar
-        </a>
-      </div>
-    );
-  }
+  // ❗️Kalau belum login: JANGAN render apa pun (biar parent yang tampilkan "Login untuk berkomentar")
+  if (!user) return null;
 
-  // --- Jika sudah login
+  // Sudah login → render textarea & tombol kirim (UI tidak diubah)
   return (
     <div className="flex gap-2 mt-3 mb-5">
       <textarea
@@ -86,10 +88,8 @@ export default function CommentInput({ postId, parentCommentId = null, onComment
         onChange={(e) => setText(e.target.value)}
         style={{ maxHeight: "200px", overflowY: "auto" }}
       />
-      {/* Tambahkan 'self-end' di sini untuk menyelaraskan ke bawah dalam konteks flex container utama */}
       <div className="flex self-end">
-        {/* Hapus 'bottom-0' karena tidak berfungsi tanpa 'position: absolute' dan tambahkan 'h-full' jika ingin setinggi div induk, tapi lebih baik biarkan sesuai konten. */}
-        <button onClick={handleSendComment} disabled={!text.trim()} className="flex max-h-10 rounded-full bg-sky-600 p-3 text-white disabled:opacity-50 hover:bg-sky-600 transition">
+        <button onClick={handleSendComment} disabled={!text.trim()} className="flex max-h-10 rounded-full bg-sky-600 p-3 text-white disabled:opacity-50 hover:bg-sky-600 transition" aria-label="Kirim komentar">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
           </svg>
