@@ -223,6 +223,7 @@ export default function PostDetailPage() {
   }
 
   const showFollow = authorId && (!user || (user && authorId !== user.id));
+  const isSelf = !!user && authorId === user.id;
 
   return (
     <div className="min-h-screen bg-white p-4">
@@ -256,14 +257,18 @@ export default function PostDetailPage() {
           </>
         )}
 
-        {showFollow && (
-          <button
-            onClick={handleToggleFollow}
-            disabled={followBusy}
-            className={`text-sm rounded-full px-3 py-0.5 transition ${isFollowing ? "border border-gray-300 text-gray-600 italic hover:bg-gray-100" : "border border-sky-500 text-sky-500 hover:bg-sky-50"}`}
-          >
-            {isFollowing ? "mengikuti" : "ikuti"}
-          </button>
+        {isSelf ? (
+          <span className="text-sm rounded-full px-3 py-0.5 border border-gray-300 italic bg-gray-50 text-gray-600">saya</span>
+        ) : (
+          showFollow && (
+            <button
+              onClick={handleToggleFollow}
+              disabled={followBusy}
+              className={`text-sm rounded-full px-3 py-0.5 transition ${isFollowing ? "border border-gray-300 text-gray-600 italic hover:bg-gray-100" : "border border-sky-500 text-sky-500 hover:bg-sky-50"}`}
+            >
+              {isFollowing ? "mengikuti" : "ikuti"}
+            </button>
+          )
         )}
       </div>
 
