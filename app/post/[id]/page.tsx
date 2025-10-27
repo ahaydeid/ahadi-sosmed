@@ -268,14 +268,8 @@ export default function PostDetailPage() {
       </div>
 
       {post.image_url && (
-        <div className="relative w-full aspect-video rounded-xs overflow-hidden mb-4">
-          <Image
-            src={post.image_url}
-            alt={post.title}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 800px" // Optimalisasi kinerja
-          />
+        <div className="w-full rounded-xs overflow-hidden mb-4">
+          <Image src={post.image_url as string} alt={post.title} sizes="100vw" width={1600} height={900} className="w-full h-auto" />
         </div>
       )}
 
