@@ -240,14 +240,14 @@ export default function PostDetailPage() {
       <div className="flex items-center gap-2 mb-4">
         {authorId ? (
           <Link href={`/profile/${authorId}`} className="flex items-center gap-2 group cursor-pointer" aria-label={`Lihat profil ${post.author}`}>
-            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center ring-1 ring-transparent group-hover:ring-gray-300 transition">
+            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center ring-1 ring-transparent group-hover:ring-gray-300 transition">
               {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
             </div>
             <span className="text-sm font-semibold text-gray-800">{post.author}</span>
           </Link>
         ) : (
           <>
-            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center">
               {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
             </div>
             <span className="text-sm font-semibold text-gray-800">{post.author}</span>
@@ -266,12 +266,12 @@ export default function PostDetailPage() {
       </div>
 
       {post.image_url && (
-        <div className="w-full rounded-md overflow-hidden mb-4 flex justify-center">
+        <div className="w-full rounded-md overflow-hidden mb-4 flex">
           <Image src={post.image_url} alt={post.title} width={800} height={400} className="object-contain w-auto h-auto max-w-full rounded-md" />
         </div>
       )}
 
-      <div className="text-base text-justify text-gray-700 leading-relaxed space-y-4 mb-6 prose max-w-none">
+      <div className="text-base text-gray-700 leading-relaxed space-y-4 mb-6 prose max-w-none">
         <ReactMarkdown>{post.description}</ReactMarkdown>
       </div>
 
