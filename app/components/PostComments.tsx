@@ -359,7 +359,7 @@ function CommentItem({ comment, onReply, onLike, likeBusy }: { comment: CommentD
           <span>{comment.time}</span>
 
           <button className={`hover:underline disabled:opacity-50 ${liked ? "text-sky-700" : ""}`} onClick={onLike} disabled={likeBusy} aria-pressed={liked}>
-            {liked ? "Batalkan Suka" : "Suka"}
+            {liked ? "Batal Suka" : "Suka"}
           </button>
 
           <button className="hover:underline" onClick={onReply}>
