@@ -485,7 +485,7 @@ export default function ProfilePage() {
       </div>
 
       {showFollowModal && (
-        <div className="fixed inset-0 z-50 mb-15 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-50 mb-13 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowFollowModal(false)} />
           <div className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
