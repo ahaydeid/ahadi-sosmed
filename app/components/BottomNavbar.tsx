@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { useEffect, useState, useCallback } from "react";
 import { Home, Pencil, MessageSquare, Bell, User } from "lucide-react";
 import Link from "next/link";
@@ -110,7 +111,8 @@ export default function BottomNavbar() {
   }, [currentUserId, computeUnreadChats]);
 
   const shouldShowNotifBubble = pathname !== "/notif";
-  const profileHref = currentUserId ? `/profile/${currentUserId}` : "/login";
+  const profileHref = currentUserId ? (`/profile/${currentUserId}` as Route) : ("/login" as Route);
+  // const profileHref = currentUserId ? `/profile/${currentUserId}` : "/login";
   const profileActive = currentUserId ? isActive(`/profile/${currentUserId}`) : isActive("/login");
 
   return (

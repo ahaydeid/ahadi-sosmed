@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
@@ -104,7 +105,8 @@ function TopBarInner() {
   const setTabInUrl = (val: TabKey) => {
     const sp = new URLSearchParams(searchParams.toString());
     sp.set("tab", val);
-    router.replace(`${pathname}?${sp.toString()}`);
+    const href = `${pathname}?${sp.toString()}` as unknown as Route;
+    router.replace(href);
   };
 
   const handleTab = (val: TabKey) => {

@@ -289,7 +289,7 @@ export default function PostComments({ postId }: PostCommentsProps) {
       {comments.length === 0 && <p className="text-gray-500 ms-2 text-sm">Belum ada komentar</p>}
 
       {comments.map((comment) => (
-        <div key={comment.id} className="mb-6">
+        <div key={comment.id} className="mb-4">
           <CommentItem
             comment={comment}
             likeBusy={likeBusy.has(comment.id)}

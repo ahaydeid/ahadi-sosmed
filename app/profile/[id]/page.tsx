@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import PostCard from "@/app/components/PostCard";
@@ -10,12 +11,12 @@ import { PostCardData } from "@/lib/types/post";
 import { MoreVertical, UserPlus, ArrowLeft, X } from "lucide-react";
 
 const formatPostDate = (dateString: string): string => {
-  const postDate = new Date(dateString);
-  const currentYear = new Date().getFullYear();
-  const postYear = postDate.getFullYear();
-  const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-  if (postYear !== currentYear) options.year = "numeric";
-  return postDate.toLocaleDateString("id-ID", options).replace(/,$/, "").trim();
+  const d = new Date(dateString);
+  const postYear = d.getUTCFullYear();
+  const nowYear = new Date().getUTCFullYear();
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", timeZone: "UTC" };
+  if (postYear !== nowYear) opts.year = "numeric";
+  return new Intl.DateTimeFormat("id-ID", opts).format(d);
 };
 
 interface PostContent {
@@ -72,23 +73,13 @@ export default function ProfilePage() {
     load();
   }, []);
 
-    // cek status mengikuti dan apakah dia mengikuti saya
+  // cek status mengikuti dan apakah dia mengikuti saya
   useEffect(() => {
     const run = async () => {
       if (!currentUserId || !profileId || currentUserId === profileId) return;
       const [iFollowRes, theyFollowMeRes] = await Promise.all([
-        supabase
-          .from("user_followers")
-          .select("follower_id")
-          .eq("follower_id", currentUserId)
-          .eq("following_id", profileId)
-          .maybeSingle(),
-        supabase
-          .from("user_followers")
-          .select("follower_id")
-          .eq("follower_id", profileId)
-          .eq("following_id", currentUserId)
-          .maybeSingle(),
+        supabase.from("user_followers").select("follower_id").eq("follower_id", currentUserId).eq("following_id", profileId).maybeSingle(),
+        supabase.from("user_followers").select("follower_id").eq("follower_id", profileId).eq("following_id", currentUserId).maybeSingle(),
       ]);
       setIsFollowing(!!iFollowRes.data);
       setTheyFollowMeProfile(!!theyFollowMeRes.data);
@@ -101,11 +92,7 @@ export default function ProfilePage() {
       if (!profileId) return;
       setLoading(true);
 
-      const { data: profile, error: profileError } = await supabase
-        .from("user_profile")
-        .select("display_name, avatar_url, id")
-        .eq("id", profileId)
-        .single();
+      const { data: profile, error: profileError } = await supabase.from("user_profile").select("display_name, avatar_url, id").eq("id", profileId).single();
 
       if (profileError || !profile) {
         setDisplayName("Profil Tidak Ditemukan");
@@ -120,24 +107,10 @@ export default function ProfilePage() {
       setDisplayName(profile.display_name || "Pengguna");
       setAvatarUrl(profile.avatar_url || null);
 
-      const [
-        { data: postData, error: postError },
-        { count: followersCnt },
-        { count: followingCnt },
-      ] = await Promise.all([
-        supabase
-          .from("post")
-          .select("id, created_at, user_id, visibility")
-          .eq("user_id", profileId)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("user_followers")
-          .select("*", { count: "exact", head: true })
-          .eq("following_id", profileId),
-        supabase
-          .from("user_followers")
-          .select("*", { count: "exact", head: true })
-          .eq("follower_id", profileId),
+      const [{ data: postData, error: postError }, { count: followersCnt }, { count: followingCnt }] = await Promise.all([
+        supabase.from("post").select("id, created_at, user_id, visibility").eq("user_id", profileId).order("created_at", { ascending: false }),
+        supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("following_id", profileId),
+        supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
       ]);
 
       setFollowersCount(followersCnt ?? 0);
@@ -158,10 +131,7 @@ export default function ProfilePage() {
       const typedPosts: PostRow[] = postData as PostRow[];
       const postIds = typedPosts.map((p) => p.id);
 
-      const { data: contents } = await supabase
-        .from("post_content")
-        .select("post_id, title, description, image_url, author_image")
-        .in("post_id", postIds);
+      const { data: contents } = await supabase.from("post_content").select("post_id, title, description, image_url, author_image").in("post_id", postIds);
 
       const contentMap = new Map<string, PostContent>();
       (contents ?? []).forEach((c) => contentMap.set(c.post_id, c as PostContent));
@@ -169,11 +139,7 @@ export default function ProfilePage() {
       const formattedPosts: PostCardData[] = await Promise.all(
         typedPosts.map(async (p) => {
           const [likes, comments, views] = await Promise.all([
-            supabase
-              .from("post_likes")
-              .select("*", { count: "exact", head: true })
-              .eq("post_id", p.id)
-              .eq("liked", true),
+            supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id).eq("liked", true),
             supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id),
             supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", p.id),
           ]);
@@ -232,8 +198,7 @@ export default function ProfilePage() {
       if (navigator.share) {
         try {
           await navigator.share({ title: displayName, url });
-        } catch {
-        }
+        } catch {}
       } else {
         await navigator.clipboard.writeText(url);
         alert("Tautan profil disalin ke papan klip");
@@ -243,7 +208,8 @@ export default function ProfilePage() {
         router.push("/login");
         return;
       }
-      router.push(`/chat/${profileId}/`);
+      const chatRoute = `/chat/${profileId}/` as Route;
+      router.push(chatRoute);
     }
   };
 
@@ -253,10 +219,7 @@ export default function ProfilePage() {
       setLoadingFollowList(true);
 
       if (target === "followers") {
-        const { data: links, error } = await supabase
-          .from("user_followers")
-          .select("follower_id")
-          .eq("following_id", profileId);
+        const { data: links, error } = await supabase.from("user_followers").select("follower_id").eq("following_id", profileId);
 
         if (error || !links) {
           setFollowers([]);
@@ -277,20 +240,8 @@ export default function ProfilePage() {
 
         const [{ data: profiles }, currentFollowsRes, theyFollowMeRes] = await Promise.all([
           supabase.from("user_profile").select("id, display_name, avatar_url").in("id", ids),
-          currentUserId
-            ? supabase
-                .from("user_followers")
-                .select("following_id")
-                .eq("follower_id", currentUserId)
-                .in("following_id", ids)
-            : Promise.resolve({ data: [] as { following_id: string }[] }),
-          currentUserId
-            ? supabase
-                .from("user_followers")
-                .select("follower_id")
-                .in("follower_id", ids)
-                .eq("following_id", currentUserId)
-            : Promise.resolve({ data: [] as { follower_id: string }[] }),
+          currentUserId ? supabase.from("user_followers").select("following_id").eq("follower_id", currentUserId).in("following_id", ids) : Promise.resolve({ data: [] as { following_id: string }[] }),
+          currentUserId ? supabase.from("user_followers").select("follower_id").in("follower_id", ids).eq("following_id", currentUserId) : Promise.resolve({ data: [] as { follower_id: string }[] }),
         ]);
 
         setFollowers((profiles as SimpleProfile[]) ?? []);
@@ -301,10 +252,7 @@ export default function ProfilePage() {
         setFollowsMeSet(theyFollowMe);
         setLoadingFollowList(false);
       } else {
-        const { data: links, error } = await supabase
-          .from("user_followers")
-          .select("following_id")
-          .eq("follower_id", profileId);
+        const { data: links, error } = await supabase.from("user_followers").select("following_id").eq("follower_id", profileId);
 
         if (error || !links) {
           setFollowing([]);
@@ -325,20 +273,8 @@ export default function ProfilePage() {
 
         const [{ data: profiles }, currentFollowsRes, theyFollowMeRes] = await Promise.all([
           supabase.from("user_profile").select("id, display_name, avatar_url").in("id", ids),
-          currentUserId
-            ? supabase
-                .from("user_followers")
-                .select("following_id")
-                .eq("follower_id", currentUserId)
-                .in("following_id", ids)
-            : Promise.resolve({ data: [] as { following_id: string }[] }),
-          currentUserId
-            ? supabase
-                .from("user_followers")
-                .select("follower_id")
-                .in("follower_id", ids)
-                .eq("following_id", currentUserId)
-            : Promise.resolve({ data: [] as { follower_id: string }[] }),
+          currentUserId ? supabase.from("user_followers").select("following_id").eq("follower_id", currentUserId).in("following_id", ids) : Promise.resolve({ data: [] as { following_id: string }[] }),
+          currentUserId ? supabase.from("user_followers").select("follower_id").in("follower_id", ids).eq("following_id", currentUserId) : Promise.resolve({ data: [] as { follower_id: string }[] }),
         ]);
 
         setFollowing((profiles as SimpleProfile[]) ?? []);
@@ -375,18 +311,12 @@ export default function ProfilePage() {
     const isFollowingNow = followingSet.has(targetUserId);
 
     if (isFollowingNow) {
-      await supabase
-        .from("user_followers")
-        .delete()
-        .eq("follower_id", currentUserId)
-        .eq("following_id", targetUserId);
+      await supabase.from("user_followers").delete().eq("follower_id", currentUserId).eq("following_id", targetUserId);
       const next = new Set(followingSet);
       next.delete(targetUserId);
       setFollowingSet(next);
     } else {
-      await supabase
-        .from("user_followers")
-        .insert([{ follower_id: currentUserId, following_id: targetUserId }]);
+      await supabase.from("user_followers").insert([{ follower_id: currentUserId, following_id: targetUserId }]);
       const next = new Set(followingSet);
       next.add(targetUserId);
       setFollowingSet(next);
@@ -394,6 +324,9 @@ export default function ProfilePage() {
   };
 
   const mainFollowLabel = isFollowing ? "Mengikuti" : theyFollowMeProfile ? "Ikuti balik" : "Ikuti";
+
+  // Variabel baru untuk mengontrol tampilan ikon
+  const showUserPlusIcon = !isFollowing;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16 pt-14">
@@ -452,7 +385,8 @@ export default function ProfilePage() {
               isFollowing ? "bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300 italic" : "bg-sky-600 text-white hover:bg-sky-700"
             }`}
           >
-            <UserPlus className="w-4 h-4" />
+            {/* PERUBAHAN: Tampilkan UserPlus hanya jika isFollowing FALSE */}
+            {showUserPlusIcon && <UserPlus className="w-4 h-4" />}
             {mainFollowLabel}
           </button>
         )}
@@ -489,14 +423,8 @@ export default function ProfilePage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowFollowModal(false)} />
           <div className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-base font-semibold text-gray-900">
-                {followTab === "followers" ? "Pengikut" : "Mengikuti"}
-              </h3>
-              <button
-                onClick={() => setShowFollowModal(false)}
-                aria-label="Tutup"
-                className="p-2 rounded-md hover:bg-gray-100 text-gray-700"
-              >
+              <h3 className="text-base font-semibold text-gray-900">{followTab === "followers" ? "Pengikut" : "Mengikuti"}</h3>
+              <button onClick={() => setShowFollowModal(false)} aria-label="Tutup" className="p-2 rounded-md hover:bg-gray-100 text-gray-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -504,12 +432,8 @@ export default function ProfilePage() {
             <div className="p-3">
               {loadingFollowList && <p className="text-center py-4 text-gray-500">Memuat daftar...</p>}
 
-              {!loadingFollowList && followTab === "followers" && followers.length === 0 && (
-                <p className="text-center py-6 text-gray-500">Belum ada pengikut</p>
-              )}
-              {!loadingFollowList && followTab === "following" && following.length === 0 && (
-                <p className="text-center py-6 text-gray-500">Belum mengikuti siapa pun</p>
-              )}
+              {!loadingFollowList && followTab === "followers" && followers.length === 0 && <p className="text-center py-6 text-gray-500">Belum ada pengikut</p>}
+              {!loadingFollowList && followTab === "following" && following.length === 0 && <p className="text-center py-6 text-gray-500">Belum mengikuti siapa pun</p>}
 
               {!loadingFollowList && followTab === "followers" && followers.length > 0 && (
                 <ul className="divide-y divide-gray-100 max-h-[60vh] overflow-auto">
@@ -519,17 +443,9 @@ export default function ProfilePage() {
                     const label = iFollow ? "Mengikuti" : theyFollowMe ? "Ikuti balik" : "Ikuti";
                     return (
                       <li key={u.id} className="flex items-center gap-3 p-3">
-                        <Link
-                          href={`/profile/${u.id}`}
-                          className="flex items-center gap-3 flex-1 hover:bg-gray-50 rounded-md"
-                          onClick={() => setShowFollowModal(false)}
-                        >
+                        <Link href={`/profile/${u.id}`} className="flex items-center gap-3 flex-1 hover:bg-gray-50 rounded-md" onClick={() => setShowFollowModal(false)}>
                           <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                            {u.avatar_url ? (
-                              <Image src={u.avatar_url} alt={u.display_name} width={40} height={40} className="object-cover w-10 h-10" />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-gray-300" />
-                            )}
+                            {u.avatar_url ? <Image src={u.avatar_url} alt={u.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-semibold text-gray-900">{u.display_name}</p>
@@ -539,11 +455,7 @@ export default function ProfilePage() {
                         {currentUserId && currentUserId !== u.id && (
                           <button
                             onClick={() => handleItemFollowToggle(u.id)}
-                            className={`px-3 py-1 text-xs rounded-md border transition ${
-                              iFollow
-                                ? "bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300 italic"
-                                : "bg-sky-600 text-white border-sky-700 hover:bg-sky-700"
-                            }`}
+                            className={`px-3 py-1 text-xs rounded-md border transition ${iFollow ? "bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300 italic" : "bg-sky-600 text-white border-sky-700 hover:bg-sky-700"}`}
                           >
                             {label}
                           </button>
@@ -562,17 +474,9 @@ export default function ProfilePage() {
                     const label = iFollow ? "Mengikuti" : theyFollowMe ? "Ikuti balik" : "Ikuti";
                     return (
                       <li key={u.id} className="flex items-center gap-3 p-3">
-                        <Link
-                          href={`/profile/${u.id}`}
-                          className="flex items-center gap-3 flex-1 hover:bg-gray-50 rounded-md"
-                          onClick={() => setShowFollowModal(false)}
-                        >
+                        <Link href={`/profile/${u.id}`} className="flex items-center gap-3 flex-1 hover:bg-gray-50 rounded-md" onClick={() => setShowFollowModal(false)}>
                           <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                            {u.avatar_url ? (
-                              <Image src={u.avatar_url} alt={u.display_name} width={40} height={40} className="object-cover w-10 h-10" />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-gray-300" />
-                            )}
+                            {u.avatar_url ? <Image src={u.avatar_url} alt={u.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-semibold text-gray-900">{u.display_name}</p>
@@ -582,11 +486,7 @@ export default function ProfilePage() {
                         {currentUserId && currentUserId !== u.id && (
                           <button
                             onClick={() => handleItemFollowToggle(u.id)}
-                            className={`px-3 py-1 text-xs rounded-md border transition ${
-                              iFollow
-                                ? "bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300 italic"
-                                : "bg-sky-600 text-white border-sky-700 hover:bg-sky-700"
-                            }`}
+                            className={`px-3 py-1 text-xs rounded-md border transition ${iFollow ? "bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300 italic" : "bg-sky-600 text-white border-sky-700 hover:bg-sky-700"}`}
                           >
                             {label}
                           </button>

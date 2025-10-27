@@ -29,7 +29,7 @@ interface Profile {
 
 interface Item {
   id: string;
-  createdAt: string; // <-- simpan timestamp mentah untuk sorting
+  createdAt: string;
   text: string;
   time: string;
   authorId: string | null;
@@ -41,7 +41,6 @@ interface Item {
   mentionName: string | null;
 }
 
-/* util kecil */
 function getInitials(name: string): string {
   const p = name.trim().split(/\s+/);
   if (p.length === 0) return "U";
@@ -66,7 +65,6 @@ function formatRelativeTime(createdAt: string): string {
   return `${y} tahun`;
 }
 
-/* auto-resize textarea */
 const useAutosizeTextArea = (textareaRef: React.RefObject<HTMLTextAreaElement>, value: string) => {
   useEffect(() => {
     if (textareaRef.current) {
@@ -87,7 +85,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   const textareaRef = useRef<HTMLTextAreaElement>(null!);
   useAutosizeTextArea(textareaRef, text);
 
-  // ambil anak dari daftar parent ids (order di sini tidak krusial karena kita sort manual)
   const fetchLevel = useCallback(
     async (parents: string[]): Promise<Row[]> => {
       if (parents.length === 0) return [];
@@ -96,7 +93,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
         .select("id, post_id, user_id, parent_comment_id, mention_user_id, text, created_at")
         .eq("post_id", postId)
         .in("parent_comment_id", parents)
-        .order("created_at", { ascending: true }) // bisa apa saja, nanti disort ulang
+        .order("created_at", { ascending: true })
         .order("id", { ascending: true });
       if (error) return [];
       return data ?? [];
@@ -104,7 +101,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     [postId]
   );
 
-  // bangun thread, lalu URUTKAN: root tetap paling atas, sisanya sort by createdAt ascending
   const buildThread = useCallback(async () => {
     setLoading(true);
 
@@ -134,7 +130,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       else rows.forEach((r) => flatRows.push({ row: r, level: idx }));
     });
 
-    // siapkan profil
     const authorIds = flatRows.map((x) => x.row.user_id).filter(Boolean) as string[];
     const mentionIds = flatRows.map((x) => x.row.mention_user_id).filter(Boolean) as string[];
     const uniqIds = [...new Set([...authorIds, ...mentionIds])];
@@ -152,7 +147,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       const m = row.mention_user_id ? profMap.get(row.mention_user_id) : undefined;
       return {
         id: row.id,
-        createdAt: row.created_at, // <-- simpan untuk sorting
+        createdAt: row.created_at,
         text: row.text,
         time: formatRelativeTime(row.created_at),
         authorId: row.user_id,
@@ -165,7 +160,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       };
     });
 
-    // KEEP root first, then sort the rest by createdAt ASC
     const root = mapped.find((i) => i.id === rootCommentId)!;
     const repliesSorted = mapped.filter((i) => i.id !== rootCommentId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
@@ -173,7 +167,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     setLoading(false);
   }, [rootCommentId, fetchLevel, profiles]);
 
-  // auth
   useEffect(() => {
     const t = setTimeout(() => {
       supabase.auth.getUser().then(({ data }) => setMeId(data.user?.id ?? null));
@@ -181,7 +174,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     return () => clearTimeout(t);
   }, []);
 
-  // initial load
   useEffect(() => {
     const t = setTimeout(() => {
       void buildThread();
@@ -196,7 +188,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     if (!loading && rootItem && !replyingTo) requestAnimationFrame(() => textareaRef.current?.focus());
   }, [loading, rootItem, replyingTo]);
 
-  // realtime insert → push lalu SORT ULANG by createdAt
   useEffect(() => {
     const chan = supabase
       .channel(`replies-modal-${postId}-${rootCommentId}`)
@@ -303,7 +294,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       mentionName: m?.display_name ?? null,
     };
 
-    // tambah lalu sort by createdAt ASC (root tetap pertama)
     setItems((prev) => {
       const root = prev.find((i) => i.id === rootCommentId);
       const rest = [...prev.filter((i) => i.id !== rootCommentId), newItem].sort((x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime());
@@ -373,7 +363,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
           {loading ? (
             <div className="text-sm text-gray-500">Memuat balasan...</div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {items.map((it) => (
                 <ReplyItem key={it.id} item={it} onReply={() => handleStartReply(it)} />
               ))}
@@ -381,12 +371,12 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
           )}
         </div>
 
-        <div className="border-t border-gray-200 p-3 mb-12">
+        <div className="border-t border-gray-200 pb-16 p-3">
           <div className="flex items-end gap-2">
             <textarea
               ref={textareaRef}
               className="flex-1 border border-gray-300 rounded-sm p-2 text-sm outline-none resize-none min-h-8 max-h-[150px]"
-              placeholder={activeTarget ? (activeTarget.level === 0 ? "Balas komentar utama..." : `Balas ${activeTarget.authorName}...`) : "Tulis balasan..."}
+              placeholder={activeTarget ? (activeTarget.level === 0 ? "Balas komentar..." : `Balas ${activeTarget.authorName}...`) : "Tulis balasan..."}
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
@@ -414,8 +404,8 @@ function ReplyItem({ item, onReply }: { item: Item; onReply: () => void }) {
       )}
 
       <div className="flex-1">
-        <div className="bg-gray-100 rounded-xl p-4">
-          <div className="font-semibold text-gray-900">{item.authorName}</div>
+        <div className="bg-gray-100 rounded-xl p-3">
+          <div className="font-semibold text-sm text-gray-900">{item.authorName}</div>
           <div className="mt-1 text-gray-700 text-sm leading-relaxed">
             {isRoot ? (
               <span>{item.text}</span>
@@ -427,7 +417,7 @@ function ReplyItem({ item, onReply }: { item: Item; onReply: () => void }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-gray-600 text-sm mt-3 pl-1">
+        <div className="flex items-center gap-6 text-gray-600 text-sm mt-2 pl-1">
           <div>{item.time}</div>
           <button className="hover:underline" onClick={onReply}>
             Balas

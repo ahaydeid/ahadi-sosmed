@@ -20,11 +20,7 @@ const poppins = localFont({
 export const metadata: Metadata = {
   title: "ahadi",
   description: "Dibuat oleh ahadi",
-  icons: {
-    icon: "/icon.png",
-    apple: "/apple-touch-icon.png",
-  },
-  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.png", apple: "/apple-touch-icon.png" },
   themeColor: "#0EA5E9",
 };
 

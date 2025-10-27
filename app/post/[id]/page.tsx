@@ -47,12 +47,11 @@ export default function PostDetailPage() {
   const [hasApresiasi, setHasApresiasi] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
-  // --- follow state ---
   const [authorId, setAuthorId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followBusy, setFollowBusy] = useState<boolean>(false);
 
-  // auth wiring
+  // auth
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -92,6 +91,7 @@ export default function PostDetailPage() {
 
       const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).single();
 
+      // hitung agregat sesuai skema baru
       const [{ count: likesCount }, { count: commentsCount }, { count: viewsCount }] = await Promise.all([
         supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", id).eq("liked", true),
         supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", id),
@@ -121,17 +121,17 @@ export default function PostDetailPage() {
     fetchPost();
   }, [id]);
 
-  // check suka/apresiasi
+  // cek status apresiasi dari db
   useEffect(() => {
     const checkApresiasi = async () => {
       if (!user || !id) return;
-      const { data } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
-      setHasApresiasi(data?.liked === true);
+      const { data, error } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
+      if (!error) setHasApresiasi(data?.liked === true);
     };
     checkApresiasi();
   }, [user, id]);
 
-  // cek status follow
+  // cek follow
   useEffect(() => {
     const checkFollow = async () => {
       if (!authorId || !user) return;
@@ -145,6 +145,7 @@ export default function PostDetailPage() {
     checkFollow();
   }, [authorId, user]);
 
+  // toggle apresiasi pakai upsert/update kolom liked
   const handleApresiasi = async () => {
     if (!user) {
       const qs = searchParams?.toString() ?? "";
@@ -152,18 +153,25 @@ export default function PostDetailPage() {
       router.push(`/login?redirectedFrom=${encodeURIComponent(current)}`);
       return;
     }
+
     const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
 
     if (!existing) {
-      await supabase.from("post_likes").insert([{ post_id: id, user_id: user.id, liked: true }]);
-      setHasApresiasi(true);
-      setLikeCount((prev) => prev + 1);
+      const { error } = await supabase.from("post_likes").upsert({ post_id: id as string, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
+      if (!error) {
+        setHasApresiasi(true);
+        setLikeCount((v) => v + 1);
+      }
       return;
     }
+
     const newLiked = !existing.liked;
-    await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", id).eq("user_id", user.id);
-    setHasApresiasi(newLiked);
-    setLikeCount((prev) => prev + (newLiked ? 1 : -1));
+    const { error } = await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", id).eq("user_id", user.id);
+
+    if (!error) {
+      setHasApresiasi(newLiked);
+      setLikeCount((v) => v + (newLiked ? 1 : -1));
+    }
   };
 
   const redirectToLogin = () => {
@@ -178,16 +186,14 @@ export default function PostDetailPage() {
       redirectToLogin();
       return;
     }
-    if (authorId === user.id) return; // tidak boleh follow diri sendiri
+    if (authorId === user.id) return;
 
     setFollowBusy(true);
     try {
       if (isFollowing) {
-        // UNFOLLOW
         const { error } = await supabase.from("user_followers").delete().eq("follower_id", user.id).eq("following_id", authorId);
         if (!error) setIsFollowing(false);
       } else {
-        // FOLLOW
         const { error } = await supabase.from("user_followers").insert([{ follower_id: user.id, following_id: authorId }]);
         if (!error) setIsFollowing(true);
       }
@@ -196,13 +202,26 @@ export default function PostDetailPage() {
     }
   };
 
+  const handleShare = async () => {
+    if (!post) return;
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const body = `${url}\n\n${post.title}`;
+
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ text: body });
+      } else {
+        await navigator.clipboard.writeText(body);
+        alert("Tautan disalin");
+      }
+    } catch {}
+  };
+
   if (loading || !post) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500 text-sm">Memuat postingan...</div>;
   }
 
-  const showFollow =
-    // tampilkan tombol follow jika ada authorId dan (belum login atau login tapi author != user)
-    authorId && (!user || (user && authorId !== user.id));
+  const showFollow = authorId && (!user || (user && authorId !== user.id));
 
   return (
     <div className="min-h-screen bg-white p-4">
@@ -279,8 +298,8 @@ export default function PostDetailPage() {
             <MessageCircle className="w-4 h-4" />
             <span>{post.comments}</span>
           </div>
-          <button className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Bagikan">
-            <Share2 className="w-4 h-4" />
+          <button onClick={handleShare} className="flex cursor-pointer items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Bagikan">
+            <Share2 className="w-4 h-4" />bagikan
           </button>
         </div>
       </div>
