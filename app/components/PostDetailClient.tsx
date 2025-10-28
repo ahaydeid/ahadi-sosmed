@@ -253,49 +253,43 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
     const title = post.title ?? "";
 
     try {
-      // 1) Jika Web Share API tersedia → gunakan title + url (JANGAN masukkan text yang juga berisi URL)
+      // 1) Prefer native Web Share API with title + text + url (best UX if supported)
       const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined;
       if (nav && typeof nav.share === "function") {
-        await nav.share({ title, url });
+        // sertakan text=title supaya banyak implementasi (jika mendukung) menaruh title di body
+        await nav.share({ title, text: title, url });
         return;
       }
 
-      // 2) Fallback untuk WA (wa.me)
-      //    — buka wa.me hanya dengan URL agar preview muncul sekali (menghindari duplikat)
-      //    — salin judul ke clipboard agar user dapat paste judul (title tetap tersedia)
-      //    — beri notifikasi singkat supaya user tahu title sudah disalin
-
-      // coba salin title ke clipboard (tidak mengandung url)
+      // 2) Fallback: salin title ke clipboard (so user can paste it) + buka wa.me hanya dengan URL
       if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
         try {
-          await navigator.clipboard.writeText(title);
-          // buka wa.me hanya dengan URL
-          const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+          await navigator.clipboard.writeText(title); // copy title only
+          const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`; // send URL only (preview once)
           const win = window.open(waUrl, "_blank");
           if (win) {
-            // beri tahu user title sudah disalin
-            // gunakan alert sederhana agar user langsung tahu; kamu bisa ganti ke UI toast
-            alert("Judul sudah disalin. Setelah WhatsApp terbuka, tempel (paste) judul di atas preview jika ingin menambahkan judul.");
+            // inform user title sudah di-clipboard dan tinggal paste
+            alert("Judul otomatis disalin. Setelah WhatsApp terbuka, tempel (paste) judul di atas preview jika ingin menambahkan judul.");
             return;
           }
         } catch {
-          // jika clipboard gagal, lanjut ke buka wa.me dengan URL saja
+          // clipboard failed — fallback ke membuka wa.me dengan URL saja
         }
       }
 
-      // jika clipboard tidak tersedia atau gagal, tetap buka wa.me dengan URL saja
+      // 3) Jika clipboard tidak tersedia / gagal, buka wa.me dengan URL saja
       const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
       const win = window.open(waUrl, "_blank");
       if (win) return;
 
-      // final fallback: salin kombinasi title+URL agar user dapat paste manual (walaupun ini berisiko duplikat pada beberapa klien)
+      // 4) Ultimate fallback: salin title+URL ke clipboard supaya user bisa paste manual
       if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
         await navigator.clipboard.writeText(`${title}\n\n${url}`);
         alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel (paste).");
         return;
       }
 
-      // ultimate fallback: prompt manual
+      // 5) Final fallback: prompt manual
       if (typeof window !== "undefined") {
         window.prompt("Salin judul (sudah otomatis ada) lalu buka WhatsApp dan tempel URL:", `${title}\n\n${url}`);
       }
