@@ -1,19 +1,14 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export const config = {
-  matcher: ["/((?!_next/|favicon.ico|robots.txt|sitemap.xml|site.webmanifest).*)"],
+  matcher: ["/((?!_next/|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest).*)"],
 };
 
 export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
-  // biarkan panggilan API lewat tanpa dicegah
-  if (p.startsWith("/api")) return NextResponse.next();
-
-  // biarkan halaman publik tertentu juga lewat
   if (p === "/" || p === "/login" || p.startsWith("/auth") || p === "/post" || p.startsWith("/post/")) {
     return NextResponse.next();
   }
