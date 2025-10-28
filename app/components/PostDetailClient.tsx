@@ -11,6 +11,7 @@ import CommentInput from "./CommentInput";
 import ReactMarkdown from "react-markdown";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
+import ModalLikes from "@/app/components/ModalLikes";
 
 const formatPostDate = (dateString: string): string => {
   const postDate = new Date(dateString);
@@ -52,6 +53,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
   const [user, setUser] = useState<User | null>(null);
 
   const [hasApresiasi, setHasApresiasi] = useState(false);
+  const [showLikes, setShowLikes] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
   const [authorId, setAuthorId] = useState<string | null>(null);
@@ -207,44 +209,6 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
     }
   };
 
-  // ogshare bisa
-  // const handleShare = async (): Promise<void> => {
-  //   if (!post) return;
-  //   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  //   // pakai slug kalau ada, fallback ke id
-  //   const sharePath = slug ?? post.id;
-  //   const url = `${origin}/post/${sharePath}`;
-  //   const title = post.title ?? "";
-  //   // URL awal supaya WA konsisten memunculkan preview
-  //   const textPayload = `${url}\n\n${title}`;
-
-  //   try {
-  //     const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-
-  //     if (canShare) {
-  //       await navigator.share({ title, text: textPayload, url });
-  //       return;
-  //     }
-
-  //     const encoded = encodeURIComponent(textPayload);
-  //     const waUrl = `https://wa.me/?text=${encoded}`;
-  //     const win = window.open(waUrl, "_blank");
-  //     if (win) return;
-
-  //     if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-  //       await navigator.clipboard.writeText(textPayload);
-  //       alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
-  //       return;
-  //     }
-
-  //     if (typeof window !== "undefined") {
-  //       window.prompt("Salin tautan ini:", textPayload);
-  //     }
-  //   } catch (err) {
-  //     console.error("share failed:", err);
-  //   }
-  // };
-
   const handleShare = async (): Promise<void> => {
     if (!post) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -363,15 +327,15 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
             <Eye className="w-4 h-4" />
             <span>{post.views}</span>
           </div>
-          <div className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2">
+          <button onClick={() => setShowLikes(true)} className="flex cursor-pointer hover:text-sky-400 items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Lihat yang menyukai">
             <Heart className="w-4 h-4" />
             <span>{likeCount}</span>
-          </div>
+          </button>
           <div className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2">
             <MessageCircle className="w-4 h-4" />
             <span>{post.comments}</span>
           </div>
-          <button onClick={handleShare} className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Bagikan">
+          <button onClick={handleShare} className="flex items-center gap-1 cursor-pointer hover:text-sky-400 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Bagikan">
             <Share2 className="w-4 h-4" />
             bagikan
           </button>
@@ -391,6 +355,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
 
       <h2 className="text-lg font-bold mb-4 mt-4">Komentar</h2>
       <PostComments key={post.id} postId={post.id} />
+      <ModalLikes postId={post.id} open={showLikes} onClose={() => setShowLikes(false)} />
     </div>
   );
 }
