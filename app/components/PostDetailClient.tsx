@@ -216,21 +216,36 @@ export default function PostDetailPage() {
 
   const handleShare = async (): Promise<void> => {
     if (!post) return;
+
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
-    const caption = post.title ?? "";
-    const body = `${url}\n\n${caption}`;
+    const title = post.title ?? "";
 
     try {
       const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
       if (canShare) {
-        await navigator.share({ text: body });
+        // Kirim url sebagai field terpisah (agar preview/OG tetap digunakan)
+        // dan text hanya berisi dua baris kosong + title supaya terlihat:
+        // [preview/url di atas]
+        //
+        //
+        // [title di bawah]
+        const shareData: ShareData = {
+          title,
+          text: `\n\n${title}`,
+          url,
+        };
+        await navigator.share(shareData);
         return;
       }
 
-      await navigator.clipboard.writeText(body);
+      // Fallback: salin ke clipboard: url lalu 2x enter lalu title
+      await navigator.clipboard.writeText(`${url}\n\n${title}`);
       alert("Tautan disalin");
-    } catch {}
+    } catch (err) {
+      console.error("share failed:", err);
+    }
   };
 
   if (loading || !post) {
