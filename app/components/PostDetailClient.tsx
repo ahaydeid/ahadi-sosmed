@@ -207,37 +207,71 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
     }
   };
 
+  // Ini bisa Og tapi ada url dibawah title
+  // const handleShare = async (): Promise<void> => {
+  //   if (!post) return;
+  //   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  //   // pakai slug kalau ada, fallback ke id
+  //   const sharePath = slug ?? post.id;
+  //   const url = `${origin}/post/${sharePath}`;
+  //   const title = post.title ?? "";
+  //   // URL awal supaya WA konsisten memunculkan preview
+  //   const textPayload = `${url}\n\n${title}`;
+
+  //   try {
+  //     const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  //     if (canShare) {
+  //       await navigator.share({ title, text: textPayload, url });
+  //       return;
+  //     }
+
+  //     const encoded = encodeURIComponent(textPayload);
+  //     const waUrl = `https://wa.me/?text=${encoded}`;
+  //     const win = window.open(waUrl, "_blank");
+  //     if (win) return;
+
+  //     if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+  //       await navigator.clipboard.writeText(textPayload);
+  //       alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
+  //       return;
+  //     }
+
+  //     if (typeof window !== "undefined") {
+  //       window.prompt("Salin tautan ini:", textPayload);
+  //     }
+  //   } catch (err) {
+  //     console.error("share failed:", err);
+  //   }
+  // };
+
   const handleShare = async (): Promise<void> => {
     if (!post) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    // pakai slug kalau ada, fallback ke id
-    const sharePath = slug ?? post.id;
+    const sharePath = (typeof slug !== "undefined" ? slug : post.id) as string;
     const url = `${origin}/post/${sharePath}`;
     const title = post.title ?? "";
-    // URL awal supaya WA konsisten memunculkan preview
-    const textPayload = `${url}\n\n${title}`;
 
     try {
-      const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-
-      if (canShare) {
-        await navigator.share({ title, text: textPayload, url });
+      const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }) : undefined;
+      if (nav?.share) {
+        await nav.share({ title, url });
         return;
       }
 
-      const encoded = encodeURIComponent(textPayload);
-      const waUrl = `https://wa.me/?text=${encoded}`;
-      const win = window.open(waUrl, "_blank");
+      const waText = encodeURIComponent(url);
+      const waUrl = `https://wa.me/?text=${waText}`;
+      const win = typeof window !== "undefined" ? window.open(waUrl, "_blank", "noopener,noreferrer") : null;
       if (win) return;
 
-      if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-        await navigator.clipboard.writeText(textPayload);
-        alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
+      if (typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function") {
+        await navigator.clipboard.writeText(url);
+        alert("Tautan telah disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
         return;
       }
 
       if (typeof window !== "undefined") {
-        window.prompt("Salin tautan ini:", textPayload);
+        window.prompt("Salin tautan ini:", url);
       }
     } catch (err) {
       console.error("share failed:", err);
