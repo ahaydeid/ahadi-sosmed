@@ -47,27 +47,53 @@ async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return img;
 }
 
-async function compressToWebP(file: File, opts: CompressOpts): Promise<Blob> {
-  const { maxWidth, maxHeight, maxSizeKB, initialQuality, minQuality, qualityStep } = opts;
+async function compressToPng(file: File, opts: CompressOpts): Promise<Blob> {
+  const { maxWidth, maxHeight, maxSizeKB } = opts;
   const img = await loadImageFromFile(file);
   const srcW = img.naturalWidth || img.width;
   const srcH = img.naturalHeight || img.height;
-  const { width, height } = getTargetSize(srcW, srcH, maxWidth, maxHeight);
+  let { width, height } = getTargetSize(srcW, srcH, maxWidth, maxHeight);
 
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D tidak tersedia.");
+
+  // pertama coba ukuran target
+  canvas.width = width;
+  canvas.height = height;
   ctx.drawImage(img, 0, 0, width, height);
   URL.revokeObjectURL(img.src);
 
-  let q = initialQuality;
-  let out = await blobFromCanvas(canvas, "image/webp", q);
-  while (out.size / 1024 > maxSizeKB && q > minQuality) {
-    q = Math.max(minQuality, q - qualityStep);
-    out = await blobFromCanvas(canvas, "image/webp", q);
+  let out = await blobFromCanvas(canvas, "image/png", 1);
+
+  // Jika masih terlalu besar, iterasi dengan mengecilkan dimensi (scale down)
+  let scale = 0.9;
+  while (out.size / 1024 > maxSizeKB && width > 100 && height > 100) {
+    width = Math.max(100, Math.floor(width * scale));
+    height = Math.max(100, Math.floor(height * scale));
+    canvas.width = width;
+    canvas.height = height;
+    const ctx2 = canvas.getContext("2d");
+    if (!ctx2) throw new Error("Canvas 2D tidak tersedia.");
+    ctx2.drawImage(img, 0, 0, width, height);
+    out = await blobFromCanvas(canvas, "image/png", 1);
+    // turunkan lagi scale sedikit demi sedikit
+    scale = Math.max(0.6, scale - 0.05);
+    // jika scale sangat kecil, break untuk menghindari loop tak berujung
+    if (scale <= 0.6) {
+      // terakhir coba sekali lagi dengan ukuran minimum yang wajar
+      width = Math.max(100, Math.floor(width * 0.9));
+      height = Math.max(100, Math.floor(height * 0.9));
+      canvas.width = width;
+      canvas.height = height;
+      const ctx3 = canvas.getContext("2d");
+      if (!ctx3) throw new Error("Canvas 2D tidak tersedia.");
+      ctx3.drawImage(img, 0, 0, width, height);
+      out = await blobFromCanvas(canvas, "image/png", 1);
+      break;
+    }
   }
+
   return out;
 }
 
@@ -114,8 +140,8 @@ export default function WritePage() {
     if (file.size > COMPRESS_THRESHOLD_BYTES) {
       setCompressing(true);
       try {
-        const webpBlob = await compressToWebP(file, COMPRESS_PREF);
-        setCompressedBlob(webpBlob);
+        const pngBlob = await compressToPng(file, COMPRESS_PREF);
+        setCompressedBlob(pngBlob);
       } catch (err) {
         console.error("Gagal kompres gambar:", err);
         setCompressedBlob(null); // fallback ke file asli saat upload
@@ -151,12 +177,12 @@ export default function WritePage() {
       let imageUrl: string | null = null;
       if (image) {
         const blobToUpload = compressedBlob ?? image; // pakai kompres kalau ada
-        const ext = compressedBlob ? "webp" : image.name.split(".").pop() || "jpg";
+        const ext = compressedBlob ? "png" : image.name.split(".").pop() || "jpg";
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
         const filePath = `${userId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage.from("post-images").upload(filePath, blobToUpload, {
-          contentType: compressedBlob ? "image/webp" : image.type || "application/octet-stream",
+          contentType: compressedBlob ? "image/png" : image.type || "application/octet-stream",
           upsert: false,
         });
 
@@ -243,7 +269,7 @@ export default function WritePage() {
           <p className="text-sm text-gray-600">
             Gambar dipilih: <strong>{image.name}</strong>
             {image.size <= 512000 && " • (≤ 500 KB, tidak dikompresi)"}
-            {compressedBlob && ` • Setelah kompres: ~${Math.round(compressedBlob.size / 1024)} KB (WebP)`}
+            {compressedBlob && ` • Setelah kompres: ~${Math.round(compressedBlob.size / 1024)} KB (PNG)`}
             {compressing && " • Mengompres..."}
           </p>
         )}
