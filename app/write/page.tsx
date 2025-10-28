@@ -5,13 +5,19 @@ import { useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import dynamic from "next/dynamic";
 
-// SimpleMDE hanya dirender di client
+declare global {
+  interface Window {
+    UPNG?: {
+      encode(frames: ArrayBuffer[], width: number, height: number, colors?: number): ArrayBuffer;
+    };
+  }
+}
+
 const SimpleMdeEditor = dynamic(() => import("react-simplemde-editor"), {
   ssr: false,
   loading: () => <div className="text-gray-500 p-3">Memuat editor...</div>,
 });
 
-/* ========= UTIL KOMPRESI (native, tanpa lib) ========= */
 type CompressOpts = {
   maxWidth: number;
   maxHeight: number;
@@ -47,66 +53,74 @@ async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return img;
 }
 
-async function compressToPng(file: File, opts: CompressOpts): Promise<Blob> {
-  const { maxWidth, maxHeight, maxSizeKB } = opts;
+async function convertToPng(file: File, opts: CompressOpts): Promise<Blob> {
   const img = await loadImageFromFile(file);
   const srcW = img.naturalWidth || img.width;
   const srcH = img.naturalHeight || img.height;
-  let { width, height } = getTargetSize(srcW, srcH, maxWidth, maxHeight);
-
+  const { width, height } = getTargetSize(srcW, srcH, opts.maxWidth, opts.maxHeight);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D tidak tersedia.");
-
-  // pertama coba ukuran target
   canvas.width = width;
   canvas.height = height;
   ctx.drawImage(img, 0, 0, width, height);
   URL.revokeObjectURL(img.src);
-
-  let out = await blobFromCanvas(canvas, "image/png", 1);
-
-  // Jika masih terlalu besar, iterasi dengan mengecilkan dimensi (scale down)
-  let scale = 0.9;
-  while (out.size / 1024 > maxSizeKB && width > 100 && height > 100) {
-    width = Math.max(100, Math.floor(width * scale));
-    height = Math.max(100, Math.floor(height * scale));
-    canvas.width = width;
-    canvas.height = height;
-    const ctx2 = canvas.getContext("2d");
-    if (!ctx2) throw new Error("Canvas 2D tidak tersedia.");
-    ctx2.drawImage(img, 0, 0, width, height);
-    out = await blobFromCanvas(canvas, "image/png", 1);
-    // turunkan lagi scale sedikit demi sedikit
-    scale = Math.max(0.6, scale - 0.05);
-    // jika scale sangat kecil, break untuk menghindari loop tak berujung
-    if (scale <= 0.6) {
-      // terakhir coba sekali lagi dengan ukuran minimum yang wajar
-      width = Math.max(100, Math.floor(width * 0.9));
-      height = Math.max(100, Math.floor(height * 0.9));
-      canvas.width = width;
-      canvas.height = height;
-      const ctx3 = canvas.getContext("2d");
-      if (!ctx3) throw new Error("Canvas 2D tidak tersedia.");
-      ctx3.drawImage(img, 0, 0, width, height);
-      out = await blobFromCanvas(canvas, "image/png", 1);
-      break;
-    }
-  }
-
+  const out = await blobFromCanvas(canvas, "image/png", 1);
   return out;
 }
 
-/* ================== KOMPONEN ================== */
+async function compressToPng(file: File, opts: CompressOpts): Promise<Blob> {
+  const img = await loadImageFromFile(file);
+  const srcW = img.naturalWidth || img.width;
+  const srcH = img.naturalHeight || img.height;
+  let { width, height } = getTargetSize(srcW, srcH, opts.maxWidth, opts.maxHeight);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D tidak tersedia.");
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(img, 0, 0, width, height);
+  URL.revokeObjectURL(img.src);
+  let out = await blobFromCanvas(canvas, "image/png", 1);
+  if (out.size / 1024 <= opts.maxSizeKB) return out;
+  const scales = [0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4];
+  for (const s of scales) {
+    if (width <= 100 || height <= 100) break;
+    width = Math.max(100, Math.floor(width * s));
+    height = Math.max(100, Math.floor(height * s));
+    canvas.width = width;
+    canvas.height = height;
+    const c = canvas.getContext("2d");
+    if (!c) throw new Error("Canvas 2D tidak tersedia.");
+    c.drawImage(img, 0, 0, width, height);
+    out = await blobFromCanvas(canvas, "image/png", 1);
+    if (out.size / 1024 <= opts.maxSizeKB) return out;
+  }
+  try {
+    const UPNG = window.UPNG;
+    if (typeof UPNG !== "undefined") {
+      const ctx2 = canvas.getContext("2d")!;
+      const imgData = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+      const rgba = new Uint8Array(imgData.data.buffer);
+      const pngBuf = UPNG.encode([rgba.buffer], canvas.width, canvas.height, 256);
+      const paletted = new Blob([pngBuf], { type: "image/png" });
+      if (paletted.size / 1024 <= opts.maxSizeKB) return paletted;
+      out = paletted;
+    }
+  } catch (err) {
+    console.error("UPNG failed:", err);
+  }
+  return out;
+}
+
 export default function WritePage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [image, setImage] = useState<File | null>(null); // file asli
-  const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null); // hasil kompres (jika >500KB)
+  const [image, setImage] = useState<File | null>(null);
+  const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null);
   const [compressing, setCompressing] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Opsi Editor (kembalikan seperti awal)
   const mdeOptions = useMemo(() => {
     return {
       spellChecker: false,
@@ -117,37 +131,44 @@ export default function WritePage() {
     };
   }, []);
 
-  // Preferensi kompresi
   const COMPRESS_PREF: CompressOpts = {
     maxWidth: 1280,
     maxHeight: 1280,
-    maxSizeKB: 800, // target setelah kompres
+    maxSizeKB: 200,
     initialQuality: 0.8,
     minQuality: 0.4,
     qualityStep: 0.1,
   };
-  const COMPRESS_THRESHOLD_BYTES = 500 * 1024; // hanya kompres jika > 500KB
+  const COMPRESS_THRESHOLD_BYTES = 200 * 1024;
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setImage(null);
     setCompressedBlob(null);
     if (!file) return;
-
     setImage(file);
-
-    // Kompres hanya jika file > 500KB
-    if (file.size > COMPRESS_THRESHOLD_BYTES) {
-      setCompressing(true);
-      try {
-        const pngBlob = await compressToPng(file, COMPRESS_PREF);
-        setCompressedBlob(pngBlob);
-      } catch (err) {
-        console.error("Gagal kompres gambar:", err);
-        setCompressedBlob(null); // fallback ke file asli saat upload
-      } finally {
-        setCompressing(false);
+    setCompressing(true);
+    try {
+      if (file.size >= COMPRESS_THRESHOLD_BYTES) {
+        try {
+          const pngBlob = await compressToPng(file, COMPRESS_PREF);
+          setCompressedBlob(pngBlob);
+        } catch (err) {
+          console.error("Gagal kompres, fallback convert:", err);
+          const fallback = await convertToPng(file, COMPRESS_PREF);
+          setCompressedBlob(fallback);
+        }
+      } else {
+        try {
+          const pngBlob = await convertToPng(file, COMPRESS_PREF);
+          setCompressedBlob(pngBlob);
+        } catch (err) {
+          console.error("Gagal convert ke PNG:", err);
+          setCompressedBlob(null);
+        }
       }
+    } finally {
+      setCompressing(false);
     }
   };
 
@@ -157,59 +178,49 @@ export default function WritePage() {
       alert("Judul dan isi tidak boleh kosong.");
       return;
     }
-
     setLoading(true);
-
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
       const userId = session?.user?.id;
       if (!userId) {
         alert("Kamu belum login!");
         return;
       }
-
       const authorImage = session?.user?.user_metadata?.avatar_url || null;
-
-      // Upload gambar (jika ada)
       let imageUrl: string | null = null;
       if (image) {
-        const blobToUpload = compressedBlob ?? image; // pakai kompres kalau ada
-        const ext = compressedBlob ? "png" : image.name.split(".").pop() || "jpg";
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.png`;
         const filePath = `${userId}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage.from("post-images").upload(filePath, blobToUpload, {
-          contentType: compressedBlob ? "image/png" : image.type || "application/octet-stream",
+        let uploadFile: File;
+        if (compressedBlob) {
+          uploadFile = new File([compressedBlob], fileName, { type: "image/png" });
+        } else {
+          uploadFile = new File([image], fileName, { type: "image/png" });
+        }
+        const { error: uploadError } = await supabase.storage.from("post-images").upload(filePath, uploadFile, {
+          contentType: "image/png",
           upsert: false,
         });
-
         if (uploadError) {
           console.error("Gagal upload gambar:", uploadError.message);
           alert("Gagal mengunggah gambar.");
           return;
         }
-
         const { data: publicUrlData } = supabase.storage.from("post-images").getPublicUrl(filePath);
         imageUrl = publicUrlData.publicUrl;
       }
-
-      // Buat post
       const { data: newPost, error: postError } = await supabase
         .from("post")
         .insert([{ user_id: userId }])
         .select("id")
         .single();
-
       if (postError || !newPost?.id) {
         console.error("Gagal membuat post:", postError);
         alert("Gagal membuat post.");
         return;
       }
-
-      // Simpan konten
       const { error: contentError } = await supabase.from("post_content").insert([
         {
           post_id: newPost.id,
@@ -219,13 +230,11 @@ export default function WritePage() {
           author_image: authorImage,
         },
       ]);
-
       if (contentError) {
         console.error("Gagal menyimpan konten:", contentError.message);
         alert("Gagal menyimpan konten post.");
         return;
       }
-
       alert("Tulisan berhasil dikirim!");
       setTitle("");
       setContent("");
@@ -244,7 +253,6 @@ export default function WritePage() {
       <h1 className="text-2xl font-bold mb-4">Buat Tulisan</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Judul */}
         <input
           type="text"
           placeholder="Judul"
@@ -253,12 +261,10 @@ export default function WritePage() {
           className="w-full bg-white border rounded px-3 py-3 text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500"
         />
 
-        {/* Editor (tak diubah selain perbaikan CSS global) */}
         <div className="border rounded-md focus:ring-1 focus:ring-gray-600">
           <SimpleMdeEditor value={content} onChange={setContent} options={mdeOptions} />
         </div>
 
-        {/* Upload Gambar */}
         <label htmlFor="image" className="flex bg-gray-200 w-full md:w-[20%] items-center gap-2 border rounded-md px-3 py-2 cursor-pointer hover:bg-gray-100 transition">
           <ImageIcon className="w-5 h-5" />
           <span className="text-sm">Tambahkan gambar</span>
@@ -274,7 +280,6 @@ export default function WritePage() {
           </p>
         )}
 
-        {/* Submit */}
         <button type="submit" disabled={loading || compressing} className="w-full bg-black text-white font-bold py-4 rounded-md hover:bg-gray-900 transition disabled:opacity-50">
           {loading ? "Mengirim..." : compressing ? "Menunggu kompresi..." : "Kirim Tulisan"}
         </button>

@@ -200,20 +200,26 @@ export default function PostDetailPage() {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
     const title = post.title ?? "";
+
     try {
       const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+      const textPayload = `${url}\n\n${title}`;
+
       if (canShare) {
-        const shareData: ShareData = { title, text: `\n\n${title}`, url };
-        await navigator.share(shareData);
+        // letakkan URL dulu di text supaya WA dapat preview
+        await navigator.share({ title, text: textPayload });
         return;
       }
+
+      // fallback: salin ke clipboard supaya user paste ke Status/Chat (WA akan render preview ketika paste)
       if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-        await navigator.clipboard.writeText(`${url}\n\n${title}`);
-        alert("Tautan disalin");
+        await navigator.clipboard.writeText(textPayload);
+        alert("Tautan dan judul telah disalin. Buka WhatsApp dan tempel ke Status atau chat.");
         return;
       }
+
       if (typeof window !== "undefined") {
-        window.prompt("Salin tautan ini:", `${url}\n\n${title}`);
+        window.prompt("Salin tautan ini:", textPayload);
       }
     } catch (err) {
       console.error("share failed:", err);
