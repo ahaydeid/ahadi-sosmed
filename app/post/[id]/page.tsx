@@ -1,3 +1,4 @@
+//plesase
 import PostDetailClient from "@/app/components/PostDetailClient";
 
 import { supabaseServer } from "@/lib/supabaseServer";
