@@ -10,6 +10,10 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
+  // biarkan panggilan API lewat tanpa dicegah
+  if (p.startsWith("/api")) return NextResponse.next();
+
+  // biarkan halaman publik tertentu juga lewat
   if (p === "/" || p === "/login" || p.startsWith("/auth") || p === "/post" || p.startsWith("/post/")) {
     return NextResponse.next();
   }
