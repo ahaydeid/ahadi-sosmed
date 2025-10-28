@@ -203,19 +203,41 @@ export default function PostDetailPage() {
     }
   };
 
-  const handleShare = async () => {
+  // const handleShare = async () => {
+  //   if (!post) return;
+  //   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  //   const url = `${origin}/post/${post.id}`;
+  //   const body = `${url}\n\n${post.title}`;
+  //   try {
+  //     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+  //       await navigator.share({ text: body });
+  //     } else {
+  //       await navigator.clipboard.writeText(body);
+  //       alert("Tautan disalin");
+  //     }
+  //   } catch {}
+  // };
+
+  const handleShare = async (): Promise<void> => {
     if (!post) return;
+
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
-    const body = `${url}\n\n${post.title}`;
+
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        await navigator.share({ text: body });
-      } else {
-        await navigator.clipboard.writeText(body);
-        alert("Tautan disalin");
+      const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+      if (canShare) {
+        // kirim url saja agar WA memunculkan kartu link
+        await navigator.share({ url });
+        return;
       }
-    } catch {}
+
+      // fallback kalau Web Share tidak ada
+      await navigator.clipboard.writeText(url);
+      alert("Tautan disalin");
+    } catch {
+      // diam saja kalau gagal
+    }
   };
 
   if (loading || !post) {
