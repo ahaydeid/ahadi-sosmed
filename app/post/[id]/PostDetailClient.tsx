@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, usePathname, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { Star, Eye, Heart, MessageCircle, ChevronLeft, Share2 } from "lucide-react";
 import Image from "next/image";
 import PostComments from "../../components/PostComments";
 import CommentInput from "@/app/components/CommentInput";
@@ -194,18 +195,22 @@ export default function PostDetailPage() {
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = async (): Promise<void> => {
     if (!post) return;
+
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
-    const body = `${url}\n\n${post.title}`;
+    const caption = post.title ?? "";
+
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        await navigator.share({ text: body });
-      } else {
-        await navigator.clipboard.writeText(body);
-        alert("Tautan disalin");
+      const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+      if (canShare) {
+        await navigator.share({ url, text: caption });
+        return;
       }
+
+      await navigator.clipboard.writeText(`${url}\n\n${caption}`);
+      alert("Tautan disalin");
     } catch {}
   };
 
@@ -220,7 +225,7 @@ export default function PostDetailPage() {
     <div className="min-h-screen bg-white p-4">
       <div className="sticky top-0 left-0 right-0 h-12 bg-white border-b border-gray-200 z-10 flex items-center px-4 -mx-4">
         <button onClick={() => window.history.back()} className="absolute left-4 rounded-full hover:bg-gray-100 transition z-20" aria-label="Kembali">
-          <span className="sr-only">Kembali</span>
+          <ChevronLeft className="w-6 h-6 text-gray-800" />
         </button>
         <div className="flex-1 text-center">
           <h2 className="font-base text-gray-800 truncate">Tulisan {post.author}</h2>
@@ -279,23 +284,25 @@ export default function PostDetailPage() {
           className={`text-sm px-3 py-2 rounded flex items-center gap-1 border transition
             ${hasApresiasi ? "bg-black text-white border-black" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"}`}
         >
+          <Star className="w-4 h-4" />
           {hasApresiasi ? "diapresiasi" : "apresiasi"}
         </button>
 
         <div className="flex items-center gap-3 border-gray-200 border rounded px-3 py-2 w-fit">
           <div className="flex items-center gap-1 text-gray-700 text-sm">
-            <span>lihat</span>
+            <Eye className="w-4 h-4" />
             <span>{post.views}</span>
           </div>
           <div className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2">
-            <span>like</span>
+            <Heart className="w-4 h-4" />
             <span>{likeCount}</span>
           </div>
           <div className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2">
-            <span>komentar</span>
+            <MessageCircle className="w-4 h-4" />
             <span>{post.comments}</span>
           </div>
           <button onClick={handleShare} className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Bagikan">
+            <Share2 className="w-4 h-4" />
             bagikan
           </button>
         </div>
