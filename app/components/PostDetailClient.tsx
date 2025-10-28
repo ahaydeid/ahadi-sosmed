@@ -195,56 +195,46 @@ export default function PostDetailPage() {
     }
   };
 
-  // const handleShare = async (): Promise<void> => {
-  //   if (!post) return;
-
-  //   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  //   const url = `${origin}/post/${post.id}`;
-  //   const caption = post.title ?? "";
-
-  //   try {
-  //     const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-  //     if (canShare) {
-  //       await navigator.share({ url, text: caption });
-  //       return;
-  //     }
-
-  //     await navigator.clipboard.writeText(`${url}\n\n${caption}`);
-  //     alert("Tautan disalin");
-  //   } catch {}
-  // };
-
   const handleShare = async (): Promise<void> => {
     if (!post) return;
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
     const title = post.title ?? "";
+    const text = `${url}\n\n${title}`; // fallback text persis permintaanmu
 
     try {
-      const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+      const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }) : null;
 
-      if (canShare) {
-        // Kirim url sebagai field terpisah (agar preview/OG tetap digunakan)
-        // dan text hanya berisi dua baris kosong + title supaya terlihat:
-        // [preview/url di atas]
-        //
-        //
-        // [title di bawah]
+      // Jika Web Share API tersedia, kirim url terpisah + text = dua enter + title
+      if (nav && typeof nav.share === "function") {
         const shareData: ShareData = {
           title,
-          text: `\n\n${title}`,
+          text: `\n\n${title}`, // biar preview (dari url) di atas, title di bawah (dengan 2 enter)
           url,
         };
-        await navigator.share(shareData);
+        await nav.share(shareData);
         return;
       }
 
-      // Fallback: salin ke clipboard: url lalu 2x enter lalu title
-      await navigator.clipboard.writeText(`${url}\n\n${title}`);
-      alert("Tautan disalin");
+      // Fallback cepat: buka wa.me (lebih andal membuka composer WA dengan teks yang kita mau)
+      // ini akan membuka WhatsApp (web atau app) dengan teks: url \n\n title
+      if (typeof window !== "undefined") {
+        const waHref = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        // open di tab baru, target behavior akan membuka app WA di mobile
+        window.open(waHref, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      // Terakhir: salin ke clipboard
+      if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(text);
+        alert("Tautan disalin");
+        return;
+      }
     } catch (err) {
       console.error("share failed:", err);
+      // Jangan crash UI
     }
   };
 

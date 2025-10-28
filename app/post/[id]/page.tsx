@@ -13,8 +13,20 @@ export async function generateMetadata({ params }: Props) {
 
   const title = content?.title ?? "ahadi";
   const desc = (content?.description ?? "").replace(/\n/g, " ").slice(0, 160);
-  const image = content?.image_url ?? "https://ahadi.my.id/icon.png";
-  const ogImage = image.endsWith(".webp") ? "https://ahadi.my.id/icon.png" : image;
+
+  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://ahadi.my.id";
+  const rawImage = content?.image_url ?? `${base}/icon.png`;
+  const absImage = (() => {
+    try {
+      return new URL(rawImage, base).href;
+    } catch {
+      return rawImage;
+    }
+  })();
+
+  const isWebp = /\.webp(\?.*)?$/i.test(absImage);
+  const ogImage = isWebp ? `${base}/icon.png` : absImage;
+  const pageUrl = `${base}/post/${id}`;
 
   return {
     title,
@@ -22,16 +34,13 @@ export async function generateMetadata({ params }: Props) {
     openGraph: {
       title,
       description: desc,
+      url: pageUrl, // penting: sertakan url di OG
       images: [{ url: ogImage, width: 1200, height: 630 }],
       type: "article",
     },
     twitter: { card: "summary_large_image" },
   };
 }
-
-
-
-
 
 export default async function Page({ params }: Props) {
   const { id } = await params;
