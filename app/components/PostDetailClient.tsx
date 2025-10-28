@@ -195,21 +195,40 @@ export default function PostDetailPage() {
     }
   };
 
+  // const handleShare = async (): Promise<void> => {
+  //   if (!post) return;
+
+  //   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  //   const url = `${origin}/post/${post.id}`;
+  //   const caption = post.title ?? "";
+
+  //   try {
+  //     const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  //     if (canShare) {
+  //       await navigator.share({ url, text: caption });
+  //       return;
+  //     }
+
+  //     await navigator.clipboard.writeText(`${url}\n\n${caption}`);
+  //     alert("Tautan disalin");
+  //   } catch {}
+  // };
+
   const handleShare = async (): Promise<void> => {
     if (!post) return;
-
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
     const caption = post.title ?? "";
+    const body = `${url}\n\n${caption}`;
 
     try {
       const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
       if (canShare) {
-        await navigator.share({ url, text: caption });
+        await navigator.share({ text: body });
         return;
       }
 
-      await navigator.clipboard.writeText(`${url}\n\n${caption}`);
+      await navigator.clipboard.writeText(body);
       alert("Tautan disalin");
     } catch {}
   };
