@@ -207,7 +207,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
     }
   };
 
-  // Ini bisa Og tapi ada url dibawah title
+  // ogshare bisa
   // const handleShare = async (): Promise<void> => {
   //   if (!post) return;
   //   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -248,32 +248,54 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
   const handleShare = async (): Promise<void> => {
     if (!post) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const sharePath = (typeof slug !== "undefined" ? slug : post.id) as string;
+    const sharePath = slug ?? post.id;
     const url = `${origin}/post/${sharePath}`;
     const title = post.title ?? "";
 
     try {
-      const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }) : undefined;
-      if (nav?.share) {
+      // definisi tipe agar TS mengenal navigator.share tanpa pakai "any"
+      type NavigatorWithShare = Navigator & { share?: (data: ShareData) => Promise<void> };
+      const nav = typeof navigator !== "undefined" ? (navigator as NavigatorWithShare) : undefined;
+
+      // 1) Web Share API (paling bersih — sering mencegah double URL)
+      if (nav && typeof nav.share === "function") {
         await nav.share({ title, url });
         return;
       }
 
-      const waText = encodeURIComponent(url);
-      const waUrl = `https://wa.me/?text=${waText}`;
-      const win = typeof window !== "undefined" ? window.open(waUrl, "_blank", "noopener,noreferrer") : null;
-      if (win) return;
+      // 2) Fallback: salin title ke clipboard (jika tersedia) lalu buka wa.me hanya dengan URL
+      const canClipboard = typeof navigator !== "undefined" && !!navigator.clipboard && typeof navigator.clipboard.writeText === "function";
+      if (canClipboard) {
+        try {
+          await navigator.clipboard.writeText(title);
+          const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+          const opened = window.open(waUrl, "_blank");
+          if (opened) return;
+          alert("Judul telah disalin ke clipboard. Buka WhatsApp dan tempel (paste) jika ingin menambahkan judul. Jika popup diblokir, link akan dibuka di halaman ini.");
+          window.location.href = waUrl;
+          return;
+        } catch {
+          // kalau clipboard gagal, lanjut ke fallback berikutnya
+        }
+      }
 
-      if (typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function") {
-        await navigator.clipboard.writeText(url);
-        alert("Tautan telah disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
+      // 3) Final fallback: kirim title+url via wa.me (mungkin menghasilkan double URL)
+      const textPayload = `${title}\n\n${url}`;
+      const waUrlFallback = `https://wa.me/?text=${encodeURIComponent(textPayload)}`;
+      const opened2 = window.open(waUrlFallback, "_blank");
+      if (opened2) return;
+
+      // 4) Jika semua gagal, coba salin textPayload atau tampilkan prompt
+      if (canClipboard) {
+        await navigator.clipboard.writeText(textPayload);
+        alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel (paste).");
         return;
       }
 
       if (typeof window !== "undefined") {
-        window.prompt("Salin tautan ini:", url);
+        window.prompt("Salin tautan ini:", textPayload);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("share failed:", err);
     }
   };
