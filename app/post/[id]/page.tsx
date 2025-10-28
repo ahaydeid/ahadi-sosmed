@@ -25,7 +25,7 @@ export default async function Page({ params }: Props) {
   // render client component TANPA mengirim postId
   // PostDetailClient akan baca id lewat useParams()
   return (
-    <div className="min-h-screen p-4 bg-white">
+    <div className="min-h-screen bg-white">
       <h1 className="sr-only">{post.id}</h1>
       <PostDetailClient />
     </div>
