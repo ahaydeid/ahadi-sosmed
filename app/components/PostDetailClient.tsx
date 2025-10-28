@@ -251,47 +251,33 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
     const sharePath = slug ?? post.id;
     const url = `${origin}/post/${sharePath}`;
     const title = post.title ?? "";
-
     try {
-      // 1) Prefer native Web Share API with title + text + url (best UX if supported)
       const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined;
       if (nav && typeof nav.share === "function") {
-        // sertakan text=title supaya banyak implementasi (jika mendukung) menaruh title di body
-        await nav.share({ title, text: title, url });
+        await nav.share({ title, text: `${url}\n\n${title}`, url });
         return;
       }
-
-      // 2) Fallback: salin title ke clipboard (so user can paste it) + buka wa.me hanya dengan URL
       if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
         try {
-          await navigator.clipboard.writeText(title); // copy title only
-          const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`; // send URL only (preview once)
+          await navigator.clipboard.writeText(title);
+          const waUrl = `https://wa.me/?text=${encodeURIComponent(`${url}\n\n${title}`)}`;
           const win = window.open(waUrl, "_blank");
           if (win) {
-            // inform user title sudah di-clipboard dan tinggal paste
             alert("Judul otomatis disalin. Setelah WhatsApp terbuka, tempel (paste) judul di atas preview jika ingin menambahkan judul.");
             return;
           }
-        } catch {
-          // clipboard failed — fallback ke membuka wa.me dengan URL saja
-        }
+        } catch {}
       }
-
-      // 3) Jika clipboard tidak tersedia / gagal, buka wa.me dengan URL saja
-      const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(`${url}\n\n${title}`)}`;
       const win = window.open(waUrl, "_blank");
       if (win) return;
-
-      // 4) Ultimate fallback: salin title+URL ke clipboard supaya user bisa paste manual
       if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-        await navigator.clipboard.writeText(`${title}\n\n${url}`);
+        await navigator.clipboard.writeText(`${url}\n\n${title}`);
         alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel (paste).");
         return;
       }
-
-      // 5) Final fallback: prompt manual
       if (typeof window !== "undefined") {
-        window.prompt("Salin judul (sudah otomatis ada) lalu buka WhatsApp dan tempel URL:", `${title}\n\n${url}`);
+        window.prompt("Salin teks ini lalu buka WhatsApp dan tempel:", `${url}\n\n${title}`);
       }
     } catch (err) {
       console.error("share failed:", err);
