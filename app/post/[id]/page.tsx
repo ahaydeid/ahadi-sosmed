@@ -1,20 +1,40 @@
-// app/post/[id]/page.tsx
-import PostDetailClient from "./PostDetailClient";
+import PostDetailClient from "@/app/components/PostDetailClient";
+
 import { supabaseServer } from "@/lib/supabaseServer";
 
 interface Props {
   params: { id: string };
 }
 
-export default async function Page({ params }: Props) {
-  // unwrap params (Next 16 memberikan Promise-like params)
+export async function generateMetadata({ params }: Props) {
   const { id } = await params;
-
-  // optional: cek di server apakah post ada -> supaya bisa return "Tulisan tidak ditemukan"
   const supabase = supabaseServer();
-  const { data: post, error: postError } = await supabase.from("post").select("id, user_id, created_at, visibility, status").eq("id", id).maybeSingle();
+  const { data: content } = await supabase.from("post_content").select("title, description, image_url").eq("post_id", id).maybeSingle();
 
-  if (!post || postError) {
+  const title = content?.title ?? "ahadi";
+  const desc = (content?.description ?? "").replace(/\n/g, " ").slice(0, 160);
+  const image = content?.image_url ?? "https://ahadi.my.id/icon.png";
+  const ogImage = image.endsWith(".webp") ? "https://ahadi.my.id/icon.png" : image;
+
+  return {
+    title,
+    description: desc,
+    openGraph: {
+      title,
+      description: desc,
+      images: [{ url: ogImage, width: 1200, height: 630 }],
+      type: "article",
+    },
+    twitter: { card: "summary_large_image" },
+  };
+}
+
+export default async function Page({ params }: Props) {
+  const { id } = await params;
+  const supabase = supabaseServer();
+  const { data: post } = await supabase.from("post").select("id").eq("id", id).maybeSingle();
+
+  if (!post) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <h1 className="text-center text-gray-600">Tulisan tidak ditemukan</h1>
@@ -22,8 +42,6 @@ export default async function Page({ params }: Props) {
     );
   }
 
-  // render client component TANPA mengirim postId
-  // PostDetailClient akan baca id lewat useParams()
   return (
     <div className="min-h-screen bg-white">
       <h1 className="sr-only">{post.id}</h1>

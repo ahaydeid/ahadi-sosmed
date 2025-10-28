@@ -5,8 +5,8 @@ import { useParams, useRouter, usePathname, useSearchParams } from "next/navigat
 import { supabase } from "@/lib/supabaseClient";
 import { Star, Eye, Heart, MessageCircle, ChevronLeft, Share2 } from "lucide-react";
 import Image from "next/image";
-import PostComments from "../../components/PostComments";
-import CommentInput from "@/app/components/CommentInput";
+import PostComments from "./PostComments";
+import CommentInput from "./CommentInput";
 import ReactMarkdown from "react-markdown";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
