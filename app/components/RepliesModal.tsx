@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Heart } from "lucide-react";
+import ModalLikes from "@/app/components/ModalLikes";
 
 interface RepliesModalProps {
   postId: string;
@@ -41,6 +42,9 @@ interface Item {
   mentionName: string | null;
 }
 
+/*
+  Helper sederhana: bikin inisial dari nama
+*/
 function getInitials(name: string): string {
   const p = name.trim().split(/\s+/);
   if (p.length === 0) return "U";
@@ -48,6 +52,9 @@ function getInitials(name: string): string {
   return (p[0].slice(0, 1) + p[p.length - 1].slice(0, 1)).toUpperCase();
 }
 
+/*
+  Format waktu relatif sederhana
+*/
 function formatRelativeTime(createdAt: string): string {
   const now = new Date();
   const created = new Date(createdAt);
@@ -65,6 +72,9 @@ function formatRelativeTime(createdAt: string): string {
   return `${y} tahun`;
 }
 
+/*
+  Auto-resize textarea kecil
+*/
 const useAutosizeTextArea = (textareaRef: React.RefObject<HTMLTextAreaElement>, value: string) => {
   useEffect(() => {
     if (textareaRef.current) {
@@ -85,33 +95,48 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   const textareaRef = useRef<HTMLTextAreaElement>(null!);
   useAutosizeTextArea(textareaRef, text);
 
+  // jumlah like untuk komentar root (ditampilkan di UI root)
+  const [rootLikes, setRootLikes] = useState<number>(0);
+  // state untuk buka modal yang menampilkan daftar yang like (pakai component ModalLikes)
+  const [showLikesForCommentId, setShowLikesForCommentId] = useState<string | null>(null);
+
+  // ambil satu level replies (dipakai di buildThread)
   const fetchLevel = useCallback(
     async (parents: string[]): Promise<Row[]> => {
       if (parents.length === 0) return [];
-      const { data, error } = await supabase
+      const res = await supabase
         .from("comments")
         .select("id, post_id, user_id, parent_comment_id, mention_user_id, text, created_at")
         .eq("post_id", postId)
         .in("parent_comment_id", parents)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true });
-      if (error) return [];
-      return data ?? [];
+
+      if (res.error) return [];
+      return (res.data ?? []) as Row[];
     },
     [postId]
   );
 
+  /*
+    Baca thread (root + replies) dan update state
+    polling / manual refresh akan memanggil ini
+  */
   const buildThread = useCallback(async () => {
     setLoading(true);
 
-    const { data: rootRow, error: rootErr } = await supabase.from("comments").select("id, post_id, user_id, parent_comment_id, mention_user_id, text, created_at").eq("id", rootCommentId).single();
+    const rootRes = await supabase.from("comments").select("id, post_id, user_id, parent_comment_id, mention_user_id, text, created_at").eq("id", rootCommentId).single();
 
-    if (rootErr || !rootRow) {
+    if (rootRes.error || !rootRes.data) {
       setItems([]);
+      setRootLikes(0);
       setLoading(false);
       return;
     }
 
+    const rootRow = rootRes.data as Row;
+
+    // ambil sampai beberapa level
     const levels: Row[][] = [];
     levels.push([rootRow]);
 
@@ -119,7 +144,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     const maxDepth = 5;
     for (let depth = 1; depth <= maxDepth; depth++) {
       const rows = await fetchLevel(frontier);
-      if (rows.length === 0) break;
+      if (!rows || rows.length === 0) break;
       levels.push(rows);
       frontier = rows.map((r) => r.id);
     }
@@ -130,16 +155,21 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       else rows.forEach((r) => flatRows.push({ row: r, level: idx }));
     });
 
+    // kumpulkan id profile yang dibutuhkan
     const authorIds = flatRows.map((x) => x.row.user_id).filter(Boolean) as string[];
     const mentionIds = flatRows.map((x) => x.row.mention_user_id).filter(Boolean) as string[];
     const uniqIds = [...new Set([...authorIds, ...mentionIds])];
 
+    // ambil profile yang belum ada
     const profMap = new Map(profiles);
     const idsToFetch = uniqIds.filter((id) => !profMap.has(id));
     if (idsToFetch.length > 0) {
-      const { data: profs } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", idsToFetch);
-      (profs ?? []).forEach((p) => profMap.set(p.id, { id: p.id, display_name: p.display_name, avatar_url: p.avatar_url ?? null }));
-      setProfiles(profMap);
+      const profRes = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", idsToFetch);
+      if (!profRes.error && profRes.data) {
+        (profRes.data as Profile[]).forEach((p) => profMap.set(p.id, { id: p.id, display_name: p.display_name, avatar_url: p.avatar_url ?? null }));
+      }
+      // simpan merge ke state
+      setProfiles(new Map(profMap));
     }
 
     const mapped: Item[] = flatRows.map(({ row, level }) => {
@@ -164,22 +194,58 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     const repliesSorted = mapped.filter((i) => i.id !== rootCommentId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     setItems([root, ...repliesSorted]);
+
+    // ambil jumlah like untuk komentar root saja
+    const likesRes = await supabase.from("comment_likes").select("*", { count: "exact", head: true }).eq("comment_id", rootCommentId);
+    const cnt = (likesRes.count as number) ?? 0;
+    setRootLikes(cnt);
+
     setLoading(false);
   }, [rootCommentId, fetchLevel, profiles]);
 
+  // ambil id user saat ini (sekali)
   useEffect(() => {
-    const t = setTimeout(() => {
-      supabase.auth.getUser().then(({ data }) => setMeId(data.user?.id ?? null));
-    }, 0);
-    return () => clearTimeout(t);
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!mounted) return;
+      setMeId(data.user?.id ?? null);
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
+  // jalankan buildThread pertama kali + polling interval
   useEffect(() => {
-    const t = setTimeout(() => {
-      void buildThread();
-    }, 0);
-    return () => clearTimeout(t);
+    let mounted = true;
+    let timer: number | undefined;
+
+    (async () => {
+      if (!mounted) return;
+      await buildThread();
+      // polling setiap 8 detik
+      timer = window.setInterval(() => {
+        void buildThread();
+      }, 8000);
+    })();
+
+    return () => {
+      mounted = false;
+      if (timer) window.clearInterval(timer);
+    };
   }, [buildThread]);
+
+  // dukung event manual refresh: window.dispatchEvent(new CustomEvent("comments:refresh", { detail: { postId: ... } }))
+  useEffect(() => {
+    const onRefresh = (e: Event) => {
+      const ev = e as CustomEvent<{ postId: string }>;
+      if (ev.detail?.postId !== postId) return;
+      void buildThread();
+    };
+    window.addEventListener("comments:refresh", onRefresh as EventListener);
+    return () => window.removeEventListener("comments:refresh", onRefresh as EventListener);
+  }, [postId, buildThread]);
 
   const rootItem = useMemo(() => items.find((i) => i.id === rootCommentId) ?? null, [items, rootCommentId]);
   const activeTarget = useMemo(() => (replyingTo ? replyingTo : rootItem ? { id: rootItem.id, authorId: rootItem.authorId, authorName: rootItem.authorName, level: 0 } : null), [replyingTo, rootItem]);
@@ -187,59 +253,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   useEffect(() => {
     if (!loading && rootItem && !replyingTo) requestAnimationFrame(() => textareaRef.current?.focus());
   }, [loading, rootItem, replyingTo]);
-
-  useEffect(() => {
-    const chan = supabase
-      .channel(`replies-modal-${postId}-${rootCommentId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, async (payload) => {
-        const row = payload.new as Row;
-        if (row.post_id !== postId) return;
-
-        const known = new Set(items.map((i) => i.id));
-        known.add(rootCommentId);
-        if (!row.parent_comment_id || !known.has(row.parent_comment_id)) return;
-
-        const needIds: string[] = [];
-        if (row.user_id && !profiles.has(row.user_id)) needIds.push(row.user_id);
-        if (row.mention_user_id && !profiles.has(row.mention_user_id)) needIds.push(row.mention_user_id);
-
-        const profMap = new Map(profiles);
-        if (needIds.length > 0) {
-          const { data: profs } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", needIds);
-          (profs ?? []).forEach((p) => profMap.set(p.id, { id: p.id, display_name: p.display_name, avatar_url: p.avatar_url ?? null }));
-          setProfiles(profMap);
-        }
-
-        const a = row.user_id ? profMap.get(row.user_id) : undefined;
-        const m = row.mention_user_id ? profMap.get(row.mention_user_id) : undefined;
-
-        const newItem: Item = {
-          id: row.id,
-          createdAt: row.created_at,
-          text: row.text,
-          time: formatRelativeTime(row.created_at),
-          authorId: row.user_id,
-          authorName: a?.display_name ?? "Anonim",
-          avatarUrl: a?.avatar_url ?? null,
-          parentId: row.parent_comment_id,
-          level: (items.find((i) => i.id === row.parent_comment_id)?.level ?? 0) + 1,
-          mentionUserId: row.mention_user_id,
-          mentionName: m?.display_name ?? null,
-        };
-
-        setItems((prev) => {
-          if (prev.some((p) => p.id === newItem.id)) return prev;
-          const root = prev.find((i) => i.id === rootCommentId);
-          const rest = [...prev.filter((i) => i.id !== rootCommentId), newItem].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-          return root ? [root, ...rest] : rest;
-        });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(chan);
-    };
-  }, [postId, rootCommentId, items, profiles]);
 
   const handleStartReply = (target: Item) => {
     setReplyingTo({ id: target.id, authorId: target.authorId, authorName: target.authorName, level: target.level });
@@ -254,7 +267,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     const mention_user_id = activeTarget.level > 0 ? activeTarget.authorId : null;
 
-    const { data: insertRes, error: insertErr } = await supabase
+    const insertRes = await supabase
       .from("comments")
       .insert({
         post_id: postId,
@@ -266,31 +279,32 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       .select("id, created_at, user_id, parent_comment_id, mention_user_id")
       .single();
 
-    if (insertErr || !insertRes) return;
+    if (insertRes.error || !insertRes.data) return;
 
+    // update profiles jika perlu
     const profMap = new Map(profiles);
     if (meId && !profMap.has(meId)) {
-      const { data: meProf } = await supabase.from("user_profile").select("id, display_name, avatar_url").eq("id", meId).maybeSingle();
-      if (meProf) {
-        profMap.set(meProf.id, { id: meProf.id, display_name: meProf.display_name, avatar_url: meProf.avatar_url ?? null });
-        setProfiles(profMap);
+      const meProf = await supabase.from("user_profile").select("id, display_name, avatar_url").eq("id", meId).maybeSingle();
+      if (!meProf.error && meProf.data) {
+        profMap.set(meProf.data.id, { id: meProf.data.id, display_name: meProf.data.display_name, avatar_url: meProf.data.avatar_url ?? null });
+        setProfiles(new Map(profMap));
       }
     }
 
     const a = meId ? profMap.get(meId) : undefined;
-    const m = insertRes.mention_user_id ? profMap.get(insertRes.mention_user_id) : undefined;
+    const m = insertRes.data.mention_user_id ? profMap.get(insertRes.data.mention_user_id) : undefined;
 
     const newItem: Item = {
-      id: insertRes.id,
-      createdAt: insertRes.created_at,
+      id: insertRes.data.id,
+      createdAt: insertRes.data.created_at,
       text: payloadText,
-      time: formatRelativeTime(insertRes.created_at),
+      time: formatRelativeTime(insertRes.data.created_at),
       authorId: meId,
       authorName: a?.display_name ?? "Saya",
       avatarUrl: a?.avatar_url ?? null,
       parentId: activeTarget.id,
       level: activeTarget.level + 1,
-      mentionUserId: insertRes.mention_user_id,
+      mentionUserId: insertRes.data.mention_user_id,
       mentionName: m?.display_name ?? null,
     };
 
@@ -302,46 +316,42 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     setText("");
 
-    await createNotificationsAfterReply({
-      actorId: meId,
-      parentCommentId: activeTarget.id,
-      mentionUserId: insertRes.mention_user_id,
-    });
-  };
+    // notifikasi async, tidak blokir UI
+    void (async () => {
+      const parentRowRes = await supabase.from("comments").select("id, user_id").eq("id", activeTarget.id).single();
+      const parentRow = parentRowRes.data as { id: string; user_id: string } | null;
 
-  const createNotificationsAfterReply = async ({ actorId, parentCommentId, mentionUserId }: { actorId: string; parentCommentId: string; mentionUserId: string | null }) => {
-    const { data: parentRow } = await supabase.from("comments").select("id, user_id").eq("id", parentCommentId).single();
+      const notifRows: Array<{ user_id: string | null; actor_id: string | null; type: string; reference_id: string | null }> = [];
 
-    const notifRows: Array<{ user_id: string | null; actor_id: string | null; type: string; reference_id: string | null }> = [];
+      if (parentRow?.user_id && parentRow.user_id !== meId) {
+        notifRows.push({
+          user_id: parentRow.user_id,
+          actor_id: meId,
+          type: "comment_reply",
+          reference_id: postId,
+        });
+      }
 
-    if (parentRow?.user_id && parentRow.user_id !== actorId) {
-      notifRows.push({
-        user_id: parentRow.user_id,
-        actor_id: actorId,
-        type: "comment_reply",
-        reference_id: postId,
-      });
-    }
+      if (insertRes.data.mention_user_id && insertRes.data.mention_user_id !== meId && insertRes.data.mention_user_id !== parentRow?.user_id) {
+        notifRows.push({
+          user_id: insertRes.data.mention_user_id,
+          actor_id: meId,
+          type: "comment_mention",
+          reference_id: postId,
+        });
+      }
 
-    if (mentionUserId && mentionUserId !== actorId && mentionUserId !== parentRow?.user_id) {
-      notifRows.push({
-        user_id: mentionUserId,
-        actor_id: actorId,
-        type: "comment_mention",
-        reference_id: postId,
-      });
-    }
-
-    if (notifRows.length > 0) {
-      await supabase.from("notifications").insert(
-        notifRows.map((n) => ({
-          user_id: n.user_id,
-          actor_id: n.actor_id,
-          type: n.type,
-          reference_id: n.reference_id,
-        }))
-      );
-    }
+      if (notifRows.length > 0) {
+        await supabase.from("notifications").insert(
+          notifRows.map((n) => ({
+            user_id: n.user_id,
+            actor_id: n.actor_id,
+            type: n.type,
+            reference_id: n.reference_id,
+          }))
+        );
+      }
+    })();
   };
 
   return (
@@ -365,7 +375,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
           ) : (
             <div className="space-y-4">
               {items.map((it) => (
-                <ReplyItem key={it.id} item={it} onReply={() => handleStartReply(it)} />
+                <ReplyItem key={it.id} item={it} onReply={() => handleStartReply(it)} onShowLikes={() => setShowLikesForCommentId(it.id)} likes={it.id === rootCommentId ? rootLikes : undefined} />
               ))}
             </div>
           )}
@@ -387,11 +397,18 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
           {!meId && <div className="text-xs text-gray-500 mt-2">Login untuk membalas</div>}
         </div>
       </div>
+
+      {/* modal daftar yang menyukai komentar */}
+      <ModalLikes commentId={showLikesForCommentId ?? undefined} open={!!showLikesForCommentId} onClose={() => setShowLikesForCommentId(null)} />
     </div>
   );
 }
 
-function ReplyItem({ item, onReply }: { item: Item; onReply: () => void }) {
+/*
+  Komponen kecil untuk satu item reply
+  menampilkan heart + jumlah only untuk root (clickable)
+*/
+function ReplyItem({ item, onReply, onShowLikes, likes }: { item: Item; onReply: () => void; onShowLikes: () => void; likes?: number }) {
   const pad = item.level > 0 ? 40 : 0;
   const isRoot = item.level === 0;
 
@@ -422,6 +439,14 @@ function ReplyItem({ item, onReply }: { item: Item; onReply: () => void }) {
           <button className="hover:underline" onClick={onReply}>
             Balas
           </button>
+
+          {/* hanya tampil di komentar root: icon heart + jumlah like, clickable */}
+          {isRoot && (
+            <button type="button" onClick={onShowLikes} className="flex hover:text-sky-400 cursor-pointer items-center gap-1" aria-label="Lihat yang menyukai komentar">
+              <Heart className="w-4 h-4 text-gray-700 hover:text-sky-400 cursor-pointer" />
+              <span>{likes ?? 0}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

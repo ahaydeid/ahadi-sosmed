@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Heart, Loader2 } from "lucide-react";
 import Image from "next/image";
 import RepliesModal from "@/app/components/RepliesModal";
+import ModalLikes from "@/app/components/ModalLikes";
 import type { User } from "@supabase/supabase-js";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
@@ -42,6 +43,9 @@ export default function PostComments({ postId }: PostCommentsProps) {
 
   const [likeBusy, setLikeBusy] = useState<Set<string>>(new Set());
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+
+  // state untuk modal likes pada komentar
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -302,6 +306,7 @@ export default function PostComments({ postId }: PostCommentsProps) {
               }
               setOpenRootId(comment.id);
             }}
+            onShowLikes={() => setSelectedCommentId(comment.id)}
           />
         </div>
       ))}
@@ -319,11 +324,14 @@ export default function PostComments({ postId }: PostCommentsProps) {
       </div>
 
       {openRootId && <RepliesModal rootCommentId={openRootId} postId={postId} onClose={() => setOpenRootId(null)} />}
+
+      {/* Modal untuk daftar yang menyukai komentar */}
+      <ModalLikes commentId={selectedCommentId ?? undefined} open={!!selectedCommentId} onClose={() => setSelectedCommentId(null)} />
     </div>
   );
 }
 
-function CommentItem({ comment, onReply, onLike, likeBusy }: { comment: CommentData; onReply: () => void; onLike: () => void; likeBusy: boolean }) {
+function CommentItem({ comment, onReply, onLike, likeBusy, onShowLikes }: { comment: CommentData; onReply: () => void; onLike: () => void; likeBusy: boolean; onShowLikes: () => void }) {
   const liked = comment.likedByMe;
 
   let replySummary: string | null = null;
@@ -366,10 +374,10 @@ function CommentItem({ comment, onReply, onLike, likeBusy }: { comment: CommentD
             Balas
           </button>
 
-          <div className="flex items-center gap-1">
-            <Heart className={`w-4 h-4 ${liked ? "text-sky-600" : "text-gray-700"}`} />
+          <button type="button" onClick={onShowLikes} className="flex hover:text-sky-400 cursor-pointer items-center gap-1" aria-label="Lihat yang menyukai komentar">
+            <Heart className={`w-4 h-4 ${liked ? "text-sky-600" : "text-gray-700 hover:text-sky-400 cursor-pointer"}`} />
             <span>{comment.likes}</span>
-          </div>
+          </button>
         </div>
 
         {replySummary && (
