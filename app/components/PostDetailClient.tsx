@@ -1,3 +1,4 @@
+// components/PostDetailClient.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ const formatPostDate = (dateString: string): string => {
 
 interface PostDetailData {
   id: string;
+  slug?: string | null;
   title: string;
   description: string;
   image_url?: string | null;
@@ -33,13 +35,18 @@ interface PostDetailData {
   views: number;
 }
 
-export default function PostDetailPage() {
-  const { id } = useParams<{ id: string }>();
+export default function PostDetailPage({ initialPostId, initialSlug }: { initialPostId?: string; initialSlug?: string }) {
+  const params = useParams() as Record<string, string | undefined>;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // prefer prop, fallback to params.id or params.key
+  const paramIdOrKey = params.id ?? params.key ?? undefined;
+  const [postId] = useState<string | undefined>(initialPostId ?? paramIdOrKey);
   const [post, setPost] = useState<PostDetailData | null>(null);
+  const [slug, setSlug] = useState<string | undefined>(initialSlug ?? undefined);
+
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -73,10 +80,10 @@ export default function PostDetailPage() {
 
   useEffect(() => {
     const fetchPost = async () => {
-      if (!id) return;
+      if (!postId) return;
       setLoading(true);
 
-      const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", id).single();
+      const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", postId).single();
 
       if (postError || !postData) {
         setLoading(false);
@@ -85,20 +92,25 @@ export default function PostDetailPage() {
 
       setAuthorId(postData.user_id);
 
-      const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image").eq("post_id", id).single();
+      // ambil slug juga dari post_content
+      const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image, slug").eq("post_id", postId).single();
 
       const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).single();
 
       const [{ count: likesCount }, { count: commentsCount }, { count: viewsCount }] = await Promise.all([
-        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", id).eq("liked", true),
-        supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", id),
-        supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", id),
+        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", postId).eq("liked", true),
+        supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", postId),
+        supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", postId),
       ]);
 
-      await supabase.from("post_views").insert([{ post_id: id }]);
+      await supabase.from("post_views").insert([{ post_id: postId }]);
+
+      const resolvedSlug = contentData?.slug ?? initialSlug ?? undefined;
+      if (resolvedSlug) setSlug(resolvedSlug);
 
       setPost({
         id: postData.id,
+        slug: resolvedSlug ?? null,
         title: contentData?.title ?? "(Tanpa judul)",
         description: contentData?.description ?? "",
         image_url: contentData?.image_url ?? null,
@@ -115,16 +127,16 @@ export default function PostDetailPage() {
     };
 
     fetchPost();
-  }, [id]);
+  }, [postId, initialSlug]);
 
   useEffect(() => {
     const checkApresiasi = async () => {
-      if (!user || !id) return;
-      const { data, error } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
+      if (!user || !postId) return;
+      const { data, error } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
       if (!error) setHasApresiasi(data?.liked === true);
     };
     checkApresiasi();
-  }, [user, id]);
+  }, [user, postId]);
 
   useEffect(() => {
     const checkFollow = async () => {
@@ -147,10 +159,10 @@ export default function PostDetailPage() {
       return;
     }
 
-    const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
+    const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
 
     if (!existing) {
-      const { error } = await supabase.from("post_likes").upsert({ post_id: id as string, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
+      const { error } = await supabase.from("post_likes").upsert({ post_id: postId as string, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
       if (!error) {
         setHasApresiasi(true);
         setLikeCount((v) => v + 1);
@@ -159,7 +171,7 @@ export default function PostDetailPage() {
     }
 
     const newLiked = !existing.liked;
-    const { error } = await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", id).eq("user_id", user.id);
+    const { error } = await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", postId).eq("user_id", user.id);
 
     if (!error) {
       setHasApresiasi(newLiked);
@@ -198,15 +210,18 @@ export default function PostDetailPage() {
   const handleShare = async (): Promise<void> => {
     if (!post) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const url = `${origin}/post/${post.id}`;
+    // pakai slug kalau ada, fallback ke id
+    const sharePath = slug ?? post.id;
+    const url = `${origin}/post/${sharePath}`;
     const title = post.title ?? "";
+    // URL awal supaya WA konsisten memunculkan preview
     const textPayload = `${url}\n\n${title}`;
 
     try {
       const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
       if (canShare) {
-        await navigator.share({ title, text: textPayload });
+        await navigator.share({ title, text: textPayload, url });
         return;
       }
 

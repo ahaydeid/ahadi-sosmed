@@ -14,7 +14,9 @@ interface PostContent {
   description: string | null;
   image_url?: string | null;
   author_image?: string | null;
+  slug?: string | null;
 }
+
 interface UserProfile {
   id: string;
   display_name: string;
@@ -35,9 +37,8 @@ function FeedInner() {
 
   const [posts, setPosts] = useState<PostCardData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [penaltyTick, setPenaltyTick] = useState(0); // trigger re-load saat ada penalize
+  const [penaltyTick, setPenaltyTick] = useState(0);
 
-  // Dengarkan event dari PostCard
   useEffect(() => {
     const onPenalize = () => setPenaltyTick((n) => n + 1);
     window.addEventListener("post:penalize", onPenalize as EventListener);
@@ -48,11 +49,9 @@ function FeedInner() {
     const loadFeed = async () => {
       setLoading(true);
 
-      // Ambil session untuk tab "followed"
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user?.id ?? null;
 
-      // 1) Ambil semua post publik
       const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id, visibility").eq("visibility", "public");
 
       if (postError) {
@@ -64,7 +63,6 @@ function FeedInner() {
 
       let typed: PostRow[] = (postData ?? []) as PostRow[];
 
-      // 2) Jika tab=followed → filter ke author yang diikuti
       if (tab === "followed") {
         if (!uid) {
           setPosts([]);
@@ -93,15 +91,13 @@ function FeedInner() {
       const postIds = typed.map((p) => p.id);
       const userIds = [...new Set(typed.map((p) => p.user_id))];
 
-      // 3) Konten
-      const { data: contents, error: contentError } = await supabase.from("post_content").select("post_id, title, description, image_url, author_image").in("post_id", postIds);
+      const { data: contents, error: contentError } = await supabase.from("post_content").select("post_id, title, description, image_url, author_image, slug").in("post_id", postIds);
 
       if (contentError) console.error("Error loading post_content:", contentError.message);
 
       const contentMap = new Map<string, PostContent>();
       (contents ?? []).forEach((c) => contentMap.set(c.post_id, c));
 
-      // 4) Profil
       const { data: profiles, error: profileError } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", userIds);
 
       if (profileError) console.error("Error loading user_profile:", profileError.message);
@@ -109,7 +105,6 @@ function FeedInner() {
       const profileMap = new Map<string, UserProfile>();
       (profiles ?? []).forEach((p) => profileMap.set(p.id, p));
 
-      // 5) Baca penalti lokal
       let collapsedSet = new Set<string>();
       try {
         const raw = typeof window !== "undefined" ? localStorage.getItem(COLLAPSE_KEY) : null;
@@ -119,10 +114,9 @@ function FeedInner() {
         collapsedSet = new Set();
       }
 
-      // 6) Metrik + skor (SAMA untuk kedua tab), minus penalti
       const now = Date.now();
       const WEIGHTS = { time: 10, views: 1, likes: 2, comments: 2 };
-      const PENALTY_VALUE = 100; // dikurangi 100
+      const PENALTY_VALUE = 100;
 
       const scored = await Promise.all(
         typed.map(async (p) => {
@@ -137,10 +131,9 @@ function FeedInner() {
           const c = comments.count ?? 0;
 
           const ageHours = Math.max(0, (now - new Date(p.created_at).getTime()) / 3600000);
-          const timeScore = 1 / (1 + ageHours); // 0..1
+          const timeScore = 1 / (1 + ageHours);
           let score = WEIGHTS.time * timeScore + WEIGHTS.views * v + WEIGHTS.likes * l + WEIGHTS.comments * c;
 
-          // Terapkan penalti jika post dicollapse secara lokal
           if (collapsedSet.has(p.id)) {
             score -= PENALTY_VALUE;
           }
@@ -148,13 +141,27 @@ function FeedInner() {
           const content = contentMap.get(p.id);
           const author = profileMap.get(p.user_id);
 
-          const post: PostCardData = {
+          // const post: PostCardData = {
+          //   id: p.id,
+          //   author: author?.display_name ?? "Anonim",
+          //   authorImage: content?.author_image ?? author?.avatar_url ?? null,
+          //   title: content?.title ?? "(Tanpa judul)",
+          //   description: content?.description ?? "",
+          //   imageUrl: content?.image_url ?? null,
+          //   date: new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+          //   views: v,
+          //   likes: l,
+          //   comments: c,
+          // };
+
+          const post: PostCardData & { slug?: string | null } = {
             id: p.id,
             author: author?.display_name ?? "Anonim",
             authorImage: content?.author_image ?? author?.avatar_url ?? null,
             title: content?.title ?? "(Tanpa judul)",
             description: content?.description ?? "",
             imageUrl: content?.image_url ?? null,
+            slug: content?.slug ?? null,
             date: new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
             views: v,
             likes: l,
@@ -165,14 +172,13 @@ function FeedInner() {
         })
       );
 
-      // 7) Urutkan berdasarkan score desc
       const sorted = [...scored].sort((a, b) => b.score - a.score).map((x) => x.post);
       setPosts(sorted);
       setLoading(false);
     };
 
     loadFeed();
-  }, [tab, penaltyTick]); // reload saat tab berubah atau ada penalize
+  }, [tab, penaltyTick]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -181,18 +187,21 @@ function FeedInner() {
         {loading && <p className="text-center py-5 text-gray-500">Memuat postingan...</p>}
         {!loading && posts.length === 0 && <p className="text-center py-5 text-gray-500">Belum ada postingan</p>}
         {!loading &&
-          posts.map((post) => (
-            <Link key={post.id} href={`/post/${post.id}`} className="block transition hover:bg-gray-100">
-              <PostCard post={post} />
-            </Link>
-          ))}
+          posts.map((post) => {
+            const extended = post as PostCardData & { slug?: string | null };
+            const hrefPath = `/post/${extended.slug ?? post.id}`;
+            return (
+              <Link key={post.id} href={{ pathname: hrefPath }} className="block transition hover:bg-gray-100">
+                <PostCard post={post} />
+              </Link>
+            );
+          })}
       </div>
     </div>
   );
 }
 
 export default function Feed() {
-  // Suspense untuk aman dari useSearchParams (Next 16)
   return (
     <Suspense fallback={<div className="text-center py-5 text-gray-500">Memuat…</div>}>
       <FeedInner />
