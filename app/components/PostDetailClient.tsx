@@ -251,44 +251,25 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
     const sharePath = slug ?? post.id;
     const url = `${origin}/post/${sharePath}`;
     const title = post.title ?? "";
+    const textPayload = `${title}\n\n${url}`;
 
     try {
-      // definisi tipe agar TS mengenal navigator.share tanpa pakai "any"
-      type NavigatorWithShare = Navigator & { share?: (data: ShareData) => Promise<void> };
+      type NavigatorWithShare = Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
       const nav = typeof navigator !== "undefined" ? (navigator as NavigatorWithShare) : undefined;
 
-      // 1) Web Share API (paling bersih — sering mencegah double URL)
       if (nav && typeof nav.share === "function") {
         await nav.share({ title, url });
         return;
       }
 
-      // 2) Fallback: salin title ke clipboard (jika tersedia) lalu buka wa.me hanya dengan URL
-      const canClipboard = typeof navigator !== "undefined" && !!navigator.clipboard && typeof navigator.clipboard.writeText === "function";
-      if (canClipboard) {
-        try {
-          await navigator.clipboard.writeText(title);
-          const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
-          const opened = window.open(waUrl, "_blank");
-          if (opened) return;
-          alert("Judul telah disalin ke clipboard. Buka WhatsApp dan tempel (paste) jika ingin menambahkan judul. Jika popup diblokir, link akan dibuka di halaman ini.");
-          window.location.href = waUrl;
-          return;
-        } catch {
-          // kalau clipboard gagal, lanjut ke fallback berikutnya
-        }
-      }
+      const encoded = encodeURIComponent(textPayload);
+      const waUrl = `https://wa.me/?text=${encoded}`;
+      const win = window.open(waUrl, "_blank");
+      if (win) return;
 
-      // 3) Final fallback: kirim title+url via wa.me (mungkin menghasilkan double URL)
-      const textPayload = `${title}\n\n${url}`;
-      const waUrlFallback = `https://wa.me/?text=${encodeURIComponent(textPayload)}`;
-      const opened2 = window.open(waUrlFallback, "_blank");
-      if (opened2) return;
-
-      // 4) Jika semua gagal, coba salin textPayload atau tampilkan prompt
-      if (canClipboard) {
+      if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
         await navigator.clipboard.writeText(textPayload);
-        alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel (paste).");
+        alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
         return;
       }
 
