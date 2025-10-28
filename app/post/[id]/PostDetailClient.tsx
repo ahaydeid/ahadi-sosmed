@@ -5,13 +5,12 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Star, Eye, Heart, MessageCircle, ChevronLeft, Share2 } from "lucide-react";
 import Image from "next/image";
-import PostComments from "../../components/PostComments";
+import PostComments from "@/app/components/PostComments";
 import CommentInput from "@/app/components/CommentInput";
 import ReactMarkdown from "react-markdown";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 
-// format tanggal sederhana
 const formatPostDate = (dateString: string): string => {
   const postDate = new Date(dateString);
   const currentYear = new Date().getFullYear();
@@ -34,7 +33,7 @@ interface PostDetailData {
   views: number;
 }
 
-export default function PostDetailClient({ id }: { id: string }) {
+export default function PostDetailClient({ postId }: { postId: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -51,7 +50,6 @@ export default function PostDetailClient({ id }: { id: string }) {
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followBusy, setFollowBusy] = useState<boolean>(false);
 
-  // cek auth
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -72,17 +70,12 @@ export default function PostDetailClient({ id }: { id: string }) {
     };
   }, []);
 
-  // load detail post
   useEffect(() => {
     const fetchPost = async () => {
-      if (!id) return;
+      if (!postId) return;
       setLoading(true);
 
-      const { data: postData, error: postError } = await supabase
-        .from("post")
-        .select("id, created_at, user_id")
-        .eq("id", id)
-        .single();
+      const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", postId).maybeSingle();
 
       if (postError || !postData) {
         setLoading(false);
@@ -91,27 +84,17 @@ export default function PostDetailClient({ id }: { id: string }) {
 
       setAuthorId(postData.user_id);
 
-      const { data: contentData } = await supabase
-        .from("post_content")
-        .select("title, description, image_url, author_image")
-        .eq("post_id", id)
-        .single();
+      const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image").eq("post_id", postId).maybeSingle();
 
-      const { data: profileData } = await supabase
-        .from("user_profile")
-        .select("display_name")
-        .eq("id", postData.user_id)
-        .single();
+      const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).maybeSingle();
 
-      // hitung agregat
       const [{ count: likesCount }, { count: commentsCount }, { count: viewsCount }] = await Promise.all([
-        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", id).eq("liked", true),
-        supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", id),
-        supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", id),
+        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", postId).eq("liked", true),
+        supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", postId),
+        supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", postId),
       ]);
 
-      // catat view
-      await supabase.from("post_views").insert([{ post_id: id }]);
+      await supabase.from("post_views").insert([{ post_id: postId }]);
 
       setPost({
         id: postData.id,
@@ -121,34 +104,27 @@ export default function PostDetailClient({ id }: { id: string }) {
         author: profileData?.display_name ?? "Anonim",
         author_image: contentData?.author_image ?? null,
         date: formatPostDate(postData.created_at),
-        likes: likesCount ?? 0,
-        comments: commentsCount ?? 0,
-        views: (viewsCount ?? 0) + 1,
+        likes: (likesCount as number) ?? 0,
+        comments: (commentsCount as number) ?? 0,
+        views: ((viewsCount as number) ?? 0) + 1,
       });
 
-      setLikeCount(likesCount ?? 0);
+      setLikeCount((likesCount as number) ?? 0);
       setLoading(false);
     };
 
     fetchPost();
-  }, [id]);
+  }, [postId]);
 
-  // cek status apresiasi
   useEffect(() => {
     const checkApresiasi = async () => {
-      if (!user || !id) return;
-      const { data, error } = await supabase
-        .from("post_likes")
-        .select("liked")
-        .eq("post_id", id)
-        .eq("user_id", user.id)
-        .maybeSingle();
+      if (!user || !postId) return;
+      const { data, error } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
       if (!error) setHasApresiasi(data?.liked === true);
     };
     checkApresiasi();
-  }, [user, id]);
+  }, [user, postId]);
 
-  // cek follow
   useEffect(() => {
     const checkFollow = async () => {
       if (!authorId || !user) return;
@@ -156,18 +132,12 @@ export default function PostDetailClient({ id }: { id: string }) {
         setIsFollowing(false);
         return;
       }
-      const { data, error } = await supabase
-        .from("user_followers")
-        .select("follower_id")
-        .eq("follower_id", user.id)
-        .eq("following_id", authorId)
-        .maybeSingle();
+      const { data, error } = await supabase.from("user_followers").select("follower_id").eq("follower_id", user.id).eq("following_id", authorId).maybeSingle();
       if (!error) setIsFollowing(!!data);
     };
     checkFollow();
   }, [authorId, user]);
 
-  // toggle apresiasi
   const handleApresiasi = async () => {
     if (!user) {
       const qs = searchParams?.toString() ?? "";
@@ -176,17 +146,10 @@ export default function PostDetailClient({ id }: { id: string }) {
       return;
     }
 
-    const { data: existing } = await supabase
-      .from("post_likes")
-      .select("liked")
-      .eq("post_id", id)
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
 
     if (!existing) {
-      const { error } = await supabase
-        .from("post_likes")
-        .upsert({ post_id: id, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
+      const { error } = await supabase.from("post_likes").upsert({ post_id: postId as string, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
       if (!error) {
         setHasApresiasi(true);
         setLikeCount((v) => v + 1);
@@ -195,11 +158,7 @@ export default function PostDetailClient({ id }: { id: string }) {
     }
 
     const newLiked = !existing.liked;
-    const { error } = await supabase
-      .from("post_likes")
-      .update({ liked: newLiked })
-      .eq("post_id", id)
-      .eq("user_id", user.id);
+    const { error } = await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", postId).eq("user_id", user.id);
 
     if (!error) {
       setHasApresiasi(newLiked);
@@ -224,16 +183,10 @@ export default function PostDetailClient({ id }: { id: string }) {
     setFollowBusy(true);
     try {
       if (isFollowing) {
-        const { error } = await supabase
-          .from("user_followers")
-          .delete()
-          .eq("follower_id", user.id)
-          .eq("following_id", authorId);
+        const { error } = await supabase.from("user_followers").delete().eq("follower_id", user.id).eq("following_id", authorId);
         if (!error) setIsFollowing(false);
       } else {
-        const { error } = await supabase
-          .from("user_followers")
-          .insert([{ follower_id: user.id, following_id: authorId }]);
+        const { error } = await supabase.from("user_followers").insert([{ follower_id: user.id, following_id: authorId }]);
         if (!error) setIsFollowing(true);
       }
     } finally {
@@ -241,7 +194,6 @@ export default function PostDetailClient({ id }: { id: string }) {
     }
   };
 
-  // share url untuk kartu link + text sebagai caption
   const handleShare = async (): Promise<void> => {
     if (!post) return;
 
@@ -255,6 +207,7 @@ export default function PostDetailClient({ id }: { id: string }) {
         await navigator.share({ url, text: caption });
         return;
       }
+
       await navigator.clipboard.writeText(`${url}\n\n${caption}`);
       alert("Tautan disalin");
     } catch {}
