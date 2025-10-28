@@ -200,34 +200,27 @@ export default function PostDetailPage() {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
     const title = post.title ?? "";
-    // URL ditempatkan di awal teks supaya WhatsApp mengenali link dengan konsisten
     const textPayload = `${url}\n\n${title}`;
 
     try {
       const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
       if (canShare) {
-        // sertakan url + text — beberapa platform butuh salah satu atau keduanya
-        await navigator.share({ title, text: textPayload, url });
+        await navigator.share({ title, text: textPayload });
         return;
       }
 
-      // fallback 1: buka wa.me dengan teks ter-encode (paling reliable untuk chat)
       const encoded = encodeURIComponent(textPayload);
       const waUrl = `https://wa.me/?text=${encoded}`;
-
-      // coba buka di tab baru (akan memicu app/intent jika tersedia)
       const win = window.open(waUrl, "_blank");
       if (win) return;
 
-      // fallback 2: salin ke clipboard agar user bisa paste ke Status (Status sering perlu paste manual)
       if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
         await navigator.clipboard.writeText(textPayload);
-        alert("Tautan dan judul disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
+        alert("Tautan dan judul telah disalin. Buka WhatsApp lalu tempel ke Status atau chat.");
         return;
       }
 
-      // final fallback: prompt manual
       if (typeof window !== "undefined") {
         window.prompt("Salin tautan ini:", textPayload);
       }
