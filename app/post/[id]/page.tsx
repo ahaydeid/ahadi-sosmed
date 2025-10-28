@@ -1,5 +1,4 @@
-// import React from "react";
-// import Image from "next/image";
+// app/post/[id]/page.tsx
 import PostDetailClient from "./PostDetailClient";
 import { supabaseServer } from "@/lib/supabaseServer";
 
@@ -8,9 +7,13 @@ interface Props {
 }
 
 export default async function Page({ params }: Props) {
+  // unwrap params (Next 16 memberikan Promise-like params)
   const { id } = await params;
+
+  // optional: cek di server apakah post ada -> supaya bisa return "Tulisan tidak ditemukan"
   const supabase = supabaseServer();
   const { data: post, error: postError } = await supabase.from("post").select("id, user_id, created_at, visibility, status").eq("id", id).maybeSingle();
+
   if (!post || postError) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -19,14 +22,12 @@ export default async function Page({ params }: Props) {
     );
   }
 
-  const { data: content } = await supabase.from("post_content").select("*").eq("post_id", id).maybeSingle();
-
+  // render client component TANPA mengirim postId
+  // PostDetailClient akan baca id lewat useParams()
   return (
-    <div>
-      <div className="min-h-screen p-4 bg-white">
-        <h1 className="sr-only">{content?.title ?? "(Tanpa judul)"}</h1>
-        <PostDetailClient postId={id} />
-      </div>
+    <div className="min-h-screen p-4 bg-white">
+      <h1 className="sr-only">{post.id}</h1>
+      <PostDetailClient />
     </div>
   );
 }

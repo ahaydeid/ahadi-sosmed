@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useParams, useRouter, usePathname, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Star, Eye, Heart, MessageCircle, ChevronLeft, Share2 } from "lucide-react";
 import Image from "next/image";
-import PostComments from "@/app/components/PostComments";
+import PostComments from "../../components/PostComments";
 import CommentInput from "@/app/components/CommentInput";
 import ReactMarkdown from "react-markdown";
 import type { User } from "@supabase/supabase-js";
@@ -33,7 +32,8 @@ interface PostDetailData {
   views: number;
 }
 
-export default function PostDetailClient({ postId }: { postId: string }) {
+export default function PostDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -72,10 +72,10 @@ export default function PostDetailClient({ postId }: { postId: string }) {
 
   useEffect(() => {
     const fetchPost = async () => {
-      if (!postId) return;
+      if (!id) return;
       setLoading(true);
 
-      const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", postId).maybeSingle();
+      const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", id).single();
 
       if (postError || !postData) {
         setLoading(false);
@@ -84,17 +84,17 @@ export default function PostDetailClient({ postId }: { postId: string }) {
 
       setAuthorId(postData.user_id);
 
-      const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image").eq("post_id", postId).maybeSingle();
+      const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image").eq("post_id", id).single();
 
-      const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).maybeSingle();
+      const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).single();
 
       const [{ count: likesCount }, { count: commentsCount }, { count: viewsCount }] = await Promise.all([
-        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", postId).eq("liked", true),
-        supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", postId),
-        supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", postId),
+        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", id).eq("liked", true),
+        supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", id),
+        supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", id),
       ]);
 
-      await supabase.from("post_views").insert([{ post_id: postId }]);
+      await supabase.from("post_views").insert([{ post_id: id }]);
 
       setPost({
         id: postData.id,
@@ -114,16 +114,16 @@ export default function PostDetailClient({ postId }: { postId: string }) {
     };
 
     fetchPost();
-  }, [postId]);
+  }, [id]);
 
   useEffect(() => {
     const checkApresiasi = async () => {
-      if (!user || !postId) return;
-      const { data, error } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
+      if (!user || !id) return;
+      const { data, error } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
       if (!error) setHasApresiasi(data?.liked === true);
     };
     checkApresiasi();
-  }, [user, postId]);
+  }, [user, id]);
 
   useEffect(() => {
     const checkFollow = async () => {
@@ -146,10 +146,10 @@ export default function PostDetailClient({ postId }: { postId: string }) {
       return;
     }
 
-    const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
+    const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", id).eq("user_id", user.id).maybeSingle();
 
     if (!existing) {
-      const { error } = await supabase.from("post_likes").upsert({ post_id: postId as string, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
+      const { error } = await supabase.from("post_likes").upsert({ post_id: id as string, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
       if (!error) {
         setHasApresiasi(true);
         setLikeCount((v) => v + 1);
@@ -158,7 +158,7 @@ export default function PostDetailClient({ postId }: { postId: string }) {
     }
 
     const newLiked = !existing.liked;
-    const { error } = await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", postId).eq("user_id", user.id);
+    const { error } = await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", id).eq("user_id", user.id);
 
     if (!error) {
       setHasApresiasi(newLiked);
@@ -194,22 +194,18 @@ export default function PostDetailClient({ postId }: { postId: string }) {
     }
   };
 
-  const handleShare = async (): Promise<void> => {
+  const handleShare = async () => {
     if (!post) return;
-
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
-    const caption = post.title ?? "";
-
+    const body = `${url}\n\n${post.title}`;
     try {
-      const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-      if (canShare) {
-        await navigator.share({ url, text: caption });
-        return;
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ text: body });
+      } else {
+        await navigator.clipboard.writeText(body);
+        alert("Tautan disalin");
       }
-
-      await navigator.clipboard.writeText(`${url}\n\n${caption}`);
-      alert("Tautan disalin");
     } catch {}
   };
 
@@ -224,7 +220,7 @@ export default function PostDetailClient({ postId }: { postId: string }) {
     <div className="min-h-screen bg-white p-4">
       <div className="sticky top-0 left-0 right-0 h-12 bg-white border-b border-gray-200 z-10 flex items-center px-4 -mx-4">
         <button onClick={() => window.history.back()} className="absolute left-4 rounded-full hover:bg-gray-100 transition z-20" aria-label="Kembali">
-          <ChevronLeft className="w-6 h-6 text-gray-800" />
+          <span className="sr-only">Kembali</span>
         </button>
         <div className="flex-1 text-center">
           <h2 className="font-base text-gray-800 truncate">Tulisan {post.author}</h2>
@@ -283,25 +279,23 @@ export default function PostDetailClient({ postId }: { postId: string }) {
           className={`text-sm px-3 py-2 rounded flex items-center gap-1 border transition
             ${hasApresiasi ? "bg-black text-white border-black" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"}`}
         >
-          <Star className="w-4 h-4" />
           {hasApresiasi ? "diapresiasi" : "apresiasi"}
         </button>
 
         <div className="flex items-center gap-3 border-gray-200 border rounded px-3 py-2 w-fit">
           <div className="flex items-center gap-1 text-gray-700 text-sm">
-            <Eye className="w-4 h-4" />
+            <span>lihat</span>
             <span>{post.views}</span>
           </div>
           <div className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2">
-            <Heart className="w-4 h-4" />
+            <span>like</span>
             <span>{likeCount}</span>
           </div>
           <div className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2">
-            <MessageCircle className="w-4 h-4" />
+            <span>komentar</span>
             <span>{post.comments}</span>
           </div>
           <button onClick={handleShare} className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Bagikan">
-            <Share2 className="w-4 h-4" />
             bagikan
           </button>
         </div>
