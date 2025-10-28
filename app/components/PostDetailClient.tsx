@@ -197,44 +197,26 @@ export default function PostDetailPage() {
 
   const handleShare = async (): Promise<void> => {
     if (!post) return;
-
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/post/${post.id}`;
     const title = post.title ?? "";
-    const text = `${url}\n\n${title}`; // fallback text persis permintaanmu
-
     try {
-      const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }) : null;
-
-      // Jika Web Share API tersedia, kirim url terpisah + text = dua enter + title
-      if (nav && typeof nav.share === "function") {
-        const shareData: ShareData = {
-          title,
-          text: `\n\n${title}`, // biar preview (dari url) di atas, title di bawah (dengan 2 enter)
-          url,
-        };
-        await nav.share(shareData);
+      const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+      if (canShare) {
+        const shareData: ShareData = { title, text: `\n\n${title}`, url };
+        await navigator.share(shareData);
         return;
       }
-
-      // Fallback cepat: buka wa.me (lebih andal membuka composer WA dengan teks yang kita mau)
-      // ini akan membuka WhatsApp (web atau app) dengan teks: url \n\n title
-      if (typeof window !== "undefined") {
-        const waHref = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        // open di tab baru, target behavior akan membuka app WA di mobile
-        window.open(waHref, "_blank", "noopener,noreferrer");
-        return;
-      }
-
-      // Terakhir: salin ke clipboard
       if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(`${url}\n\n${title}`);
         alert("Tautan disalin");
         return;
       }
+      if (typeof window !== "undefined") {
+        window.prompt("Salin tautan ini:", `${url}\n\n${title}`);
+      }
     } catch (err) {
       console.error("share failed:", err);
-      // Jangan crash UI
     }
   };
 

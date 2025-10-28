@@ -1,21 +1,21 @@
+// app/post/[id]/page.tsx
+import type { Metadata } from "next";
 import PostDetailClient from "@/app/components/PostDetailClient";
-
 import { supabaseServer } from "@/lib/supabaseServer";
 
 interface Props {
   params: { id: string };
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = supabaseServer();
   const { data: content } = await supabase.from("post_content").select("title, description, image_url").eq("post_id", id).maybeSingle();
 
   const title = content?.title ?? "ahadi";
   const desc = (content?.description ?? "").replace(/\n/g, " ").slice(0, 160);
-
+  const rawImage = content?.image_url ?? "https://ahadi.my.id/icon.png";
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://ahadi.my.id";
-  const rawImage = content?.image_url ?? `${base}/icon.png`;
   const absImage = (() => {
     try {
       return new URL(rawImage, base).href;
@@ -23,7 +23,6 @@ export async function generateMetadata({ params }: Props) {
       return rawImage;
     }
   })();
-
   const isWebp = /\.webp(\?.*)?$/i.test(absImage);
   const ogImage = isWebp ? `${base}/icon.png` : absImage;
   const pageUrl = `${base}/post/${id}`;
@@ -34,7 +33,7 @@ export async function generateMetadata({ params }: Props) {
     openGraph: {
       title,
       description: desc,
-      url: pageUrl, // penting: sertakan url di OG
+      url: pageUrl,
       images: [{ url: ogImage, width: 1200, height: 630 }],
       type: "article",
     },
