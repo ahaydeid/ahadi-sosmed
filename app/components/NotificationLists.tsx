@@ -6,6 +6,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 
 type Actor = {
+  id?: string | null;
   display_name: string | null;
   avatar_url: string | null;
 };
@@ -23,14 +24,12 @@ type PostRef = {
 
 export type NotificationItem = {
   id: string;
-  user_id?: string | null;
-  actor_id?: string | null;
   type: string | null;
-  reference_type: "post" | "comment" | "user" | null;
-  reference_id: string | null;
   is_read: boolean | null;
   created_at: string | null;
-  actor: Actor | null;
+  summary?: string | null; // ditambahkan untuk format grouped
+  actors?: Actor[] | null; // ditambahkan untuk avatar bertumpuk
+  actor?: Actor | null; // tetap ada untuk kompatibilitas lama
   comment: CommentRef | null;
   post: PostRef | null;
 };
@@ -66,7 +65,6 @@ export default function NotificationLists() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
       const token = session?.access_token ?? null;
       if (!token) {
         setItems([]);
@@ -108,27 +106,22 @@ export default function NotificationLists() {
     setMarking((s) => ({ ...s, [n.id]: true }));
 
     try {
-      // update read status
       const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
-
       if (error) return;
 
       setItems((s) => s.map((it) => (it.id === n.id ? { ...it, is_read: true } : it)));
 
       const t = n.type?.toLowerCase() ?? "";
-      const r = n.reference_type?.toLowerCase() ?? null;
 
-      // =========== ARAH UNTUK FOLLOW ===========
-      // jika notifikasi follow, buka profil orang yang follow (actor_id)
-      if (t === "follow" || r === "user") {
-        if (n.actor_id) {
-          pushPath(`/profile/${n.actor_id}`);
-          return;
-        }
+      // === FOLLOW → ke profil actor pertama
+      const mainActor = n.actors?.[0] ?? n.actor;
+      if (t === "follow" && mainActor) {
+        pushPath(`/profile/${mainActor.display_name}`);
+        return;
       }
 
-      // =========== ARAH UNTUK KOMENTAR ===========
-      if (["post_comment", "comment_post", "comment_reply", "mention"].includes(t) || r === "comment") {
+      // === KOMENTAR → ke post + anchor komentar
+      if (["post_comment", "comment_post", "comment_reply", "mention"].includes(t)) {
         if (n.post?.slug) {
           const anchor = n.comment?.id ? `#comment-${n.comment.id}` : "";
           pushPath(`/post/${n.post.slug}${anchor}`);
@@ -141,8 +134,8 @@ export default function NotificationLists() {
         }
       }
 
-      // =========== ARAH UNTUK LIKE POST ===========
-      if (["post_like", "post_like_grouped"].includes(t) || r === "post") {
+      // === LIKE → ke post
+      if (["post_like", "post_like_grouped"].includes(t)) {
         if (n.post?.slug) {
           pushPath(`/post/${n.post.slug}`);
           return;
@@ -151,13 +144,8 @@ export default function NotificationLists() {
           pushPath(`/post/${n.post.id}`);
           return;
         }
-        if (n.reference_id) {
-          pushPath(`/post/${n.reference_id}`);
-          return;
-        }
       }
 
-      // fallback
       pushPath("/");
     } catch (err) {
       console.error("handleClick failed:", err);
@@ -175,91 +163,7 @@ export default function NotificationLists() {
     await fetchNotifications(page + 1);
   }
 
-  // gabung like
-  function groupPostLikes(notifs: NotificationItem[]): NotificationItem[] {
-    const grouped = new Map<string, NotificationItem[]>();
-
-    for (const n of notifs) {
-      const type = n.type?.toLowerCase() ?? "";
-      if (type === "post_like" && n.reference_id) {
-        if (!grouped.has(n.reference_id)) grouped.set(n.reference_id, []);
-        grouped.get(n.reference_id)!.push(n);
-      }
-    }
-
-    const merged: NotificationItem[] = [];
-    for (const arr of grouped.values()) {
-      const sorted = arr.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
-      const latestTwo = sorted.slice(0, 2).map((x) => x.actor?.display_name ?? "Seseorang");
-      const total = new Set(sorted.map((x) => x.actor?.display_name)).size;
-      const base = { ...sorted[0] };
-      const postTitle = base.post?.title ?? "";
-
-      const bold = (t: string) => `<b>${t}</b>`;
-      let text = "";
-
-      if (total === 1) text = `${bold(latestTwo[0])} menyukai tulisan anda yang berjudul “${postTitle}”`;
-      else if (total === 2) text = `${bold(latestTwo[0])} dan ${bold(latestTwo[1])} menyukai tulisan anda yang berjudul “${postTitle}”`;
-      else {
-        const others = total - 2;
-        text = `${bold(latestTwo[0])}, ${bold(latestTwo[1])} dan ${others} orang lainnya menyukai tulisan anda yang berjudul “${postTitle}”`;
-      }
-
-      merged.push({ ...base, type: "post_like_grouped", comment: { id: null, text } });
-    }
-
-    const others = notifs.filter((n) => (n.type?.toLowerCase() ?? "") !== "post_like");
-    return [...merged, ...others];
-  }
-
-  // gabung komentar
-  function groupPostComments(notifs: NotificationItem[]): NotificationItem[] {
-    const grouped = new Map<string, NotificationItem[]>();
-
-    for (const n of notifs) {
-      const type = n.type?.toLowerCase() ?? "";
-      if ((type === "post_comment" || type === "comment_post") && n.post?.id) {
-        if (!grouped.has(n.post.id)) grouped.set(n.post.id, []);
-        grouped.get(n.post.id)!.push(n);
-      }
-    }
-
-    const merged: NotificationItem[] = [];
-    for (const arr of grouped.values()) {
-      const sorted = arr.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
-      const latestTwo = sorted.slice(0, 2).map((x) => x.actor?.display_name ?? "Seseorang");
-      const total = new Set(sorted.map((x) => x.actor?.display_name)).size;
-      const base = { ...sorted[0] };
-      const postTitle = base.post?.title ?? "";
-
-      const bold = (t: string) => `<b>${t}</b>`;
-      let text = "";
-
-      if (total === 1) text = `${bold(latestTwo[0])} mengomentari tulisan anda yang berjudul “${postTitle}”`;
-      else if (total === 2) text = `${bold(latestTwo[0])} dan ${bold(latestTwo[1])} mengomentari tulisan anda yang berjudul “${postTitle}”`;
-      else {
-        const others = total - 2;
-        text = `${bold(latestTwo[0])}, ${bold(latestTwo[1])} dan ${others} orang lainnya mengomentari tulisan anda yang berjudul “${postTitle}”`;
-      }
-
-      merged.push({ ...base, type: "comment_post_grouped", comment: { id: null, text } });
-    }
-
-    const others = notifs.filter((n) => !["post_comment", "comment_post"].includes(n.type?.toLowerCase() ?? ""));
-    // gabungkan hasil group dengan notifikasi komentar asli yang punya comment.text
-    return [...merged, ...others].map((n) => {
-      if ((n.type === "post_comment" || n.type === "comment_post") && n.comment?.text) {
-        return {
-          ...n,
-          comment: { id: n.comment.id, text: n.comment.text },
-        };
-      }
-      return n;
-    });
-  }
-
-  // urutkan semua hasil gabungan
-  const displayItems = groupPostComments(groupPostLikes(items)).sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+  const displayItems = items.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
 
   return (
     <div className="w-full min-h-screen bg-white">
@@ -267,15 +171,33 @@ export default function NotificationLists() {
         {loading && items.length === 0 && <div className="py-6 px-4 text-sm text-gray-500">Memuat notifikasi...</div>}
 
         {displayItems.map((n) => (
-          <div key={n.id} onClick={() => void handleClick(n)} className={`flex gap-4 items-start px-4 py-5 cursor-pointer ${n.is_read ? "bg-white" : "bg-sky-100"}`}>
-            <div className="shrink-0">
-              <div className="w-16 h-16 rounded-full bg-white border border-gray-300 flex items-center justify-center overflow-hidden">
-                {n.actor?.avatar_url ? <Image src={n.actor.avatar_url} alt={n.actor.display_name ?? "avatar"} width={64} height={64} className="object-cover" /> : <User className="w-7 h-7 text-gray-600" />}
-              </div>
+          <div key={n.id} onClick={() => void handleClick(n)} className={`flex gap-4 items-start px-4 py-3 cursor-pointer ${n.is_read ? "bg-white" : "bg-sky-100"}`}>
+            <div className="shrink-0 flex -space-x-7">
+              {/* tampilkan avatar bertumpuk jika grouped */}
+              {n.actors && n.actors.length > 0 ? (
+                n.actors.slice(0, 3).map((a, i) =>
+                  a?.avatar_url ? (
+                    <Image key={i} src={a.avatar_url} alt={a.display_name ?? "avatar"} width={48} height={48} className="object-cover w-12 h-12 rounded-full border border-white" />
+                  ) : (
+                    <div key={i} className="w-12 h-12 rounded-full bg-gray-200 border border-white flex items-center justify-center text-sm text-gray-600">
+                      {a.display_name?.charAt(0) ?? "?"}
+                    </div>
+                  )
+                )
+              ) : n.actor?.avatar_url ? (
+                <Image src={n.actor.avatar_url} alt={n.actor.display_name ?? "avatar"} width={64} height={64} className="object-cover rounded-full w-16 h-16 border border-gray-200" />
+              ) : (
+                <User className="w-7 h-7 text-gray-600" />
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="text-base leading-tight text-gray-900" dangerouslySetInnerHTML={{ __html: renderNotificationTitle(n) }} />
+              <div
+                className="text-base leading-tight text-gray-900"
+                dangerouslySetInnerHTML={{
+                  __html: n.summary ?? renderNotificationTitle(n),
+                }}
+              />
               <div className="mt-3 text-sm text-gray-400">{formatTime(n.created_at)}</div>
             </div>
 
@@ -299,37 +221,21 @@ export default function NotificationLists() {
   );
 }
 
-// renderer HTML biar bisa bold dua nama
 function renderNotificationTitle(n: NotificationItem): string {
   const actorName = n.actor?.display_name ?? "Seseorang";
-
-  const truncate = (text?: string | null) => {
-    if (!text) return "";
-    const parts = text.trim().split(/\s+/);
-    return parts.length > 5 ? parts.slice(0, 5).join(" ") + "…" : parts.join(" ");
-  };
-
-  const postSnippet = truncate(n.post?.title);
-  const commentSnippet = truncate(n.comment?.text);
+  const postTitle = n.post?.title ?? "";
+  const commentText = n.comment?.text ?? "";
 
   switch (n.type?.toLowerCase()) {
-    case "post_like_grouped":
-    case "comment_post_grouped":
-      return n.comment?.text ?? "";
-
     case "post_like":
-      return `<b>${actorName}</b> menyukai tulisan anda yang berjudul “${postSnippet}”`;
-
+      return `<b>${actorName}</b> menyukai tulisan anda “${postTitle}”`;
     case "post_comment":
     case "comment_post":
-      return `<b>${actorName}</b> mengomentari tulisan anda yang berjudul “${postSnippet}”${commentSnippet ? ` dengan “${commentSnippet}”` : ""}`;
-
+      return `<b>${actorName}</b> mengomentari “${postTitle}”${commentText ? ` dengan “${commentText}”` : ""}`;
     case "mention":
-      return `<b>${actorName}</b> menyebut anda dalam komentar${commentSnippet ? ` “${commentSnippet}”` : ""}`;
-
+      return `<b>${actorName}</b> menyebut anda dalam komentar${commentText ? ` “${commentText}”` : ""}`;
     case "follow":
       return `<b>${actorName}</b> mengikuti anda`;
-
     default:
       return `<b>${actorName}</b> melakukan sesuatu — buka notifikasi untuk detail`;
   }

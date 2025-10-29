@@ -163,33 +163,27 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
 
     if (!postId) return;
 
-    // cari siapa pemilik post
-    const { data: postOwner } = await supabase.from("post").select("user_id").eq("id", postId).maybeSingle();
-    const postOwnerId = postOwner?.user_id ?? null;
+    // cek apakah user sudah pernah like
+    const { data: existing, error: existingErr } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
 
-    if (!postOwnerId || postOwnerId === user.id) {
-      // jangan kirim notifikasi kalau like postingan sendiri
-    }
-
-    const { data: existing } = await supabase.from("post_likes").select("liked").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
-
-    if (!existing) {
-      const { error } = await supabase.from("post_likes").upsert({ post_id: postId, user_id: user.id, liked: true }, { onConflict: "user_id,post_id" });
-
-      if (!error) {
-        setHasApresiasi(true);
-        setLikeCount((v) => v + 1);
-      }
+    if (existingErr) {
+      console.error("Gagal cek like:", existingErr);
       return;
     }
 
-    const newLiked = !existing.liked;
-    const { error } = await supabase.from("post_likes").update({ liked: newLiked }).eq("post_id", postId).eq("user_id", user.id);
+    const newLiked = existing ? !existing.liked : true;
 
-    if (!error) {
-      setHasApresiasi(newLiked);
-      setLikeCount((v) => v + (newLiked ? 1 : -1));
+    // upsert untuk toggle like
+    const { error: likeErr } = await supabase.from("post_likes").upsert({ post_id: postId, user_id: user.id, liked: newLiked }, { onConflict: "user_id,post_id" });
+
+    if (likeErr) {
+      console.error("Gagal simpan like:", likeErr);
+      return;
     }
+
+    // update state UI
+    setHasApresiasi(newLiked);
+    setLikeCount((v) => v + (newLiked ? 1 : -1));
   };
 
   const redirectToLogin = () => {
