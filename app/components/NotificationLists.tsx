@@ -115,8 +115,8 @@ export default function NotificationLists() {
 
       // === FOLLOW → ke profil actor pertama
       const mainActor = n.actors?.[0] ?? n.actor;
-      if (t === "follow" && mainActor) {
-        pushPath(`/profile/${mainActor.display_name}`);
+      if (t === "follow" && mainActor?.id) {
+        pushPath(`/profile/${mainActor.id}`);
         return;
       }
 
