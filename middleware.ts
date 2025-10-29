@@ -9,7 +9,7 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
-  if (p === "/" || p === "/login" || p.startsWith("/auth") || p === "/post" || p.startsWith("/post/")) {
+  if (p === "/" || p === "/login" || p === "/signup" || p.startsWith("/auth") || p === "/post" || p.startsWith("/post/") || p.startsWith("/kebijakan/")) {
     return NextResponse.next();
   }
 
@@ -32,6 +32,7 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Jika belum login arahkan ke /login
   if (!user) {
     const url = new URL("/login", req.url);
     const full = req.nextUrl.pathname + (req.nextUrl.search || "");
