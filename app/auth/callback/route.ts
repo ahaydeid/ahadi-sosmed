@@ -5,20 +5,16 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 function safeDecodeRedirect(raw: string | null | undefined): string {
   if (!raw) return "/";
   try {
-    // decode sekali
-    let once = decodeURIComponent(raw);
-    // kalau masih terlihat encoded (mengandung %2F), coba decode dua kali
-    if (/%[0-9A-Fa-f]{2}/.test(once)) {
-      try {
-        const twice = decodeURIComponent(once);
-        once = twice;
-      } catch {
-        /* biarkan sekali decode */
-      }
+    let decoded = raw;
+    // decode sampai 3 kali maksimal
+    for (let i = 0; i < 3; i++) {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
     }
-    // sanitasi: hanya izinkan relative path
-    if (!once.startsWith("/")) return "/";
-    return once;
+    // pastikan relative
+    if (!decoded.startsWith("/")) return "/";
+    return decoded;
   } catch {
     return "/";
   }

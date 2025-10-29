@@ -12,16 +12,16 @@ export default function BottomNavbar() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
 
-  const isActive = (path: string) => pathname === path;
+  const isActive = useCallback((path: string) => pathname === path, [pathname]);
 
-  // Auth session
+  // ===== Auth session =====
   useEffect(() => {
     let mounted = true;
 
     const loadSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setCurrentUserId(data.session?.user.id ?? null);
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !mounted) return;
+      setCurrentUserId(data.session?.user?.id ?? null);
     };
 
     loadSession();
@@ -40,10 +40,11 @@ export default function BottomNavbar() {
     };
   }, []);
 
-  // Hitung JUMLAH CHAT (distinct thread) yang punya unread > 0
+  // ===== Hitung jumlah chat (user) yang punya pesan belum dibaca =====
   const computeUnreadChats = useCallback(async () => {
     if (!currentUserId) return;
 
+    // Ambil semua thread di mana user ini terlibat
     const { data: threads, error: threadsErr } = await supabase.from("messages").select("id, sender_id, receiver_id").or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`);
 
     if (threadsErr || !threads || threads.length === 0) {
@@ -51,24 +52,31 @@ export default function BottomNavbar() {
       return;
     }
 
-    const flags: boolean[] = await Promise.all(
+    // Cek setiap thread apakah ada pesan baru dari lawan bicara
+    const flags = await Promise.all(
       threads.map(async (t) => {
+        const otherUserId = t.sender_id === currentUserId ? t.receiver_id : t.sender_id;
+        if (!otherUserId) return false;
+
+        // Ambil kapan terakhir user ini baca chat ini
         const { data: mr } = await supabase.from("message_reads").select("last_read_at").eq("user_id", currentUserId).eq("message_id", t.id).maybeSingle();
 
         const lastRead = mr?.last_read_at ?? "1970-01-01T00:00:00Z";
 
-        const { count, error } = await supabase.from("messages_content").select("*", { count: "exact", head: true }).eq("message_id", t.id).neq("sender_id", currentUserId).gt("created_at", lastRead);
+        // Cek apakah ada pesan baru dari lawan bicara setelah waktu terakhir baca
+        const { count, error: msgErr } = await supabase.from("messages_content").select("*", { count: "exact", head: true }).eq("message_id", t.id).eq("sender_id", otherUserId).gt("created_at", lastRead);
 
-        if (error) return false;
-        return (count ?? 0) > 0; // true jika chat ini punya unread
+        if (msgErr) return false;
+        return (count ?? 0) > 0;
       })
     );
 
-    const totalChatsWithUnread = flags.filter(Boolean).length;
-    setUnreadChatCount(totalChatsWithUnread);
+    // Hitung jumlah thread (user) yang punya pesan belum dibaca
+    const totalUnread = flags.filter(Boolean).length;
+    setUnreadChatCount(totalUnread);
   }, [currentUserId]);
 
-  // Initial compute: jadwalkan async agar tidak dianggap sync setState di effect
+  // ===== Initial compute =====
   useEffect(() => {
     if (!currentUserId) return;
     let cancelled = false;
@@ -81,15 +89,28 @@ export default function BottomNavbar() {
     };
   }, [currentUserId, computeUnreadChats]);
 
-  // Realtime refresh saat ada pesan baru atau last_read_at berubah
+  // ===== Realtime refresh =====
   useEffect(() => {
     if (!currentUserId) return;
 
+    // Update saat pesan baru masuk
     const chMessages = supabase
       .channel("rt_messages_content_for_nav")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages_content" }, () => void computeUnreadChats())
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages_content",
+        },
+        (payload) => {
+          const newMsg = payload.new as { sender_id: string; message_id: string };
+          if (newMsg.sender_id !== currentUserId) void computeUnreadChats();
+        }
+      )
       .subscribe();
 
+    // Update saat status baca berubah
     const chReads = supabase
       .channel("rt_message_reads_for_nav")
       .on(
@@ -110,10 +131,13 @@ export default function BottomNavbar() {
     };
   }, [currentUserId, computeUnreadChats]);
 
+  // ===== State UI =====
   const shouldShowNotifBubble = pathname !== "/notif";
-  const profileHref = currentUserId ? (`/profile/${currentUserId}` as Route) : ("/login" as Route);
-  // const profileHref = currentUserId ? `/profile/${currentUserId}` : "/login";
-  const profileActive = currentUserId ? isActive(`/profile/${currentUserId}`) : isActive("/login");
+
+  // Sama seperti halaman lain: redirect ke login + redirectedFrom jika belum login
+  const profileHref = (currentUserId ? `/profile/${currentUserId}` : `/login?redirectedFrom=${encodeURIComponent("/profile")}`) as Route;
+
+  const profileActive = currentUserId ? pathname.startsWith(`/profile/${currentUserId}`) : false;
 
   return (
     <nav className="fixed bottom-0 left-0 w-full bg-white shadow z-50">
@@ -150,7 +174,7 @@ export default function BottomNavbar() {
           <Link href="/notif" className="relative flex flex-col items-center">
             <Bell className={`w-6 h-6 ${isActive("/notif") ? "text-black" : "text-gray-500"}`} />
             {isActive("/notif") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
-            {shouldShowNotifBubble && <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">1</span>}
+            {shouldShowNotifBubble && unreadChatCount > 0 && <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">•</span>}
           </Link>
         </li>
 

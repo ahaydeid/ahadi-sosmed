@@ -169,17 +169,22 @@ export default function ChatDetailPage() {
         ) : (
           messages.map((msg) => {
             const isCurrentUser = msg.sender_id === currentUserId;
-            const time = new Date(msg.created_at).toLocaleTimeString("id-ID", {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+            const createdAt = new Date(msg.created_at);
+            const now = new Date();
+            const isToday = createdAt.toDateString() === now.toDateString();
+
+            const time = isToday ? createdAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : createdAt.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
             return (
               <div key={msg.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
-                <div className={`relative rounded-xl px-3 py-2 pb-5 min-w-12 max-w-[85%] ${isCurrentUser ? "bg-green-200 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
-                  {msg.text && <p className="text-sm">{msg.text}</p>}
-                  {msg.image_url && <Image src={msg.image_url} alt="gambar" width={400} height={300} className="rounded-md mt-1 max-w-full h-auto" />}
-                  <span className={`absolute bottom-1 right-2 text-[11px] ${isCurrentUser ? "text-gray-600" : "text-gray-500"}`}>{time}</span>
+                <div className={`rounded-xl px-3 py-2 min-w-12 max-w-[85%] flex flex-col ${isCurrentUser ? "bg-green-200 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
+                  <div>
+                    {msg.text && <p className="text-sm">{msg.text}</p>}
+                    {msg.image_url && <Image src={msg.image_url} alt="gambar" width={400} height={300} className="rounded-md mt-1 max-w-full h-auto" />}
+                  </div>
+                  <div className="self-end text-[11px]">
+                    <span className={`${isCurrentUser ? "text-gray-600" : "text-gray-500"}`}>{time}</span>
+                  </div>
                 </div>
               </div>
             );
