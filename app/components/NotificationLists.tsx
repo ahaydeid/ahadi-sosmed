@@ -171,19 +171,22 @@ export default function NotificationLists() {
         {loading && items.length === 0 && <div className="py-6 px-4 text-sm text-gray-500">Memuat notifikasi...</div>}
 
         {displayItems.map((n) => (
-          <div key={n.id} onClick={() => void handleClick(n)} className={`flex gap-4 items-start px-4 py-3 cursor-pointer ${n.is_read ? "bg-white" : "bg-sky-100"}`}>
+          <div key={n.id} onClick={() => void handleClick(n)} className={`flex gap-4 items-start px-4 py-2 cursor-pointer ${n.is_read ? "bg-white" : "bg-sky-100"}`}>
             <div className="shrink-0 flex -space-x-7">
               {/* tampilkan avatar bertumpuk jika grouped */}
               {n.actors && n.actors.length > 0 ? (
-                n.actors.slice(0, 3).map((a, i) =>
-                  a?.avatar_url ? (
-                    <Image key={i} src={a.avatar_url} alt={a.display_name ?? "avatar"} width={48} height={48} className="object-cover w-12 h-12 rounded-full border border-white" />
-                  ) : (
-                    <div key={i} className="w-12 h-12 rounded-full bg-gray-200 border border-white flex items-center justify-center text-sm text-gray-600">
-                      {a.display_name?.charAt(0) ?? "?"}
-                    </div>
+                [...n.actors]
+                  .slice(0, 3)
+                  .reverse() // urutan dibalik, terbaru paling depan
+                  .map((a, i) =>
+                    a?.avatar_url ? (
+                      <Image key={i} src={a.avatar_url} alt={a.display_name ?? "avatar"} width={48} height={48} className={`object-cover w-12 h-12 rounded-full border border-white relative z-[${10 + i}]`} />
+                    ) : (
+                      <div key={i} className={`w-12 h-12 rounded-full bg-gray-200 border border-white flex items-center justify-center text-sm text-gray-600 relative z-[${10 + i}]`}>
+                        {a.display_name?.charAt(0) ?? "?"}
+                      </div>
+                    )
                   )
-                )
               ) : n.actor?.avatar_url ? (
                 <Image src={n.actor.avatar_url} alt={n.actor.display_name ?? "avatar"} width={64} height={64} className="object-cover rounded-full w-16 h-16 border border-gray-200" />
               ) : (
@@ -198,7 +201,7 @@ export default function NotificationLists() {
                   __html: n.summary ?? renderNotificationTitle(n),
                 }}
               />
-              <div className="mt-3 text-sm text-gray-400">{formatTime(n.created_at)}</div>
+              <div className="mt-1 text-sm text-gray-400">{formatTime(n.created_at)}</div>
             </div>
 
             <div className="shrink-0 ml-3">

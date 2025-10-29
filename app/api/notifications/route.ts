@@ -16,7 +16,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
     }
 
-    // Ambil user dari token
     const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
     if (userError || !userData?.user) {
       return NextResponse.json({ error: "Token tidak valid" }, { status: 401 });
@@ -24,7 +23,6 @@ export async function GET(request: Request) {
 
     const authUserId = userData.user.id;
 
-    // Cari id di tabel user_profile (karena notifications.user_id → user_profile.id)
     const { data: profile, error: profileError } = await supabaseAdmin.from("user_profile").select("id").eq("id", authUserId).single();
 
     if (profileError || !profile) {
@@ -34,7 +32,6 @@ export async function GET(request: Request) {
 
     const profileId = profile.id;
 
-    // Ambil notifikasi lengkap dengan relasi
     const { data, error } = await supabaseAdmin
       .from("notifications")
       .select(
@@ -69,10 +66,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // === Mulai modifikasi di sini ===
     const raw = data ?? [];
 
-    // Normalisasi data
     const flat = raw.map((n) => {
       const actor = Array.isArray(n.actor) ? n.actor[0] : n.actor;
       const post = Array.isArray(n.post) ? n.post[0] : n.post;
@@ -106,16 +101,19 @@ export async function GET(request: Request) {
       };
     });
 
-    // Grouping berdasarkan type + referensi
+    // 🔹 Grouping hanya untuk like & komentar post
     const groups = new Map<string, typeof flat>();
 
     for (const item of flat) {
-      const key = item.type + "_" + (item.post?.id ?? "") + "_" + (item.comment?.id ?? "");
+      // hanya grup untuk like dan komentar post
+      const isGroupable = item.type === "post_like" || item.type === "post_comment" || item.type === "comment_post";
+
+      const key = isGroupable ? `${item.type}_${item.post?.id ?? ""}` : `${item.type}_${item.id}`; // reply & mention pakai id sendiri biar tidak tergabung
+
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(item);
     }
 
-    // Bentuk hasil akhir dengan summary
     const groupedNotifications = Array.from(groups.values()).map((items) => {
       const first = items[0];
       const actors = items.map((i) => i.actor).filter((a): a is NonNullable<typeof a> => !!a);
@@ -123,15 +121,15 @@ export async function GET(request: Request) {
 
       let summary = "";
       if (total === 1) {
-        summary = `${actors[0].display_name}`;
+        summary = `<b>${actors[0].display_name}</b>`;
       } else if (total === 2) {
-        summary = `${actors[0].display_name} dan ${actors[1].display_name}`;
+        summary = `<b>${actors[0].display_name}</b> dan <b>${actors[1].display_name}</b>`;
       } else {
-        summary = `${actors[0].display_name}, ${actors[1].display_name}, dan ${total - 2} lainnya`;
+        summary = `<b>${actors[0].display_name}</b>, <b>${actors[1].display_name}</b>, dan <b>${total - 2}</b> lainnya`;
       }
 
       if (first.type === "post_like") summary += " menyukai tulisan anda";
-      else if (first.type === "post_comment") summary += " mengomentari tulisan anda";
+      else if (first.type === "post_comment" || first.type === "comment_post") summary += " mengomentari tulisan anda";
       else if (first.type === "comment_reply") summary += " membalas komentar anda";
       else if (first.type === "mention") summary += " menyebut anda dalam komentar";
       else if (first.type === "follow") summary += " mulai mengikuti anda";
@@ -150,7 +148,6 @@ export async function GET(request: Request) {
 
     const hasMore = groupedNotifications.length === limit;
     return NextResponse.json({ notifications: groupedNotifications, hasMore });
-    // === Akhir modifikasi ===
   } catch (err) {
     console.error("API Error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
