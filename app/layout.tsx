@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "ahadi",
   description: "Sosial media ahadi",
   icons: { icon: "/icon.png", apple: "/apple-touch-icon.png" },
+};
+
+export const viewport = {
   themeColor: "#0EA5E9",
 };
 

@@ -24,14 +24,17 @@ type PostRef = {
 
 export type NotificationItem = {
   id: string;
+  ids?: string[];
   type: string | null;
   is_read: boolean | null;
   created_at: string | null;
-  summary?: string | null; // ditambahkan untuk format grouped
-  actors?: Actor[] | null; // ditambahkan untuk avatar bertumpuk
-  actor?: Actor | null; // tetap ada untuk kompatibilitas lama
+  summary?: string | null;
+  actors?: Actor[] | null;
+  actor?: Actor | null;
   comment: CommentRef | null;
   post: PostRef | null;
+  reference_post_id?: string | null;
+  reference_comment_id?: string | null;
 };
 
 export default function NotificationLists() {
@@ -106,21 +109,43 @@ export default function NotificationLists() {
     setMarking((s) => ({ ...s, [n.id]: true }));
 
     try {
-      const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
-      if (error) return;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
-      setItems((s) => s.map((it) => (it.id === n.id ? { ...it, is_read: true } : it)));
+      const userId = session.user.id;
+
+      // deteksi otomatis kalau grouped
+      const isGrouped = n.summary && ["post_like", "post_comment", "comment_post"].includes(n.type ?? "");
+
+      if (n.ids && n.ids.length > 1) {
+        await supabase.from("notifications").update({ is_read: true }).in("id", n.ids);
+      } else if (n.reference_post_id || n.reference_comment_id) {
+        let q = supabase.from("notifications").update({ is_read: true }).eq("user_id", userId);
+        if (n.reference_post_id) q = q.eq("reference_post_id", n.reference_post_id);
+        if (n.reference_comment_id) q = q.eq("reference_comment_id", n.reference_comment_id);
+        await q;
+      } else {
+        await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
+      }
+
+      // update state lokal agar langsung kelihatan
+      setItems((s) =>
+        s.map((it) => {
+          const sameGroup = isGrouped && ((n.reference_post_id && it.reference_post_id === n.reference_post_id) || (n.reference_comment_id && it.reference_comment_id === n.reference_comment_id));
+          return sameGroup || it.id === n.id ? { ...it, is_read: true } : it;
+        })
+      );
 
       const t = n.type?.toLowerCase() ?? "";
-
-      // === FOLLOW → ke profil actor pertama
       const mainActor = n.actors?.[0] ?? n.actor;
+
       if (t === "follow" && mainActor?.id) {
         pushPath(`/profile/${mainActor.id}`);
         return;
       }
 
-      // === KOMENTAR → ke post + anchor komentar
       if (["post_comment", "comment_post", "comment_reply", "mention"].includes(t)) {
         if (n.post?.slug) {
           const anchor = n.comment?.id ? `#comment-${n.comment.id}` : "";
@@ -134,8 +159,7 @@ export default function NotificationLists() {
         }
       }
 
-      // === LIKE → ke post
-      if (["post_like", "post_like_grouped"].includes(t)) {
+      if (["post_like"].includes(t)) {
         if (n.post?.slug) {
           pushPath(`/post/${n.post.slug}`);
           return;
@@ -173,16 +197,16 @@ export default function NotificationLists() {
         {displayItems.map((n) => (
           <div key={n.id} onClick={() => void handleClick(n)} className={`flex gap-4 items-start px-4 py-2 cursor-pointer ${n.is_read ? "bg-white" : "bg-sky-100"}`}>
             <div className="shrink-0 flex -space-x-7">
-              {/* tampilkan avatar bertumpuk jika grouped */}
               {n.actors && n.actors.length > 0 ? (
-                [...n.actors]
+                // hilangkan duplikasi user berdasarkan id
+                [...new Map(n.actors.filter(Boolean).map((a) => [a.id, a])).values()]
                   .slice(0, 3)
-                  .reverse() // urutan dibalik, terbaru paling depan
+                  .reverse()
                   .map((a, i) =>
                     a?.avatar_url ? (
-                      <Image key={i} src={a.avatar_url} alt={a.display_name ?? "avatar"} width={48} height={48} className={`object-cover w-12 h-12 rounded-full border border-white relative z-[${10 + i}]`} />
+                      <Image key={a.id ?? i} src={a.avatar_url} alt={a.display_name ?? "avatar"} width={48} height={48} className={`object-cover w-12 h-12 rounded-full border border-white relative z-[${10 + i}]`} />
                     ) : (
-                      <div key={i} className={`w-12 h-12 rounded-full bg-gray-200 border border-white flex items-center justify-center text-sm text-gray-600 relative z-[${10 + i}]`}>
+                      <div key={a.id ?? i} className={`w-12 h-12 rounded-full bg-gray-200 border border-white flex items-center justify-center text-sm text-gray-600 relative z-[${10 + i}]`}>
                         {a.display_name?.charAt(0) ?? "?"}
                       </div>
                     )

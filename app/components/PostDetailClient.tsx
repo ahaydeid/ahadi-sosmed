@@ -99,13 +99,13 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
 
       const { data: profileData } = await supabase.from("user_profile").select("display_name").eq("id", postData.user_id).single();
 
-      const [{ count: likesCount }, { count: commentsCount }, { count: viewsCount }] = await Promise.all([
+      const [{ count: likesCount }, { count: commentsCount }, { data: viewsRow }] = await Promise.all([
         supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", postId).eq("liked", true),
         supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", postId),
-        supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", postId),
+        supabase.from("post_views").select("views").eq("post_id", postId).maybeSingle(),
       ]);
 
-      await supabase.from("post_views").insert([{ post_id: postId }]);
+      const totalViews = viewsRow?.views ?? 0;
 
       const resolvedSlug = contentData?.slug ?? initialSlug ?? undefined;
       if (resolvedSlug) setSlug(resolvedSlug);
@@ -121,7 +121,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
         date: formatPostDate(postData.created_at),
         likes: (likesCount as number) ?? 0,
         comments: (commentsCount as number) ?? 0,
-        views: ((viewsCount as number) ?? 0) + 1,
+        views: totalViews,
       });
 
       setLikeCount((likesCount as number) ?? 0);

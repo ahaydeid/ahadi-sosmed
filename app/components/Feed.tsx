@@ -120,13 +120,13 @@ function FeedInner() {
 
       const scored = await Promise.all(
         typed.map(async (p) => {
-          const [likes, comments, views] = await Promise.all([
+          const [likes, comments, viewsRow] = await Promise.all([
             supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id).eq("liked", true),
             supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id),
-            supabase.from("post_views").select("*", { count: "exact", head: true }).eq("post_id", p.id),
+            supabase.from("post_views").select("views").eq("post_id", p.id).maybeSingle(),
           ]);
 
-          const v = views.count ?? 0;
+          const v = viewsRow?.data?.views ?? 0;
           const l = likes.count ?? 0;
           const c = comments.count ?? 0;
 
@@ -191,7 +191,19 @@ function FeedInner() {
             const extended = post as PostCardData & { slug?: string | null };
             const hrefPath = `/post/${extended.slug ?? post.id}`;
             return (
-              <Link key={post.id} href={{ pathname: hrefPath }} className="block transition hover:bg-gray-100">
+              <Link
+                key={post.id}
+                href={{ pathname: hrefPath }}
+                className="block transition hover:bg-gray-100"
+                onClick={async () => {
+                  try {
+                    // increment counter di kolom views
+                    await supabase.rpc("increment_post_views", { postid: post.id });
+                  } catch (err) {
+                    console.error("Gagal update views:", err);
+                  }
+                }}
+              >
                 <PostCard post={post} />
               </Link>
             );

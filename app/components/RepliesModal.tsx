@@ -42,9 +42,7 @@ interface Item {
   mentionName: string | null;
 }
 
-/*
-  Helper sederhana: bikin inisial dari nama
-*/
+// helper bikin inisial nama
 function getInitials(name: string): string {
   const p = name.trim().split(/\s+/);
   if (p.length === 0) return "U";
@@ -52,9 +50,7 @@ function getInitials(name: string): string {
   return (p[0].slice(0, 1) + p[p.length - 1].slice(0, 1)).toUpperCase();
 }
 
-/*
-  Format waktu relatif sederhana
-*/
+// format waktu relatif sederhana
 function formatRelativeTime(createdAt: string): string {
   const now = new Date();
   const created = new Date(createdAt);
@@ -72,9 +68,7 @@ function formatRelativeTime(createdAt: string): string {
   return `${y} tahun`;
 }
 
-/*
-  Auto-resize textarea kecil
-*/
+// auto resize textarea kecil
 const useAutosizeTextArea = (textareaRef: React.RefObject<HTMLTextAreaElement>, value: string) => {
   useEffect(() => {
     if (textareaRef.current) {
@@ -95,12 +89,9 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   const textareaRef = useRef<HTMLTextAreaElement>(null!);
   useAutosizeTextArea(textareaRef, text);
 
-  // jumlah like untuk komentar root (ditampilkan di UI root)
   const [rootLikes, setRootLikes] = useState<number>(0);
-  // state untuk buka modal yang menampilkan daftar yang like (pakai component ModalLikes)
   const [showLikesForCommentId, setShowLikesForCommentId] = useState<string | null>(null);
 
-  // ambil satu level replies (dipakai di buildThread)
   const fetchLevel = useCallback(
     async (parents: string[]): Promise<Row[]> => {
       if (parents.length === 0) return [];
@@ -118,10 +109,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     [postId]
   );
 
-  /*
-    Baca thread (root + replies) dan update state
-    polling / manual refresh akan memanggil ini
-  */
   const buildThread = useCallback(async () => {
     setLoading(true);
 
@@ -136,7 +123,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     const rootRow = rootRes.data as Row;
 
-    // ambil sampai beberapa level
     const levels: Row[][] = [];
     levels.push([rootRow]);
 
@@ -155,12 +141,10 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       else rows.forEach((r) => flatRows.push({ row: r, level: idx }));
     });
 
-    // kumpulkan id profile yang dibutuhkan
     const authorIds = flatRows.map((x) => x.row.user_id).filter(Boolean) as string[];
     const mentionIds = flatRows.map((x) => x.row.mention_user_id).filter(Boolean) as string[];
     const uniqIds = [...new Set([...authorIds, ...mentionIds])];
 
-    // ambil profile yang belum ada
     const profMap = new Map(profiles);
     const idsToFetch = uniqIds.filter((id) => !profMap.has(id));
     if (idsToFetch.length > 0) {
@@ -168,7 +152,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
       if (!profRes.error && profRes.data) {
         (profRes.data as Profile[]).forEach((p) => profMap.set(p.id, { id: p.id, display_name: p.display_name, avatar_url: p.avatar_url ?? null }));
       }
-      // simpan merge ke state
       setProfiles(new Map(profMap));
     }
 
@@ -195,7 +178,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     setItems([root, ...repliesSorted]);
 
-    // ambil jumlah like untuk komentar root saja
     const likesRes = await supabase.from("comment_likes").select("*", { count: "exact", head: true }).eq("comment_id", rootCommentId);
     const cnt = (likesRes.count as number) ?? 0;
     setRootLikes(cnt);
@@ -203,7 +185,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     setLoading(false);
   }, [rootCommentId, fetchLevel, profiles]);
 
-  // ambil id user saat ini (sekali)
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -216,27 +197,12 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     };
   }, []);
 
-  // jalankan buildThread pertama kali + polling interval
   useEffect(() => {
-    let mounted = true;
-    let timer: number | undefined;
-
     (async () => {
-      if (!mounted) return;
       await buildThread();
-      // polling setiap 8 detik
-      timer = window.setInterval(() => {
-        void buildThread();
-      }, 8000);
     })();
-
-    return () => {
-      mounted = false;
-      if (timer) window.clearInterval(timer);
-    };
   }, [buildThread]);
 
-  // dukung event manual refresh: window.dispatchEvent(new CustomEvent("comments:refresh", { detail: { postId: ... } }))
   useEffect(() => {
     const onRefresh = (e: Event) => {
       const ev = e as CustomEvent<{ postId: string }>;
@@ -281,7 +247,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     if (insertRes.error || !insertRes.data) return;
 
-    // update profiles jika perlu
     const profMap = new Map(profiles);
     if (meId && !profMap.has(meId)) {
       const meProf = await supabase.from("user_profile").select("id, display_name, avatar_url").eq("id", meId).maybeSingle();
@@ -316,7 +281,6 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     setText("");
 
-    // notifikasi async, tidak blokir UI
     void (async () => {
       const parentRowRes = await supabase.from("comments").select("id, user_id").eq("id", activeTarget.id).single();
       const parentRow = parentRowRes.data as { id: string; user_id: string } | null;
@@ -398,16 +362,11 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
         </div>
       </div>
 
-      {/* modal daftar yang menyukai komentar */}
       <ModalLikes commentId={showLikesForCommentId ?? undefined} open={!!showLikesForCommentId} onClose={() => setShowLikesForCommentId(null)} />
     </div>
   );
 }
 
-/*
-  Komponen kecil untuk satu item reply
-  menampilkan heart + jumlah only untuk root (clickable)
-*/
 function ReplyItem({ item, onReply, onShowLikes, likes }: { item: Item; onReply: () => void; onShowLikes: () => void; likes?: number }) {
   const pad = item.level > 0 ? 40 : 0;
   const isRoot = item.level === 0;
@@ -440,7 +399,6 @@ function ReplyItem({ item, onReply, onShowLikes, likes }: { item: Item; onReply:
             Balas
           </button>
 
-          {/* hanya tampil di komentar root: icon heart + jumlah like, clickable */}
           {isRoot && (
             <button type="button" onClick={onShowLikes} className="flex hover:text-sky-400 cursor-pointer items-center gap-1" aria-label="Lihat yang menyukai komentar">
               <Heart className="w-4 h-4 text-gray-700 hover:text-sky-400 cursor-pointer" />

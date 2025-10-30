@@ -40,6 +40,8 @@ export async function GET(request: Request) {
         type,
         is_read,
         created_at,
+        reference_post_id,
+        reference_comment_id,
         actor:actor_id (
           id,
           display_name,
@@ -98,6 +100,8 @@ export async function GET(request: Request) {
               text: comment.text,
             }
           : null,
+        reference_post_id: n.reference_post_id ?? null,
+        reference_comment_id: n.reference_comment_id ?? null,
       };
     });
 
@@ -105,11 +109,8 @@ export async function GET(request: Request) {
     const groups = new Map<string, typeof flat>();
 
     for (const item of flat) {
-      // hanya grup untuk like dan komentar post
       const isGroupable = item.type === "post_like" || item.type === "post_comment" || item.type === "comment_post";
-
-      const key = isGroupable ? `${item.type}_${item.post?.id ?? ""}` : `${item.type}_${item.id}`; // reply & mention pakai id sendiri biar tidak tergabung
-
+      const key = isGroupable ? `${item.type}_${item.post?.id ?? ""}` : `${item.type}_${item.id}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(item);
     }
@@ -136,6 +137,7 @@ export async function GET(request: Request) {
 
       return {
         id: first.id,
+        ids: items.map((i) => i.id), // 👈 tambahkan ini
         type: first.type,
         is_read: first.is_read,
         created_at: first.created_at,
@@ -143,6 +145,8 @@ export async function GET(request: Request) {
         actors,
         post: first.post,
         comment: first.comment,
+        reference_post_id: first.reference_post_id ?? null,
+        reference_comment_id: first.reference_comment_id ?? null,
       };
     });
 
