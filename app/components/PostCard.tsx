@@ -44,7 +44,7 @@ export default function PostCard({ post }: PostCardProps) {
           </div>
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-800 font-medium">{post.author}</span>
-            {post.verified && <BadgeCheck className="w-3 h-3 text-blue-500" />}
+            {post.verified && <BadgeCheck className="w-3 h-3 text-sky-500" />}
           </div>
         </div>
 
@@ -73,8 +73,8 @@ export default function PostCard({ post }: PostCardProps) {
       </div>
 
       {hasImage && (
-        <div className="w-24 h-20 rounded-xs overflow-hidden bg-gray-200 shrink-0 flex items-center justify-center mt-8 self-start">
-          <Image src={post.imageUrl as string} alt={post.title} width={96} height={80} className="object-cover w-24 h-20" />
+        <div className="rounded-xs h-12 overflow-hidden shrink-0 flex ustify-center mt-9 self-start">
+          <Image src={post.imageUrl as string} alt={post.title} width={96} height={80} className="object-cover w-15" />
         </div>
       )}
 

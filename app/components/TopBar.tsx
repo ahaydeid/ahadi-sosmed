@@ -162,7 +162,15 @@ function TopBarInner() {
           <button onClick={() => handleTab("teratas")} className={`text-sm ${activeTab === "teratas" ? "font-semibold text-black" : "text-gray-500"}`}>
             Teratas
           </button>
-          <button onClick={() => handleTab("followed")} className={`text-sm ${activeTab === "followed" ? "font-semibold text-black" : "text-gray-500"}`}>
+
+          <button
+            onClick={() => {
+              if (!isLoggedIn) return; // cegah klik kalau belum login
+              handleTab("followed");
+            }}
+            disabled={!isLoggedIn}
+            className={`text-sm transition ${!isLoggedIn ? "text-gray-300 cursor-not-allowed" : activeTab === "followed" ? "font-semibold text-black" : "text-gray-500 hover:text-black"}`}
+          >
             Diikuti
           </button>
         </div>

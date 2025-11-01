@@ -8,9 +8,26 @@ export const revalidate = 60;
 
 export default async function Page() {
   const cookieStore = await cookies();
-  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { cookies: { get: (key) => cookieStore.get(key)?.value } });
 
-  const { data: posts, error } = await supabase.from("post").select("id, created_at, user_id, visibility").eq("visibility", "public").order("created_at", { ascending: false }).limit(20);
+  // ✅ Versi terbaru (tanpa deprecated dan tanpa warning)
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Abaikan error di edge runtime
+        }
+      },
+    },
+  });
+
+  const { data: posts, error } = await supabase.from("post").select("id, created_at, user_id, visibility").eq("visibility", "public").order("created_at", { ascending: false }).limit(100);
 
   if (error || !posts) {
     console.error("Error loading posts:", error?.message);
@@ -27,19 +44,28 @@ export default async function Page() {
   const contentMap = new Map(contents?.map((c) => [c.post_id, c]));
   const profileMap = new Map(profiles?.map((p) => [p.id, p]));
 
-  const initialPosts: (PostCardData & { slug?: string | null; verified?: boolean; created_at: string })[] = posts.map((p) => {
+  const initialPosts: (PostCardData & {
+    slug?: string | null;
+    verified?: boolean;
+    created_at: string;
+    user_id: string;
+  })[] = posts.map((p) => {
     const content = contentMap.get(p.id);
     const profile = profileMap.get(p.user_id);
 
     return {
       id: p.id,
+      user_id: p.user_id,
       author: profile?.display_name ?? "Anonim",
       authorImage: content?.author_image ?? profile?.avatar_url ?? null,
       title: content?.title ?? "(Tanpa judul)",
       description: content?.description ?? "",
       imageUrl: content?.image_url ?? null,
-      date: new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-      created_at: p.created_at, // <--- Tambahkan baris ini (mentah dari Supabase)
+      date: new Date(p.created_at).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+      }),
+      created_at: p.created_at,
       views: 0,
       likes: 0,
       comments: 0,

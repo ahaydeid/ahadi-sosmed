@@ -2,15 +2,17 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Heart, Loader2 } from "lucide-react";
+import { Heart, Loader2, BadgeCheck } from "lucide-react";
 import Image from "next/image";
 import RepliesModal from "@/app/components/RepliesModal";
 import ModalLikes from "@/app/components/ModalLikes";
 import type { User } from "@supabase/supabase-js";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 interface CommentData {
   id: string;
+  user_id: string;
   author: string;
   text: string;
   time: string;
@@ -21,6 +23,7 @@ interface CommentData {
   followedResponderName?: string | null;
   avatarColor: string;
   avatarUrl?: string | null;
+  verified?: boolean;
   parent_comment_id?: string | null;
 }
 
@@ -43,8 +46,6 @@ export default function PostComments({ postId }: PostCommentsProps) {
 
   const [likeBusy, setLikeBusy] = useState<Set<string>>(new Set());
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-
-  // state untuk modal likes pada komentar
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
 
   const router = useRouter();
@@ -109,7 +110,6 @@ export default function PostComments({ postId }: PostCommentsProps) {
         .eq("post_id", postId)
         .is("parent_comment_id", null)
         .order("created_at", { ascending: false })
-        .order("id", { ascending: false })
         .range(currentOffset, currentOffset + LIMIT - 1);
 
       if (topErr) {
@@ -127,7 +127,6 @@ export default function PostComments({ postId }: PostCommentsProps) {
       }
 
       const parentIds = topLevelRows.map((r) => r.id);
-
       const { data: likeRows } = await supabase.from("comment_likes").select("comment_id, user_id").in("comment_id", parentIds);
       const likeCountMap = new Map<string, number>();
       const likedByMeSet = new Set<string>();
@@ -179,13 +178,13 @@ export default function PostComments({ postId }: PostCommentsProps) {
       const chosenResponderIds = [...new Set(Array.from(followedResponderIdByRoot.values()).filter(Boolean) as string[])];
       const needProfileIds = [...new Set([...topAuthorIds, ...chosenResponderIds])];
 
-      let profiles: Array<{ id: string; display_name: string; avatar_url: string | null }> = [];
+      let profiles: Array<{ id: string; display_name: string; avatar_url: string | null; verified?: boolean }> = [];
       if (needProfileIds.length > 0) {
-        const { data } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", needProfileIds);
+        const { data } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", needProfileIds);
         profiles = data ?? [];
       }
-      const profileMap = new Map<string, { display_name: string; avatar_url: string | null }>();
-      profiles.forEach((p) => profileMap.set(p.id, { display_name: p.display_name, avatar_url: p.avatar_url ?? null }));
+      const profileMap = new Map<string, { display_name: string; avatar_url: string | null; verified?: boolean }>();
+      profiles.forEach((p) => profileMap.set(p.id, { display_name: p.display_name, avatar_url: p.avatar_url ?? null, verified: p.verified ?? false }));
 
       const commentsWithExtras: CommentData[] = topLevelRows.map((c) => {
         const authorProf = c.user_id ? profileMap.get(c.user_id) : undefined;
@@ -198,7 +197,9 @@ export default function PostComments({ postId }: PostCommentsProps) {
 
         return {
           id: c.id,
+          user_id: c.user_id,
           author: authorProf?.display_name ?? "Anonim",
+          verified: authorProf?.verified ?? false,
           text: c.text,
           time: formatRelativeTime(c.created_at),
           likes: likeCountMap.get(c.id) ?? 0,
@@ -324,8 +325,6 @@ export default function PostComments({ postId }: PostCommentsProps) {
       </div>
 
       {openRootId && <RepliesModal rootCommentId={openRootId} postId={postId} onClose={() => setOpenRootId(null)} />}
-
-      {/* Modal untuk daftar yang menyukai komentar */}
       <ModalLikes commentId={selectedCommentId ?? undefined} open={!!selectedCommentId} onClose={() => setSelectedCommentId(null)} />
     </div>
   );
@@ -359,23 +358,24 @@ function CommentItem({ comment, onReply, onLike, likeBusy, onShowLikes }: { comm
 
       <div className="flex-1">
         <div className="bg-gray-100 rounded-xl p-3">
-          <p className="font-semibold text-sm mb-1 text-gray-800">{comment.author}</p>
+          <Link href={`/profile/${comment.user_id}`} className="flex items-center gap-1 mb-1 hover:underline">
+            <p className="font-semibold text-sm text-gray-800">{comment.author}</p>
+            {comment.verified && <BadgeCheck className="w-3.5 h-3.5 text-sky-500" />}
+          </Link>
+
           <p className="text-sm text-gray-800 whitespace-pre-wrap">{comment.text}</p>
         </div>
 
         <div className="flex items-center gap-6 mt-2 text-sm text-gray-700">
           <span>{comment.time}</span>
-
-          <button className={`hover:underline disabled:opacity-50 ${liked ? "text-sky-700" : ""}`} onClick={onLike} disabled={likeBusy} aria-pressed={liked}>
+          <button className={`hover:underline disabled:opacity-50 ${liked ? "text-sky-700" : ""}`} onClick={onLike} disabled={likeBusy}>
             {liked ? "Batal Suka" : "Suka"}
           </button>
-
           <button className="hover:underline" onClick={onReply}>
             Balas
           </button>
-
-          <button type="button" onClick={onShowLikes} className="flex hover:text-sky-400 cursor-pointer items-center gap-1" aria-label="Lihat yang menyukai komentar">
-            <Heart className={`w-4 h-4 ${liked ? "text-sky-600" : "text-gray-700 hover:text-sky-400 cursor-pointer"}`} />
+          <button type="button" onClick={onShowLikes} className="flex hover:text-sky-400 items-center gap-1" aria-label="Lihat yang menyukai komentar">
+            <Heart className={`w-4 h-4 ${liked ? "text-sky-600" : "text-gray-700 hover:text-sky-400"}`} />
             <span>{comment.likes}</span>
           </button>
         </div>
