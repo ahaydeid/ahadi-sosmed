@@ -1,6 +1,8 @@
 import { MetadataRoute } from "next";
 import { supabaseServer } from "@/lib/supabaseServer";
 
+export const revalidate = 0; // <= ini penting, biar tidak di-cache oleh Next.js
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = "https://ahadi.my.id";
   const supabase = supabaseServer();
