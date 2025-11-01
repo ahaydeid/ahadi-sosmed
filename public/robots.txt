@@ -1,20 +1,14 @@
-User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /auth/
-Disallow: /chat/
-Disallow: /notif/
-Disallow: /profile/
-Disallow: /signup/
-Disallow: /write/
-Disallow: /app/
-Disallow: /_next/
-Disallow: /static/
-Disallow: /fonts/
-Disallow: /favicon.ico
-Disallow: /login
-Allow: /post/
-Allow: /post/*
-Allow: /kebijakan/
-Sitemap: https://ahadi.my.id/sitemap.xml
-Host: https://ahadi.my.id
+import { MetadataRoute } from "next"
+
+export default function robots(): MetadataRoute.Robots {
+  const base = "https://ahadi.my.id"
+  return {
+    rules: {
+      userAgent: "*",
+      allow: "/",
+      disallow: ["/api/", "/auth/", "/app/", "/login", "/signup", "/profile/"],
+    },
+    sitemap: `${base}/sitemap.xml`,
+    host: base,
+  }
+}

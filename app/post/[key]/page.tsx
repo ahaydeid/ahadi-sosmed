@@ -73,6 +73,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+export async function generateStaticParams() {
+  const supabase = supabaseServer();
+  const { data: posts } = await supabase.from("post_content").select("slug");
+
+  if (!posts) return [];
+  return posts.map((p) => ({ key: p.slug }));
+}
+
 export default async function Page({ params }: Props) {
   const { key } = await params;
   const supabase = supabaseServer();
