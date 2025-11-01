@@ -19,7 +19,16 @@ export default async function proxyMiddleware(req: NextRequest) {
   const currentPath = req.nextUrl.pathname;
 
   // Daftar Rute Publik (Tidak memerlukan otentikasi)
-  if (currentPath === "/" || currentPath === "/login" || currentPath === "/signup" || currentPath.startsWith("/auth") || currentPath === "/post" || currentPath.startsWith("/post/") || currentPath.startsWith("/kebijakan/")) {
+  if (
+    currentPath === "/" ||
+    currentPath === "/login" ||
+    currentPath === "/signup" ||
+    currentPath.startsWith("/auth") ||
+    currentPath === "/post" ||
+    currentPath.startsWith("/post/") ||
+    currentPath.startsWith("/kebijakan/") ||
+    currentPath === "/ungkapin"
+  ) {
     // Lewatkan permintaan ke halaman berikutnya (publik)
     return NextResponse.next();
   }

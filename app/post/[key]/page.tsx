@@ -1,7 +1,6 @@
-// app/post/[key]/page.tsx
 import type { Metadata } from "next";
-import PostDetailClient from "@/app/components/PostDetailClient";
 import { supabaseServer } from "@/lib/supabaseServer";
+import PostDetailPage from "../../components/PostDetail/PostDetailPage";
 
 interface Props {
   params: { key: string } | Promise<{ key: string }>;
@@ -13,17 +12,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { key } = await params;
   const supabase = supabaseServer();
 
-  // resolve key -> postId and slug
   let postId: string | null = null;
   let slugValue: string | null = null;
 
   if (isUuid(key)) {
     postId = key;
-    // ambil slug jika ada
     const { data: contentForSlug } = await supabase.from("post_content").select("slug, title, description, image_url").eq("post_id", postId).maybeSingle();
     slugValue = contentForSlug?.slug ?? null;
   } else {
-    // key dianggap slug
     slugValue = key;
     const { data: slugRow } = await supabase.from("post_content").select("post_id, title, description, image_url").eq("slug", key).maybeSingle();
     postId = slugRow?.post_id ?? null;
@@ -60,7 +56,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const isWebp = /\.webp(\?.*)?$/i.test(absImage);
   const ogImage = isWebp ? `${base}/icon.png` : absImage;
 
-  // Use slug in public-facing URL (if slug exists) for SEO
   const pagePath = slugValue ? slugValue : postId;
   const pageUrl = `${base}/post/${pagePath}`;
 
@@ -82,7 +77,6 @@ export default async function Page({ params }: Props) {
   const { key } = await params;
   const supabase = supabaseServer();
 
-  // resolve key -> postId and slug
   let postId: string | null = null;
   let slugValue: string | null = null;
 
@@ -105,6 +99,7 @@ export default async function Page({ params }: Props) {
   }
 
   const { data: post } = await supabase.from("post").select("id").eq("id", postId).maybeSingle();
+
   if (!post) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -113,11 +108,10 @@ export default async function Page({ params }: Props) {
     );
   }
 
-  // pass both id & slug ke client
   return (
     <div className="min-h-screen bg-white">
       <h1 className="sr-only">{post.id}</h1>
-      <PostDetailClient initialPostId={postId} initialSlug={slugValue ?? undefined} />
+      <PostDetailPage initialPostId={postId} initialSlug={slugValue ?? undefined} />
     </div>
   );
 }

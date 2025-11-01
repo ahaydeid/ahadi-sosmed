@@ -7,6 +7,7 @@ import PostCard from "./PostCard";
 import { supabase } from "@/lib/supabaseClient";
 import { PostCardData } from "@/lib/types/post";
 import { useSearchParams } from "next/navigation";
+import { incrementPostViews } from "@/lib/actions/incrementViews";
 
 interface PostContent {
   post_id: string;
@@ -21,7 +22,9 @@ interface UserProfile {
   id: string;
   display_name: string;
   avatar_url?: string | null;
+  verified?: boolean;
 }
+
 interface PostRow {
   id: string;
   created_at: string;
@@ -35,7 +38,7 @@ function FeedInner() {
   const searchParams = useSearchParams();
   const tab = (searchParams.get("tab") as "teratas" | "followed") || "teratas";
 
-  const [posts, setPosts] = useState<PostCardData[]>([]);
+  const [posts, setPosts] = useState<(PostCardData & { verified?: boolean })[]>([]);
   const [loading, setLoading] = useState(true);
   const [penaltyTick, setPenaltyTick] = useState(0);
 
@@ -69,6 +72,7 @@ function FeedInner() {
           setLoading(false);
           return;
         }
+
         const { data: follows, error: folErr } = await supabase.from("user_followers").select("following_id").eq("follower_id", uid);
 
         if (folErr) {
@@ -98,7 +102,7 @@ function FeedInner() {
       const contentMap = new Map<string, PostContent>();
       (contents ?? []).forEach((c) => contentMap.set(c.post_id, c));
 
-      const { data: profiles, error: profileError } = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", userIds);
+      const { data: profiles, error: profileError } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", userIds);
 
       if (profileError) console.error("Error loading user_profile:", profileError.message);
 
@@ -141,20 +145,7 @@ function FeedInner() {
           const content = contentMap.get(p.id);
           const author = profileMap.get(p.user_id);
 
-          // const post: PostCardData = {
-          //   id: p.id,
-          //   author: author?.display_name ?? "Anonim",
-          //   authorImage: content?.author_image ?? author?.avatar_url ?? null,
-          //   title: content?.title ?? "(Tanpa judul)",
-          //   description: content?.description ?? "",
-          //   imageUrl: content?.image_url ?? null,
-          //   date: new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-          //   views: v,
-          //   likes: l,
-          //   comments: c,
-          // };
-
-          const post: PostCardData & { slug?: string | null } = {
+          const post: PostCardData & { slug?: string | null; verified?: boolean } = {
             id: p.id,
             author: author?.display_name ?? "Anonim",
             authorImage: content?.author_image ?? author?.avatar_url ?? null,
@@ -166,6 +157,7 @@ function FeedInner() {
             views: v,
             likes: l,
             comments: c,
+            verified: author?.verified ?? false,
           };
 
           return { score, post };
@@ -188,23 +180,11 @@ function FeedInner() {
         {!loading && posts.length === 0 && <p className="text-center py-5 text-gray-500">Belum ada postingan</p>}
         {!loading &&
           posts.map((post) => {
-            const extended = post as PostCardData & { slug?: string | null };
+            const extended = post as PostCardData & { slug?: string | null; verified?: boolean };
             const hrefPath = `/post/${extended.slug ?? post.id}`;
             return (
-              <Link
-                key={post.id}
-                href={{ pathname: hrefPath }}
-                className="block transition hover:bg-gray-100"
-                onClick={async () => {
-                  try {
-                    // increment counter di kolom views
-                    await supabase.rpc("increment_post_views", { postid: post.id });
-                  } catch (err) {
-                    console.error("Gagal update views:", err);
-                  }
-                }}
-              >
-                <PostCard post={post} />
+              <Link key={post.id} href={{ pathname: hrefPath }} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
+                <PostCard post={extended} />
               </Link>
             );
           })}

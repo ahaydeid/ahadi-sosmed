@@ -4,8 +4,10 @@ import type { Route } from "next";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Search, User } from "lucide-react";
+import { Search, User, Pencil } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { incrementPostViews } from "@/lib/actions/incrementViews"; // ✅ import helper
 
 type TabKey = "teratas" | "followed";
 type SearchItem = { type: "user"; id: string; label: string; avatarUrl?: string | null } | { type: "post"; id: string; label: string; thumbnailUrl?: string | null };
@@ -25,12 +27,10 @@ function TopBarInner() {
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // sinkronkan tombol aktif dgn URL
   useEffect(() => {
     setActiveTab(tabParam);
   }, [tabParam]);
 
-  // session
   useEffect(() => {
     const run = async () => {
       const { data } = await supabase.auth.getSession();
@@ -43,7 +43,6 @@ function TopBarInner() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // focus input saat open
   useEffect(() => {
     if (!openSearch) return;
     const t = setTimeout(() => inputRef.current?.focus(), 0);
@@ -69,8 +68,13 @@ function TopBarInner() {
       id = setTimeout(async () => {
         const [usersRes, postsRes] = await Promise.all([
           supabase.from("user_profile").select("id, display_name, avatar_url").ilike("display_name", `%${query.trim()}%`).limit(8),
-          supabase.from("post_content").select("post_id, title, image_url").ilike("title", `%${query.trim()}%`).limit(8),
+          supabase
+            .from("post_content")
+            .select("slug, post_id, title, image_url") // ✅ tambahkan post_id
+            .ilike("title", `%${query.trim()}%`)
+            .limit(8),
         ]);
+
         if (cancelled) return;
 
         const users: SearchItem[] =
@@ -84,9 +88,10 @@ function TopBarInner() {
         const posts: SearchItem[] =
           postsRes.data?.map((p) => ({
             type: "post",
-            id: p.post_id as string,
+            id: p.slug as string,
             label: (p.title as string) ?? "(Tanpa judul)",
             thumbnailUrl: (p.image_url as string) ?? null,
+            post_id: p.post_id as string, // ✅ simpan juga post_id
           })) ?? [];
 
         setResults([...users, ...posts]);
@@ -101,7 +106,6 @@ function TopBarInner() {
     };
   }, [openSearch, query]);
 
-  // util: update ?tab= tanpa hapus query lain
   const setTabInUrl = (val: TabKey) => {
     const sp = new URLSearchParams(searchParams.toString());
     sp.set("tab", val);
@@ -130,9 +134,14 @@ function TopBarInner() {
     }
   };
 
-  const handlePick = (item: SearchItem) => {
-    if (item.type === "post") router.push(`/post/${item.id}`);
-    else router.push(`/profile/${item.id}`);
+  // ✅ Tambahkan increment views dengan post_id yang benar
+  const handlePick = async (item: SearchItem & { post_id?: string }) => {
+    if (item.type === "post") {
+      if (item.post_id) await incrementPostViews(item.post_id);
+      router.push(`/post/${item.id}`);
+    } else {
+      router.push(`/profile/${item.id}`);
+    }
     setOpenSearch(false);
     setQuery("");
     setResults([]);
@@ -158,15 +167,21 @@ function TopBarInner() {
           </button>
         </div>
 
-        {!isLoggedIn ? (
-          <button onClick={handleGoLogin} className="bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 text-sm font-medium px-3 py-1.5 rounded transition-colors">
-            Login
-          </button>
-        ) : (
-          <button aria-label="Cari" onClick={handleOpenSearch} className="text-gray-700 hover:text-black transition">
-            <Search className="w-5 h-5" />
-          </button>
-        )}
+        <div className="flex items-center space-x-4">
+          {!isLoggedIn ? (
+            <button onClick={handleGoLogin} className="bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 text-sm font-medium px-3 py-1.5 rounded transition-colors">
+              Login
+            </button>
+          ) : (
+            <button aria-label="Cari" onClick={handleOpenSearch} className="text-gray-700 hover:text-black transition">
+              <Search className="w-5 h-5" />
+            </button>
+          )}
+          <Link href="/write" className="relative flex items-center px-2 py-1 rounded-lg space-x-2 bg-black ">
+            <Pencil className="w-4 h-4 text-white" />
+            <span className="text-sm text-white">Buat tulisan</span>
+          </Link>
+        </div>
       </div>
 
       {openSearch && (
@@ -179,7 +194,7 @@ function TopBarInner() {
                 {!loading && results.length === 0 && query.trim().length > 0 && <div className="px-3 py-2 text-sm text-gray-500">Tidak ada hasil</div>}
                 {!loading &&
                   results.map((item) => (
-                    <button key={`${item.type}-${item.id}`} onClick={() => handlePick(item)} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm">
+                    <button key={`${item.type}-${item.id}`} onClick={() => handlePick(item as SearchItem & { post_id?: string })} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm">
                       <div className="flex items-center gap-3">
                         {item.type === "user" ? (
                           item.avatarUrl ? (
@@ -208,7 +223,6 @@ function TopBarInner() {
 }
 
 export default function TopBar() {
-  // Bungkus dengan Suspense agar aman untuk useSearchParams (Next 16)
   return (
     <Suspense fallback={<div className="h-12" />}>
       <TopBarInner />

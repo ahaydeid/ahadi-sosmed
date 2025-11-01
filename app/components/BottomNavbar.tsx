@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import { useEffect, useState, useCallback } from "react";
-import { Home, Pencil, MessageSquare, Bell, User } from "lucide-react";
+import { Home, Megaphone, MessageSquare, Bell, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -170,21 +170,21 @@ export default function BottomNavbar() {
     <nav className="fixed bottom-0 left-0 w-full bg-white shadow z-50">
       <ul className="flex justify-around items-center h-14 px-2">
         <li>
-          <Link href="/" className="relative flex flex-col items-center">
+          <Link href={"/" as Route} className="relative flex flex-col items-center">
             <Home className={`w-6 h-6 ${isActive("/") ? "text-black" : "text-gray-500"}`} />
             {isActive("/") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
           </Link>
         </li>
 
         <li>
-          <Link href="/write" className="relative flex flex-col items-center">
-            <Pencil className={`w-6 h-6 ${isActive("/write") ? "text-black" : "text-gray-500"}`} />
-            {isActive("/write") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
+          <Link href={"/ungkapin" as Route} className="relative flex flex-col items-center">
+            <Megaphone className={`w-6 h-6 ${isActive("/ungkapin") ? "text-black" : "text-gray-500"}`} />
+            {isActive("/ungkapin") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
           </Link>
         </li>
 
         <li>
-          <Link href="/chat" className="relative flex flex-col items-center">
+          <Link href={"/chat" as Route} className="relative flex flex-col items-center">
             <MessageSquare className={`w-6 h-6 ${isActive("/chat") ? "text-black" : "text-gray-500"}`} />
             {isActive("/chat") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
             {unreadChatCount > 0 && (
@@ -194,7 +194,7 @@ export default function BottomNavbar() {
         </li>
 
         <li>
-          <Link href="/notif" className="relative flex flex-col items-center">
+          <Link href={"/notif" as Route} className="relative flex flex-col items-center">
             <Bell className={`w-6 h-6 ${isActive("/notif") ? "text-black" : "text-gray-500"}`} />
             {isActive("/notif") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
             {unreadNotifCount > 0 && (

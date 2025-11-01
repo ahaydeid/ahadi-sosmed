@@ -2,22 +2,19 @@
 "use client";
 
 import Image from "next/image";
-import { CalendarDays, Eye, Heart, MessageCircle, X, User } from "lucide-react";
+import { CalendarDays, Eye, Heart, MessageCircle, X, User, BadgeCheck } from "lucide-react";
 import { cleanMarkdownForPreview } from "@/lib/cleanMarkdown";
 import { PostCardData } from "@/lib/types/post";
 import { formatCompact } from "@/lib/formatCompact";
 
 interface PostCardProps {
-  post: PostCardData;
+  post: PostCardData & { verified?: boolean };
 }
 
-const COLLAPSE_KEY = "collapsedPosts"; // localStorage key
+const COLLAPSE_KEY = "collapsedPosts";
 
 export default function PostCard({ post }: PostCardProps) {
-  // Tentukan apakah ada gambar atau tidak
   const hasImage = !!post.imageUrl;
-
-  // Konversi Markdown di 'description' menjadi teks polos.
   const plainTextDescription = cleanMarkdownForPreview(post.description);
 
   const handleCollapse: React.MouseEventHandler<HTMLButtonElement> = (e) => {
@@ -30,11 +27,9 @@ export default function PostCard({ post }: PostCardProps) {
       if (!arr.includes(post.id)) arr.push(post.id);
       localStorage.setItem(COLLAPSE_KEY, JSON.stringify(arr));
     } catch {
-      // fallback kalau JSON gagal
       localStorage.setItem(COLLAPSE_KEY, JSON.stringify([post.id]));
     }
 
-    // Beri tahu Feed untuk menghitung ulang ranking & re-render
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("post:penalize", { detail: { postId: post.id, penalty: -100 } }));
     }
@@ -44,10 +39,13 @@ export default function PostCard({ post }: PostCardProps) {
     <div className="relative bg-white p-5 py-7 flex justify-between items-start hover:shadow-md transition-shadow rounded-md border-b border-gray-100">
       <div className={`flex-1 ${hasImage ? "pr-3" : ""}`}>
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
+          <div className="relative w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
             {post.authorImage ? <Image src={post.authorImage} alt={post.author} width={24} height={24} className="object-cover w-6 h-6" /> : <User className="w-4 h-4 text-gray-500" />}
           </div>
-          <span className="text-xs text-gray-800 font-medium">{post.author}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-800 font-medium">{post.author}</span>
+            {post.verified && <BadgeCheck className="w-3 h-3 text-blue-500" />}
+          </div>
         </div>
 
         <h2 className="text-lg font-bold leading-snug line-clamp-3 mb-1">{post.title}</h2>
