@@ -177,9 +177,9 @@ export default function BottomNavbar() {
         </li>
 
         <li>
-          <Link href={"/ungkapin" as Route} className="relative flex flex-col items-center">
-            <Megaphone className={`w-6 h-6 ${isActive("/ungkapin") ? "text-black" : "text-gray-500"}`} />
-            {isActive("/ungkapin") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
+          <Link href={"/marah-marah" as Route} className="relative flex flex-col items-center">
+            <Megaphone className={`w-6 h-6 ${isActive("/marah-marah") ? "text-black" : "text-gray-500"}`} />
+            {isActive("/marah-marah") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
           </Link>
         </li>
 

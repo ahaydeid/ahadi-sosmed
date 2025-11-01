@@ -27,7 +27,7 @@ export default async function proxyMiddleware(req: NextRequest) {
     currentPath === "/post" ||
     currentPath.startsWith("/post/") ||
     currentPath.startsWith("/kebijakan/") ||
-    currentPath === "/ungkapin"
+    currentPath === "/marah-marah"
   ) {
     // Lewatkan permintaan ke halaman berikutnya (publik)
     return NextResponse.next();
