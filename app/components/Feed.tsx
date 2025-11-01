@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import TopBar from "./TopBar";
 import PostCard from "./PostCard";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseBrowser as supabase } from "@/lib/supabaseClientBrowser";
 import { PostCardData } from "@/lib/types/post";
 import { useSearchParams } from "next/navigation";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
