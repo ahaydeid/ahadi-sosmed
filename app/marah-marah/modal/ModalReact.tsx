@@ -75,7 +75,7 @@ const ensureProfile = async (deviceId: string) => {
   if (insertError) console.error("Gagal buat profil otomatis:", insertError);
 };
 
-const reactions = ["🙏", "😌", "😤", "😡", "🤬", "😈"];
+const reactions = ["🙏", "😮‍💨", "😂", "❤️", "😡", "🤬"];
 
 const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
   const [showEmoji, setShowEmoji] = useState<string | null>(null);
