@@ -20,6 +20,29 @@ const reactions = [
   { emoji: "😡", label: "Kesel bener gua!" },
 ];
 
+const profileIcons = ["User", "Cat", "Dog", "Heart", "Ghost", "Smile", "Skull", "Star", "Sun", "Moon", "Flame", "Zap"];
+
+// 🔥 Buat atau ambil profile
+const ensureProfile = async (deviceId: string) => {
+  const { data: existing, error: fetchError } = await supabase.from("rage_profiles").select("device_id").eq("device_id", deviceId).maybeSingle();
+
+  if (fetchError) console.error("Gagal cek profile:", fetchError);
+
+  if (!existing) {
+    const randomIcon = profileIcons[Math.floor(Math.random() * profileIcons.length)];
+    const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+    const { error: insertError } = await supabase.from("rage_profiles").insert([
+      {
+        device_id: deviceId,
+        nickname: "Anonim",
+        icon_name: randomIcon,
+        bg_color: randomColor,
+      },
+    ]);
+    if (insertError) console.error("Gagal buat profile otomatis:", insertError);
+  }
+};
+
 const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
   const [showEmoji, setShowEmoji] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -28,19 +51,16 @@ const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
     const reaction = reactions.find((r) => r.emoji === emoji);
     const deviceId = getDeviceId();
 
-    if (!reaction) {
-      console.error("❌ Emoji tidak ditemukan di daftar reactions!");
-      return;
-    }
+    if (!reaction) return;
+
+    await ensureProfile(deviceId); // ✅ pastikan profile ada dulu
 
     const payload = {
       rage_post_id: postId,
       emoji: reaction.emoji,
-      label: reaction.label, // WAJIB
+      label: reaction.label,
       device_id: deviceId,
     };
-
-    console.log("Insert payload:", payload);
 
     const { error } = await supabase.from("rage_reacts").insert([payload]);
     if (error) {
@@ -50,7 +70,6 @@ const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
     }
 
     onReactSuccess();
-
     setIsClosing(true);
     setTimeout(() => {
       setShowEmoji(reaction.emoji);
@@ -74,15 +93,10 @@ const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-xl w-full max-w-md mx-4 p-5 relative">
-        {/* Tombol close */}
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black transition">
           <X className="w-6 h-6" />
         </button>
-
-        {/* Judul */}
         <h2 className="font-bold text-lg mb-4">Komporin</h2>
-
-        {/* Daftar Reaksi */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-base">
           {reactions.map((r) => (
             <button key={r.label} onClick={() => handleReaction(r.emoji)} className="flex items-center gap-1 px-2 py-1 rounded-md border border-transparent hover:bg-red-100 hover:text-red-700 hover:border-red-300 transition text-left">

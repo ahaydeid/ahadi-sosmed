@@ -14,7 +14,6 @@ type Comment = {
   rage_post_id: string;
   parent_id: string | null;
   nickname: string | null;
-  emoji: string;
   isi: string;
   created_at: string;
   device_id: string;
@@ -29,6 +28,26 @@ type RageProfile = {
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
+const profileIcons = ["User", "Cat", "Dog", "Heart", "Ghost", "Smile", "Skull", "Star", "Sun", "Moon", "Flame", "Zap"];
+
+// 🔥 pastikan profile ada
+const ensureProfile = async (deviceId: string) => {
+  const { data: existing } = await supabase.from("rage_profiles").select("device_id").eq("device_id", deviceId).maybeSingle();
+
+  if (!existing) {
+    const randomIcon = profileIcons[Math.floor(Math.random() * profileIcons.length)];
+    const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+    await supabase.from("rage_profiles").insert([
+      {
+        device_id: deviceId,
+        nickname: "Anonim",
+        icon_name: randomIcon,
+        bg_color: randomColor,
+      },
+    ]);
+  }
+};
+
 const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [profiles, setProfiles] = useState<RageProfile[]>([]);
@@ -36,13 +55,9 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
 
-  // Ambil komentar & profil
   const fetchData = useCallback(async () => {
     setLoading(true);
-
-    const { data: commentsData, error: commentError } = await supabase.from("rage_comments").select("*").eq("rage_post_id", postId).order("created_at", { ascending: true });
-
-    if (commentError) console.error("Gagal ambil komentar:", commentError);
+    const { data: commentsData } = await supabase.from("rage_comments").select("*").eq("rage_post_id", postId).order("created_at", { ascending: true });
 
     const { data: profilesData } = await supabase.from("rage_profiles").select("device_id, nickname, icon_name, bg_color");
 
@@ -52,55 +67,54 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
   }, [postId]);
 
   useEffect(() => {
+    let mounted = true;
+
     const load = async () => {
       await fetchData();
     };
+
+    // panggil async di sini, bukan langsung di body useEffect
     load();
 
     const channel = supabase
       .channel(`rage_comments_${postId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "rage_comments" }, (payload) => {
         const newComment = payload.new as Comment;
-        if (newComment.rage_post_id === postId) {
+        if (mounted && newComment.rage_post_id === postId) {
           setComments((prev) => [...prev, newComment]);
         }
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "rage_comments" }, (payload) => {
-        setComments((prev) => prev.filter((c) => c.id !== payload.old.id));
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rage_comments" }, (payload) => {
-        const updated = payload.new as Comment;
-        setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       })
       .subscribe();
 
     return () => {
+      mounted = false;
       supabase.removeChannel(channel);
     };
   }, [fetchData, postId]);
 
-  // Kirim komentar baru
   const handleSend = async () => {
     if (!input.trim()) return;
-
     const deviceId = getDeviceId();
 
-    const newComment = {
-      rage_post_id: postId,
-      parent_id: replyTo,
-      nickname: "Anonim",
-      emoji: replyTo ? "😤" : "😡",
-      isi: input.trim(),
-      device_id: deviceId,
-    };
+    await ensureProfile(deviceId); // ✅ pastikan profile ada
 
-    const { error } = await supabase.from("rage_comments").insert(newComment);
+    const { error } = await supabase.from("rage_comments").insert([
+      {
+        rage_post_id: postId,
+        parent_id: replyTo,
+        nickname: "Anonim",
+        isi: input.trim(),
+        device_id: deviceId,
+      },
+    ]);
+
     if (error) {
       console.error("Gagal kirim komentar:", error);
+      alert("Gagal kirim komentar 😭");
     } else {
       setInput("");
       setReplyTo(null);
-      await fetchData(); // 🔥 langsung reload komentar setelah kirim
+      await fetchData();
     }
   };
 
@@ -110,11 +124,9 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
   const getProfileIcon = (device_id: string) => {
     const profile = profiles.find((p) => p.device_id === device_id);
     if (!profile) return <div className="w-7 h-7 bg-gray-300 rounded-full" />;
-
     const iconName = profile.icon_name as keyof typeof icons;
     const IconComponent = icons[iconName];
     const bg = profile.bg_color || "#9ca3af";
-
     return (
       <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: bg }}>
         {IconComponent && <IconComponent className="w-4 h-4 text-white" />}
@@ -149,36 +161,18 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
                 <div className="flex items-start gap-2">
                   {getProfileIcon(main.device_id)}
                   <div className="flex flex-col">
-                    <h3 className="flex items-center gap-1 font-semibold text-gray-800 text-sm">{getProfileName(main.device_id, main.nickname)}</h3>
+                    <h3 className="font-semibold text-gray-800 text-sm">{getProfileName(main.device_id, main.nickname)}</h3>
                     <p className="text-sm text-gray-700">{main.isi}</p>
-                    <div className="flex items-center mt-1">
-                      <span className="text-xs text-gray-400 mr-5">
-                        {new Date(main.created_at).toLocaleTimeString("id-ID", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <button onClick={() => setReplyTo(replyTo === main.id ? null : main.id)} className="text-xs text-red-500 hover:underline">
-                        Balas
-                      </button>
-                    </div>
                   </div>
                 </div>
 
-                {/* Balasan */}
                 <div className="pl-8 mt-2 space-y-2">
                   {repliesFor(main.id).map((r) => (
                     <div key={r.id} className="flex items-start gap-2 border-l-2 border-gray-200 pl-3">
                       {getProfileIcon(r.device_id)}
                       <div>
-                        <h4 className="flex items-center gap-1 font-semibold text-gray-800 text-sm">{getProfileName(r.device_id, r.nickname)}</h4>
+                        <h4 className="font-semibold text-gray-800 text-sm">{getProfileName(r.device_id, r.nickname)}</h4>
                         <p className="text-sm text-gray-700">{r.isi}</p>
-                        <span className="text-xs text-gray-400 mt-1">
-                          {new Date(r.created_at).toLocaleTimeString("id-ID", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
                       </div>
                     </div>
                   ))}
@@ -188,9 +182,7 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
           )}
         </div>
 
-        {/* Input komentar */}
         <div className="p-3 bg-white sticky bottom-0 flex items-center gap-2">
-          {replyTo && <span className="text-xs text-gray-500 absolute -top-4 left-4 italic">Balas komentar...</span>}
           <input
             type="text"
             placeholder={replyTo ? "Tulis balasan..." : "Tulis komentar..."}
