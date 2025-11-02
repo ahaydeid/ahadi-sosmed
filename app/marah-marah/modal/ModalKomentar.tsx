@@ -198,7 +198,7 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
                 <div className="flex items-start gap-2">
                   {getProfileIcon(main.device_id)}
                   <div className="flex flex-col">
-                    <h3 className="font-semibold text-gray-800 text-sm">{getProfileName(main.device_id, main.nickname)}</h3>
+                    <h3 className="font-semibold text-gray-800 text-base">{getProfileName(main.device_id, main.nickname)}</h3>
                     <p className="text-sm text-gray-700">{main.isi}</p>
                     <div className="flex items-center mt-1 gap-3">
                       <span className="text-xs text-gray-400">{new Date(main.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -213,7 +213,7 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
                     <div key={r.id} className="flex items-start gap-2 border-l-2 border-gray-200 pl-3">
                       {getProfileIcon(r.device_id)}
                       <div>
-                        <h4 className="font-semibold text-gray-800 text-sm">{getProfileName(r.device_id, r.nickname)}</h4>
+                        <h4 className="font-semibold text-gray-800 text-base">{getProfileName(r.device_id, r.nickname)}</h4>
                         <p className="text-sm text-gray-700">{r.isi}</p>
                         <span className="text-xs text-gray-400 mt-1">{new Date(r.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
                       </div>

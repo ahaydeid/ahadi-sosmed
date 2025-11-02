@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { icons, Search, MessageCircle } from "lucide-react";
+import { icons, MessageCircle } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { getDeviceId } from "@/lib/device";
 import ModalReact from "./modal/ModalReact";
@@ -143,9 +143,9 @@ const MarahMarahPage = () => {
             <p className="text-sm text-gray-500 italic">*Lo anonim, bebas luapin semuanya di sini!*</p>
           </div>
           <div className="flex items-center gap-3">
-            <button type="button" className="text-gray-700 hover:text-black transition">
+            {/* <button type="button" className="text-gray-700 hover:text-black transition">
               <Search className="w-6 h-6" />
-            </button>
+            </button> */}
             <button onClick={() => setShowPostModal(true)} className="bg-red-600 text-white font-semibold px-3 py-1 rounded-lg hover:bg-red-700 transition">
               marahin
             </button>
@@ -224,12 +224,7 @@ const MarahMarahPage = () => {
         </div>
       </div>
 
-      {showPostModal && (
-        <ModalPost
-          onClose={() => setShowPostModal(false)}
-          onPostSuccess={fetchPosts}
-        />
-      )}
+      {showPostModal && <ModalPost onClose={() => setShowPostModal(false)} onPostSuccess={fetchPosts} />}
 
       {showReactModal && activePostId && <ModalReact onClose={() => setShowReactModal(false)} postId={activePostId} onReactSuccess={() => setReactedPosts((prev) => [...prev, activePostId])} />}
       {showReactList && activePostId && <ModalReactList onClose={() => setShowReactList(false)} postId={activePostId} />}
