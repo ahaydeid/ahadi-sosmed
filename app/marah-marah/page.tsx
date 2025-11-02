@@ -13,8 +13,6 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 type RagePost = {
   id: string;
   nickname: string | null;
-  rage_level: string;
-  // rage_emoji: string;
   kata: string | null;
   isi: string;
   created_at: string;
@@ -93,15 +91,14 @@ const MarahMarahPage = () => {
   }, [deviceId]);
 
   useEffect(() => {
-    const load = async () => {
-      await fetchPosts();
-    };
+    const load = async () => await fetchPosts();
     load();
 
     const channel = supabase
       .channel("rage_updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "rage_posts" }, () => fetchPosts())
       .on("postgres_changes", { event: "*", schema: "public", table: "rage_reacts" }, () => fetchPosts())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "rage_comments" }, () => fetchPosts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rage_comments" }, () => fetchPosts())
       .subscribe();
 
     return () => {
@@ -124,9 +121,19 @@ const MarahMarahPage = () => {
     );
   };
 
+  // ✅ Format tanggal: 2/11/25 | 12:48
+  const formatDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear().toString().slice(-2);
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    return `${day}/${month}/${year} | ${hours}:${minutes}`;
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center">
-      {/* Header */}
       <div className="w-full bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
         <div className="flex items-center justify-between p-4 mx-auto">
           <div>
@@ -146,8 +153,7 @@ const MarahMarahPage = () => {
         </div>
       </div>
 
-      {/* Daftar postingan */}
-      <div className="pt-25 w-full bg-white">
+      <div className="pt-28 w-full bg-white">
         <div className="flex flex-col">
           {loading ? (
             <div className="p-6 text-center text-gray-500">Loading...</div>
@@ -163,11 +169,16 @@ const MarahMarahPage = () => {
                   <div className="flex-1">
                     <h2 className="flex items-center gap-2 font-semibold text-gray-800 text-base md:text-lg">
                       {getProfileIcon(post.device_id)}
-                      <span>{profile?.nickname || post.nickname || "Anonim"}</span>
+                      <div className="flex flex-col">
+                        <span>{profile?.nickname || post.nickname || "Anonim"}</span>
+                        <span className="text-xs font-light text-gray-400">{formatDate(post.created_at)}</span>
+                      </div>
                     </h2>
-                    <h3>
-                      <span className="italic text-sm text-gray-600 mr-2">{post.kata}</span>
-                    </h3>
+                    {post.kata && (
+                      <h3>
+                        <span className="italic text-sm text-gray-600 mr-2">{post.kata}</span>
+                      </h3>
+                    )}
                     <p className="text-gray-800 md:text-base leading-relaxed mt-1.5">{post.isi}</p>
 
                     <div className="flex items-center gap-4 mt-3">
@@ -213,8 +224,13 @@ const MarahMarahPage = () => {
         </div>
       </div>
 
-      {/* Semua modal */}
-      {showPostModal && <ModalPost onClose={() => setShowPostModal(false)} />}
+      {showPostModal && (
+        <ModalPost
+          onClose={() => setShowPostModal(false)}
+          onPostSuccess={fetchPosts}
+        />
+      )}
+
       {showReactModal && activePostId && <ModalReact onClose={() => setShowReactModal(false)} postId={activePostId} onReactSuccess={() => setReactedPosts((prev) => [...prev, activePostId])} />}
       {showReactList && activePostId && <ModalReactList onClose={() => setShowReactList(false)} postId={activePostId} />}
       {showKomentarModal && activePostId && <ModalKomentar onClose={() => setShowKomentarModal(false)} postId={activePostId} />}
