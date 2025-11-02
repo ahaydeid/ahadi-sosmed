@@ -53,7 +53,7 @@ const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
 
     if (!reaction) return;
 
-    await ensureProfile(deviceId); // ✅ pastikan profile ada dulu
+    await ensureProfile(deviceId);
 
     const payload = {
       rage_post_id: postId,
@@ -76,7 +76,7 @@ const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
       setTimeout(() => {
         setShowEmoji(null);
         onClose();
-      }, 1500);
+      }, 1000);
     }, 150);
   };
 

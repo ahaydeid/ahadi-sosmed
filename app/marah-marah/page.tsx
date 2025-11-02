@@ -166,7 +166,8 @@ const MarahMarahPage = () => {
                       <span>{profile?.nickname || post.nickname || "Anonim"}</span>
                     </h2>
                     <h3>
-                      <span>{post.rage_emoji}</span> <span className="italic text-sm text-gray-600">{post.kata}</span>
+                      <span className="italic text-sm text-gray-600 mr-2">{post.kata}</span>
+                      <span>{post.rage_emoji}</span>
                     </h3>
                     <p className="text-gray-800 md:text-base leading-relaxed mt-1.5">{post.isi}</p>
 
