@@ -3,7 +3,6 @@
 
 import Image from "next/image";
 import { CalendarDays, Eye, Heart, MessageCircle, X, User, BadgeCheck } from "lucide-react";
-import { cleanMarkdownForPreview } from "@/lib/cleanMarkdown";
 import { PostCardData } from "@/lib/types/post";
 import { formatCompact } from "@/lib/formatCompact";
 
@@ -13,9 +12,18 @@ interface PostCardProps {
 
 const COLLAPSE_KEY = "collapsedPosts";
 
+function cleanHtmlForPreview(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<[^>]*>/g, "") // hapus semua tag HTML
+    .replace(/&nbsp;/g, " ") // ubah spasi non-breaking
+    .replace(/\s+/g, " ") // rapikan spasi
+    .trim();
+}
+
 export default function PostCard({ post }: PostCardProps) {
   const hasImage = !!post.imageUrl;
-  const plainTextDescription = cleanMarkdownForPreview(post.description);
+  const plainTextDescription = cleanHtmlForPreview(post.description);
 
   const handleCollapse: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     e.preventDefault();
@@ -38,6 +46,7 @@ export default function PostCard({ post }: PostCardProps) {
   return (
     <div className="relative bg-white p-5 py-7 flex justify-between items-start hover:shadow-md transition-shadow rounded-md border-b border-gray-100">
       <div className={`flex-1 ${hasImage ? "pr-3" : ""}`}>
+        {/* Author */}
         <div className="flex items-center gap-2 mb-2">
           <div className="relative w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
             {post.authorImage ? <Image src={post.authorImage} alt={post.author} width={24} height={24} className="object-cover w-6 h-6" /> : <User className="w-4 h-4 text-gray-500" />}
@@ -48,10 +57,13 @@ export default function PostCard({ post }: PostCardProps) {
           </div>
         </div>
 
+        {/* Title */}
         <h2 className="text-lg font-bold leading-snug line-clamp-3 mb-1">{post.title}</h2>
 
+        {/* Description */}
         <p className="text-gray-600 text-sm line-clamp-2 mb-2">{plainTextDescription}</p>
 
+        {/* Meta info */}
         <div className="flex flex-wrap items-center mt-3 gap-4 text-gray-500 text-sm">
           <div className="flex items-center gap-1">
             <CalendarDays className="w-4 h-4" />
@@ -72,12 +84,14 @@ export default function PostCard({ post }: PostCardProps) {
         </div>
       </div>
 
+      {/* Preview Image */}
       {hasImage && (
-        <div className="rounded-xs h-12 overflow-hidden shrink-0 flex ustify-center mt-9 self-start">
-          <Image src={post.imageUrl as string} alt={post.title} width={96} height={80} className="object-cover w-15" />
+        <div className="rounded-md overflow-hidden shrink-0 flex justify-center mt-9 self-start w-24 h-20">
+          <Image src={post.imageUrl as string} alt={post.title} width={96} height={80} className="object-cover w-full h-full" />
         </div>
       )}
 
+      {/* Collapse Button */}
       <button className="absolute top-1 right-1 text-gray-400 hover:text-gray-600" aria-label="Collapse" title="Sembunyikan/Susutkan ranking postingan ini" onClick={handleCollapse}>
         <X className="w-5 h-5" />
       </button>
