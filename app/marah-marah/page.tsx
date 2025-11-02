@@ -59,7 +59,7 @@ const MarahMarahPage = () => {
 
     const { data: reactsData } = await supabase.from("rage_reacts").select("rage_post_id, emoji, device_id");
 
-    const { data: profilesData } = await supabase.from("rage_profiles").select("device_id, nickname, icon_name");
+    const { data: profilesData } = await supabase.from("rage_profiles").select("device_id, nickname, icon_name, bg_color");
 
     if (profilesData) setProfiles(profilesData);
 
@@ -139,7 +139,7 @@ const MarahMarahPage = () => {
             <button type="button" className="text-gray-700 hover:text-black transition">
               <Search className="w-6 h-6" />
             </button>
-            <button onClick={() => setShowPostModal(true)} className="bg-red-600 text-white font-semibold px-3 py-1 rounded-full hover:bg-red-700 transition">
+            <button onClick={() => setShowPostModal(true)} className="bg-red-600 text-white font-semibold px-3 py-1 rounded-lg hover:bg-red-700 transition">
               marahin
             </button>
           </div>
@@ -166,9 +166,9 @@ const MarahMarahPage = () => {
                       <span>{profile?.nickname || post.nickname || "Anonim"}</span>
                     </h2>
                     <h3>
-                      <span>{post.rage_emoji}</span> <span className="italic text-gray-600">{post.kata}</span>
+                      <span>{post.rage_emoji}</span> <span className="italic text-sm text-gray-600">{post.kata}</span>
                     </h3>
-                    <p className="text-gray-700 text-sm md:text-base leading-relaxed mt-1.5">{post.isi}</p>
+                    <p className="text-gray-800 md:text-base leading-relaxed mt-1.5">{post.isi}</p>
 
                     <div className="flex items-center gap-4 mt-3">
                       {!alreadyReacted && (

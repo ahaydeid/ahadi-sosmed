@@ -134,7 +134,7 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
           <X className="w-6 h-6" />
         </button>
 
-        <div className="p-4 border-b">
+        <div className="px-4 pt-3 pb-2 border-b border-b-gray-100">
           <h2 className="text-lg font-bold">Komentar</h2>
         </div>
 
@@ -189,7 +189,7 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
         </div>
 
         {/* Input komentar */}
-        <div className="p-3 bg-white sticky bottom-0 flex items-center gap-2 border-t">
+        <div className="p-3 bg-white sticky bottom-0 flex items-center gap-2">
           {replyTo && <span className="text-xs text-gray-500 absolute -top-4 left-4 italic">Balas komentar...</span>}
           <input
             type="text"
