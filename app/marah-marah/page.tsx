@@ -14,7 +14,7 @@ type RagePost = {
   id: string;
   nickname: string | null;
   rage_level: string;
-  rage_emoji: string;
+  // rage_emoji: string;
   kata: string | null;
   isi: string;
   created_at: string;
@@ -167,7 +167,6 @@ const MarahMarahPage = () => {
                     </h2>
                     <h3>
                       <span className="italic text-sm text-gray-600 mr-2">{post.kata}</span>
-                      <span>{post.rage_emoji}</span>
                     </h3>
                     <p className="text-gray-800 md:text-base leading-relaxed mt-1.5">{post.isi}</p>
 

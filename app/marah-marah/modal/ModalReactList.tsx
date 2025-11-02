@@ -5,12 +5,11 @@ import { createClient } from "@supabase/supabase-js";
 
 type ModalReactListProps = {
   onClose: () => void;
-  postId: string; // ID post yang reaksi-reaksinya mau ditampilkan
+  postId: string;
 };
 
 type ReactionItem = {
   emoji: string;
-  label: string;
   count: number;
 };
 
@@ -25,7 +24,7 @@ const ModalReactList = ({ onClose, postId }: ModalReactListProps) => {
       if (!postId) return;
       setLoading(true);
 
-      const { data, error } = await supabase.from("rage_reacts").select("emoji, label").eq("rage_post_id", postId);
+      const { data, error } = await supabase.from("rage_reacts").select("emoji").eq("rage_post_id", postId);
 
       if (error) {
         console.error("Gagal ambil data reaksi:", error);
@@ -33,18 +32,15 @@ const ModalReactList = ({ onClose, postId }: ModalReactListProps) => {
         return;
       }
 
-      // Group by emoji+label
       const grouped: Record<string, ReactionItem> = {};
       data.forEach((r) => {
-        const key = `${r.emoji}-${r.label}`;
-        if (!grouped[key]) {
-          grouped[key] = { emoji: r.emoji, label: r.label, count: 1 };
+        if (!grouped[r.emoji]) {
+          grouped[r.emoji] = { emoji: r.emoji, count: 1 };
         } else {
-          grouped[key].count++;
+          grouped[r.emoji].count++;
         }
       });
 
-      // Urutkan berdasarkan count
       const sorted = Object.values(grouped).sort((a, b) => b.count - a.count);
       setReactions(sorted);
       setLoading(false);
@@ -56,15 +52,12 @@ const ModalReactList = ({ onClose, postId }: ModalReactListProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-xl w-full max-w-md mx-4 p-5 relative">
-        {/* Tombol close */}
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black transition">
           <X className="w-6 h-6" />
         </button>
 
-        {/* Judul */}
         <h2 className="font-bold text-lg mb-4">Reaksi orang-orang</h2>
 
-        {/* Daftar reaksi */}
         {loading ? (
           <div className="text-center text-gray-500 py-4">Memuat...</div>
         ) : reactions.length === 0 ? (
@@ -72,10 +65,9 @@ const ModalReactList = ({ onClose, postId }: ModalReactListProps) => {
         ) : (
           <div className="flex flex-col gap-3 text-base">
             {reactions.map((r) => (
-              <div key={r.label} className="flex items-center justify-between border-b border-gray-100 pb-2">
+              <div key={r.emoji} className="flex items-center justify-between border-b border-gray-100 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{r.emoji}</span>
-                  <span>{r.label}</span>
+                  <span className="text-xl">{r.emoji}</span>
                 </div>
                 <span className="font-semibold text-gray-700">{r.count}</span>
               </div>

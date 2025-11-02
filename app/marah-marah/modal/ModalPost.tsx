@@ -10,57 +10,111 @@ type ModalPostProps = {
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
-const levels = [
-  { emoji: "😌", label: "Sabar Gua" },
-  { emoji: "😤", label: "Agak Kesel si" },
-  { emoji: "😠", label: "Mulai Emosi" },
-  { emoji: "🤯", label: "Gak bisa ini!!!" },
-  { emoji: "😡", label: "Emosi gua" },
-  { emoji: "🤬", label: "Bangs******t" },
-  { emoji: "😈", label: "Awas aja nanti" },
-];
-
-const profileIcons = ["User", "Cat", "Dog", "Heart", "Ghost", "Smile", "Skull", "Star", "Sun", "Moon", "Flame", "Zap"];
+const animalIcons: Record<string, string> = {
+  kucing: "Cat",
+  anjing: "Dog",
+  harimau: "Flame",
+  serigala: "Skull",
+  elang: "Feather",
+  burung: "Bird",
+  kelinci: "Rabbit",
+  panda: "Heart",
+  gajah: "Shield",
+  monyet: "Smile",
+  koala: "Moon",
+  singa: "Crown",
+  beruang: "Mountain",
+  kuda: "Star",
+  rusa: "Leaf",
+  musang: "Ghost",
+  katak: "Droplet",
+  bebek: "Water",
+  kangguru: "Zap",
+  ular: "Infinity",
+  rakun: "User",
+  macan: "Flame",
+  kijang: "Leaf",
+  ayam: "Egg",
+  paus: "Fish",
+  lumba: "Waveform",
+  naga: "Flame",
+  roh: "Sparkles",
+  iblis: "Skull",
+  malaikat: "Angel",
+  jin: "Ghost",
+  peri: "Star",
+  hantu: "Ghost",
+  seraph: "Sun",
+};
 
 const ModalPost = ({ onClose }: ModalPostProps) => {
   const [nickname, setNickname] = useState("");
   const [kata, setKata] = useState("");
   const [isi, setIsi] = useState("");
-  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const getOrCreateProfile = async (device_id: string, nickname: string) => {
-    const { data: existingProfile, error: fetchError } = await supabase.from("rage_profiles").select("id, icon_name").eq("device_id", device_id).maybeSingle();
+  const generateRandomNickname = async (device_id: string) => {
+    const animals = Object.keys(animalIcons);
+    const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+    const iconName = animalIcons[randomAnimal] || "User";
+    let baseName = `anonim ${randomAnimal}`;
 
-    if (fetchError) throw fetchError;
+    const { data: duplicates } = await supabase.from("rage_profiles").select("nickname").ilike("nickname", `${baseName}%`);
 
-    if (existingProfile) return existingProfile.icon_name;
+    if (duplicates && duplicates.length > 0) {
+      const count = duplicates.length + 1;
+      baseName = `${baseName} ${count.toString().padStart(2, "0")}`;
+    }
 
-    const randomIcon = profileIcons[Math.floor(Math.random() * profileIcons.length)];
     const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
 
-    const { error: insertError } = await supabase.from("rage_profiles").insert([
+    await supabase.from("rage_profiles").insert([
       {
         device_id,
-        nickname,
-        icon_name: randomIcon,
+        nickname: baseName,
+        icon_name: iconName,
         bg_color: randomColor,
       },
     ]);
 
-    if (insertError) throw insertError;
-
-    return randomIcon;
+    return baseName;
   };
 
-  // 🔥 Cek batas maksimal 3 post per hari
+  const getOrCreateProfile = async (device_id: string, nickname?: string) => {
+    const { data: existingProfile, error: fetchError } = await supabase.from("rage_profiles").select("device_id, nickname, icon_name").eq("device_id", device_id).maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (existingProfile) return existingProfile.nickname;
+
+    if (!nickname?.trim()) {
+      return await generateRandomNickname(device_id);
+    }
+
+    const lower = nickname.toLowerCase();
+    const iconMatch = animalIcons[lower] || Object.keys(animalIcons).find((key) => lower.includes(key));
+    const iconName = (iconMatch && animalIcons[iconMatch]) || "User";
+
+    const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+
+    await supabase.from("rage_profiles").insert([
+      {
+        device_id,
+        nickname,
+        icon_name: iconName,
+        bg_color: randomColor,
+      },
+    ]);
+
+    return nickname;
+  };
+
   const checkDailyLimit = async (device_id: string) => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    const { data, error } = await supabase.from("rage_posts").select("id", { count: "exact" }).eq("device_id", device_id).gte("created_at", startOfDay.toISOString()).lte("created_at", endOfDay.toISOString());
+    const { data, error } = await supabase.from("rage_posts").select("id").eq("device_id", device_id).gte("created_at", startOfDay.toISOString()).lte("created_at", endOfDay.toISOString());
 
     if (error) {
       console.error("Gagal cek limit:", error);
@@ -71,18 +125,16 @@ const ModalPost = ({ onClose }: ModalPostProps) => {
   };
 
   const handleSubmit = async () => {
-    if (!nickname.trim() || !isi.trim()) {
-      alert("Nama samaran dan isi hati wajib diisi!");
+    if (!isi.trim()) {
+      alert("Isi hati wajib diisi!");
       return;
     }
 
     const device_id = getDeviceId();
-    const levelObj = levels.find((l) => l.label === selectedLevel);
 
     try {
       setLoading(true);
 
-      // 🚫 Cek apakah user sudah 3 kali posting hari ini
       const allowed = await checkDailyLimit(device_id);
       if (!allowed) {
         alert("Lu udah marah 3 kali hari ini 😤. Besok aja lagi, sabar dulu ya 😌");
@@ -90,13 +142,11 @@ const ModalPost = ({ onClose }: ModalPostProps) => {
         return;
       }
 
-      await getOrCreateProfile(device_id, nickname);
+      const finalName = await getOrCreateProfile(device_id, nickname.trim());
 
       const { error } = await supabase.from("rage_posts").insert([
         {
-          nickname,
-          rage_level: levelObj?.label || null,
-          rage_emoji: levelObj?.emoji || null,
+          nickname: finalName,
           kata: kata.trim() || null,
           isi,
           device_id,
@@ -108,7 +158,7 @@ const ModalPost = ({ onClose }: ModalPostProps) => {
       alert("Udah terkirim! 😡🔥");
       onClose();
     } catch (err) {
-      console.error(err);
+      console.error("Gagal kirim marahan:", err);
       alert("Gagal kirim marahan 😭");
     } finally {
       setLoading(false);
@@ -123,33 +173,16 @@ const ModalPost = ({ onClose }: ModalPostProps) => {
         </button>
 
         <div className="mb-4">
-          <label className="block text-gray-800 font-semibold mb-1">Nama Samaran</label>
+          <label className="block text-gray-800 font-semibold mb-1">
+            Nama Samaran <span className="text-gray-400 text-sm">(opsional)</span>
+          </label>
           <input
-            placeholder="e.g. Fufufafa"
+            placeholder="Boleh kosong, nanti otomatis dibuat"
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             className="w-full border border-gray-300 rounded-md p-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
           />
-        </div>
-
-        <div className="mb-4">
-          <p className="font-semibold text-gray-800 mb-2">
-            Kondisi level marah sekarang <span className="italic font-light">(opsional)</span>
-          </p>
-          <div className="grid grid-cols-2 gap-x-3 text-sm">
-            {levels.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => setSelectedLevel(item.label)}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 border text-left transition ${selectedLevel === item.label ? "bg-red-100 border-red-500 text-red-700" : "border-transparent hover:bg-gray-100"}`}
-              >
-                <span>{item.emoji}</span>
-                <span className="truncate"> {item.label}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="mb-4">

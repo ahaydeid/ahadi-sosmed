@@ -12,53 +12,82 @@ type ModalReactProps = {
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
-const reactions = [
-  { emoji: "😌", label: "Sabar, bang" },
-  { emoji: "🤬", label: "Tai banget sumpah" },
-  { emoji: "😤", label: "Emang kurang ajar" },
-  { emoji: "😈", label: "Gak bisa didiemin, bang!" },
-  { emoji: "😡", label: "Kesel bener gua!" },
-];
+const creatureIcons: Record<string, string> = {
+  kucing: "Cat",
+  anjing: "Dog",
+  harimau: "Flame",
+  serigala: "Skull",
+  elang: "Feather",
+  burung: "Bird",
+  kelinci: "Rabbit",
+  panda: "Heart",
+  gajah: "Shield",
+  monyet: "Smile",
+  koala: "Moon",
+  singa: "Crown",
+  beruang: "Mountain",
+  rusa: "Leaf",
+  musang: "Ghost",
+  katak: "Droplet",
+  bebek: "Water",
+  kangguru: "Zap",
+  ular: "Infinity",
+  rakun: "User",
+  naga: "Flame",
+  roh: "Sparkles",
+  iblis: "Skull",
+  malaikat: "Angel",
+  jin: "Ghost",
+  peri: "Star",
+  hantu: "Ghost",
+  seraph: "Sun",
+};
 
-const profileIcons = ["User", "Cat", "Dog", "Heart", "Ghost", "Smile", "Skull", "Star", "Sun", "Moon", "Flame", "Zap"];
-
-// 🔥 Buat atau ambil profile
 const ensureProfile = async (deviceId: string) => {
   const { data: existing, error: fetchError } = await supabase.from("rage_profiles").select("device_id").eq("device_id", deviceId).maybeSingle();
 
-  if (fetchError) console.error("Gagal cek profile:", fetchError);
+  if (fetchError) console.error("Gagal cek profil:", fetchError);
+  if (existing) return;
 
-  if (!existing) {
-    const randomIcon = profileIcons[Math.floor(Math.random() * profileIcons.length)];
-    const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
-    const { error: insertError } = await supabase.from("rage_profiles").insert([
-      {
-        device_id: deviceId,
-        nickname: "Anonim",
-        icon_name: randomIcon,
-        bg_color: randomColor,
-      },
-    ]);
-    if (insertError) console.error("Gagal buat profile otomatis:", insertError);
+  const creatures = Object.keys(creatureIcons);
+  const randomCreature = creatures[Math.floor(Math.random() * creatures.length)];
+  const iconName = creatureIcons[randomCreature] || "User";
+  let baseName = `anonim ${randomCreature}`;
+
+  const { data: duplicates } = await supabase.from("rage_profiles").select("nickname").ilike("nickname", `${baseName}%`);
+
+  if (duplicates && duplicates.length > 0) {
+    const count = duplicates.length + 1;
+    baseName = `${baseName} ${count.toString().padStart(2, "0")}`;
   }
+
+  const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+
+  const { error: insertError } = await supabase.from("rage_profiles").insert([
+    {
+      device_id: deviceId,
+      nickname: baseName,
+      icon_name: iconName,
+      bg_color: randomColor,
+    },
+  ]);
+
+  if (insertError) console.error("Gagal buat profil otomatis:", insertError);
 };
+
+const reactions = ["🙏", "😌", "😤", "😡", "🤬", "😈"];
 
 const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
   const [showEmoji, setShowEmoji] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
   const handleReaction = async (emoji: string) => {
-    const reaction = reactions.find((r) => r.emoji === emoji);
     const deviceId = getDeviceId();
-
-    if (!reaction) return;
-
     await ensureProfile(deviceId);
 
     const payload = {
       rage_post_id: postId,
-      emoji: reaction.emoji,
-      label: reaction.label,
+      emoji,
       device_id: deviceId,
     };
 
@@ -72,7 +101,7 @@ const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
     onReactSuccess();
     setIsClosing(true);
     setTimeout(() => {
-      setShowEmoji(reaction.emoji);
+      setShowEmoji(emoji);
       setTimeout(() => {
         setShowEmoji(null);
         onClose();
@@ -97,11 +126,10 @@ const ModalReact = ({ onClose, postId, onReactSuccess }: ModalReactProps) => {
           <X className="w-6 h-6" />
         </button>
         <h2 className="font-bold text-lg mb-4">Komporin</h2>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-base">
-          {reactions.map((r) => (
-            <button key={r.label} onClick={() => handleReaction(r.emoji)} className="flex items-center gap-1 px-2 py-1 rounded-md border border-transparent hover:bg-red-100 hover:text-red-700 hover:border-red-300 transition text-left">
-              <span>{r.emoji}</span>
-              <span>{r.label}</span>
+        <div className="grid grid-cols-3 gap-4 text-2xl justify-items-center">
+          {reactions.map((emoji) => (
+            <button key={emoji} onClick={() => handleReaction(emoji)} className="p-2 hover:scale-125 transition-transform">
+              {emoji}
             </button>
           ))}
         </div>
