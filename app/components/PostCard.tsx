@@ -44,8 +44,9 @@ export default function PostCard({ post }: PostCardProps) {
   };
 
   return (
-    <div className="relative bg-white p-5 py-7 flex justify-between items-start hover:shadow-md transition-shadow rounded-md border-b border-gray-100">
-      <div className={`flex-1 ${hasImage ? "pr-3" : ""}`}>
+    <div className="relative bg-white p-5 py-7 flex flex-row hover:shadow-md transition-shadow rounded-md border-b border-gray-100">
+      {/* KIRI: teks */}
+      <div className="flex-1 min-w-0 pr-4 flex flex-col justify-between">
         {/* Author */}
         <div className="flex items-center gap-2 mb-2">
           <div className="relative w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
@@ -57,11 +58,20 @@ export default function PostCard({ post }: PostCardProps) {
           </div>
         </div>
 
-        {/* Title */}
-        <h2 className="text-lg font-bold leading-snug line-clamp-3 mb-1">{post.title}</h2>
-
-        {/* Description */}
-        <p className="text-gray-600 text-sm line-clamp-2 mb-2">{plainTextDescription}</p>
+        {/* Judul dan deskripsi */}
+        <div className="flex flex-col">
+          <h2 className="text-lg font-bold leading-snug mb-1 line-clamp-3">{post.title}</h2>
+          <p
+            className="text-gray-600 text-sm mb-2 wrap-break-words overflow-hidden"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+            }}
+          >
+            {plainTextDescription}
+          </p>
+        </div>
 
         {/* Meta info */}
         <div className="flex flex-wrap items-center mt-3 gap-4 text-gray-500 text-sm">
@@ -84,15 +94,15 @@ export default function PostCard({ post }: PostCardProps) {
         </div>
       </div>
 
-      {/* Preview Image */}
+      {/* KANAN: gambar */}
       {hasImage && (
-        <div className="rounded-md overflow-hidden shrink-0 flex justify-center mt-9 self-start w-24 h-20">
+        <div className="shrink-0 w-18 h-15 rounded-xs mt-8 overflow-hidden flex items-center justify-center">
           <Image src={post.imageUrl as string} alt={post.title} width={96} height={80} className="object-cover w-full h-full" />
         </div>
       )}
 
-      {/* Collapse Button */}
-      <button className="absolute top-1 right-1 text-gray-400 hover:text-gray-600" aria-label="Collapse" title="Sembunyikan/Susutkan ranking postingan ini" onClick={handleCollapse}>
+      {/* Tombol collapse */}
+      <button className="absolute top-1 right-1 text-gray-400 hover:text-gray-600" aria-label="Collapse" title="Sembunyikan posting ini" onClick={handleCollapse}>
         <X className="w-5 h-5" />
       </button>
     </div>
