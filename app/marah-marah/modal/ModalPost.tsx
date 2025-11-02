@@ -174,10 +174,10 @@ const ModalPost = ({ onClose }: ModalPostProps) => {
 
         <div className="mb-4">
           <label className="block text-gray-800 font-semibold mb-1">
-            Nama Samaran <span className="text-gray-400 text-sm">(opsional)</span>
+            Nama Samaran <span className="text-gray-400 italic font-light">(opsional)</span>
           </label>
           <input
-            placeholder="Boleh kosong, nanti otomatis dibuat"
+            placeholder="e.g. fufufafa"
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
@@ -187,7 +187,7 @@ const ModalPost = ({ onClose }: ModalPostProps) => {
 
         <div className="mb-4">
           <label className="block text-gray-800 font-semibold mb-1">
-            1-2 Kata <span className="italic font-light">(opsional)</span>
+            1-2 Kata <span className="italic text-gray-400 font-light">(opsional)</span>
           </label>
           <input
             type="text"
