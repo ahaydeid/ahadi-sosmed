@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Search, MessageCircle } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { icons, Search, MessageCircle } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { getDeviceId } from "@/lib/device";
 import ModalReact from "./modal/ModalReact";
@@ -18,13 +18,22 @@ type RagePost = {
   kata: string | null;
   isi: string;
   created_at: string;
+  device_id: string;
   top_reacts: string[];
   total_react: number;
   total_comment: number;
 };
 
+type RageProfile = {
+  device_id: string;
+  nickname: string | null;
+  icon_name: string;
+  bg_color?: string;
+};
+
 const MarahMarahPage = () => {
   const [posts, setPosts] = useState<RagePost[]>([]);
+  const [profiles, setProfiles] = useState<RageProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPostModal, setShowPostModal] = useState(false);
   const [showReactModal, setShowReactModal] = useState(false);
@@ -35,8 +44,7 @@ const MarahMarahPage = () => {
 
   const deviceId = getDeviceId();
 
-  // 🔥 Fetch postingan + agregasi
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
 
     const { data: postsData, error: postError } = await supabase.from("rage_posts").select("*").order("created_at", { ascending: false });
@@ -51,7 +59,10 @@ const MarahMarahPage = () => {
 
     const { data: reactsData } = await supabase.from("rage_reacts").select("rage_post_id, emoji, device_id");
 
-    // Hitung total react + top emoji
+    const { data: profilesData } = await supabase.from("rage_profiles").select("device_id, nickname, icon_name");
+
+    if (profilesData) setProfiles(profilesData);
+
     const merged = postsData.map((post) => {
       const reacts = reactsData?.filter((r) => r.rage_post_id === post.id) || [];
       const comments = commentsData?.filter((c) => c.rage_post_id === post.id) || [];
@@ -68,33 +79,24 @@ const MarahMarahPage = () => {
 
       return {
         ...post,
-        top_reacts: topReacts.length ? topReacts : [post.rage_emoji],
+        top_reacts: topReacts,
         total_react: reacts.length,
         total_comment: comments.length,
       };
     });
 
-    // 🔥 Urutkan: total_react → total_comment → created_at desc
-    const sorted = merged.sort((a, b) => {
-      if (b.total_react !== a.total_react) return b.total_react - a.total_react;
-      if (b.total_comment !== a.total_comment) return b.total_comment - a.total_comment;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-
-    setPosts(sorted);
-
-    setPosts(merged);
-
     const reacted = reactsData?.filter((r) => r.device_id === deviceId).map((r) => r.rage_post_id) || [];
 
     setReactedPosts(reacted);
+    setPosts(merged);
     setLoading(false);
-  };
+  }, [deviceId]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchPosts();
-    }, 0);
+    const load = async () => {
+      await fetchPosts();
+    };
+    load();
 
     const channel = supabase
       .channel("rage_updates")
@@ -103,21 +105,33 @@ const MarahMarahPage = () => {
       .subscribe();
 
     return () => {
-      clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchPosts]);
+
+  const getProfileIcon = (device_id: string) => {
+    const profile = profiles.find((p) => p.device_id === device_id);
+    if (!profile) return <div className="w-8 h-8 bg-gray-300 rounded-full" />;
+
+    const iconName = profile.icon_name as keyof typeof icons;
+    const IconComponent = icons[iconName];
+    const bg = profile.bg_color || "#e5e7eb";
+
+    return (
+      <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: bg }}>
+        {IconComponent && <IconComponent className="w-5 h-5 text-white" />}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center">
-      {/* Sticky Header */}
+      {/* Header */}
       <div className="w-full bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
         <div className="flex items-center justify-between p-4 mx-auto">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-1">
-              Marah-marah
-              <span>😡</span>
+              Marah-marah <span>😡</span>
             </h1>
             <p className="text-sm text-gray-500 italic">*Lo anonim, bebas luapin semuanya di sini!*</p>
           </div>
@@ -142,51 +156,54 @@ const MarahMarahPage = () => {
           ) : (
             posts.map((post) => {
               const alreadyReacted = reactedPosts.includes(post.id);
+              const profile = profiles.find((p) => p.device_id === post.device_id);
 
               return (
-                <div key={post.id} className="p-4 border-b-3 border-b-gray-50 md:p-6">
-                  <h2 className="font-semibold text-gray-800 text-base md:text-lg">{post.nickname || "Anonim"}</h2>
-                  <h3>
-                    <span>{post.rage_emoji}</span> <span className="italic text-gray-600">{post.kata}</span>
-                  </h3>
-                  <p className="text-gray-700 text-sm md:text-base leading-relaxed mt-1.5">{post.isi}</p>
+                <div key={post.id} className="p-4 border-b border-gray-100 md:p-6 flex gap-3">
+                  <div className="flex-1">
+                    <h2 className="flex items-center gap-2 font-semibold text-gray-800 text-base md:text-lg">
+                      {getProfileIcon(post.device_id)}
+                      <span>{profile?.nickname || post.nickname || "Anonim"}</span>
+                    </h2>
+                    <h3>
+                      <span>{post.rage_emoji}</span> <span className="italic text-gray-600">{post.kata}</span>
+                    </h3>
+                    <p className="text-gray-700 text-sm md:text-base leading-relaxed mt-1.5">{post.isi}</p>
 
-                  <div className="flex items-center gap-4 mt-3">
-                    {/* Tombol Reaksi */}
-                    {!alreadyReacted && (
-                      <button
+                    <div className="flex items-center gap-4 mt-3">
+                      {!alreadyReacted && (
+                        <button
+                          onClick={() => {
+                            setActivePostId(post.id);
+                            setShowReactModal(true);
+                          }}
+                          className="flex items-center gap-1 bg-red-600 text-white px-3 py-0.5 rounded-full text-sm font-medium hover:bg-red-700 transition"
+                        >
+                          Reaksi
+                        </button>
+                      )}
+
+                      <div
+                        className="flex items-center gap-1 text-gray-600 text-sm cursor-pointer"
                         onClick={() => {
                           setActivePostId(post.id);
-                          setShowReactModal(true);
+                          setShowReactList(true);
                         }}
-                        className="flex items-center gap-1 bg-red-600 text-white px-3 py-0.5 rounded-full text-sm font-medium hover:bg-red-700 transition"
                       >
-                        Reaksi
-                      </button>
-                    )}
+                        {post.top_reacts.length > 0 && <span>{post.top_reacts.join(" ")}</span>}
+                        <span className="font-medium">{post.total_react}</span>
+                      </div>
 
-                    {/* Daftar reaksi (2 emoji teratas + total) */}
-                    <div
-                      className="flex items-center gap-1 text-gray-600 text-sm cursor-pointer"
-                      onClick={() => {
-                        setActivePostId(post.id);
-                        setShowReactList(true);
-                      }}
-                    >
-                      <span>{post.top_reacts.join(" ")}</span>
-                      <span className="font-medium">{post.total_react}</span>
-                    </div>
-
-                    {/* Tombol komentar */}
-                    <div
-                      className="flex items-center gap-1 text-gray-600 text-sm cursor-pointer"
-                      onClick={() => {
-                        setActivePostId(post.id);
-                        setShowKomentarModal(true);
-                      }}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span className="font-medium">{post.total_comment}</span>
+                      <div
+                        className="flex items-center gap-1 text-gray-600 text-sm cursor-pointer"
+                        onClick={() => {
+                          setActivePostId(post.id);
+                          setShowKomentarModal(true);
+                        }}
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span className="font-medium">{post.total_comment}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

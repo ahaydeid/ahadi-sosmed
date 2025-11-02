@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { X, Send } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { X, Send, icons } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { getDeviceId } from "@/lib/device";
 
@@ -17,32 +17,46 @@ type Comment = {
   emoji: string;
   isi: string;
   created_at: string;
+  device_id: string;
+};
+
+type RageProfile = {
+  device_id: string;
+  nickname: string | null;
+  icon_name: string;
+  bg_color?: string;
 };
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
+  const [profiles, setProfiles] = useState<RageProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
 
-  // Ambil komentar dari DB
+  // Ambil komentar & profil
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+
+    const { data: commentsData, error: commentError } = await supabase.from("rage_comments").select("*").eq("rage_post_id", postId).order("created_at", { ascending: true });
+
+    if (commentError) console.error("Gagal ambil komentar:", commentError);
+
+    const { data: profilesData } = await supabase.from("rage_profiles").select("device_id, nickname, icon_name, bg_color");
+
+    setComments(commentsData || []);
+    setProfiles(profilesData || []);
+    setLoading(false);
+  }, [postId]);
+
   useEffect(() => {
-    let mounted = true;
-
-    const fetchComments = async () => {
-      const { data, error } = await supabase.from("rage_comments").select("*").eq("rage_post_id", postId).order("created_at", { ascending: true });
-
-      if (error) console.error("Gagal ambil komentar:", error);
-      else if (mounted) setComments(data || []);
-
-      setLoading(false);
+    const load = async () => {
+      await fetchData();
     };
+    load();
 
-    fetchComments();
-
-    // Realtime listener untuk komentar baru, update, dan hapus
     const channel = supabase
       .channel(`rage_comments_${postId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "rage_comments" }, (payload) => {
@@ -61,10 +75,9 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
       .subscribe();
 
     return () => {
-      mounted = false;
       supabase.removeChannel(channel);
     };
-  }, [postId]);
+  }, [fetchData, postId]);
 
   // Kirim komentar baru
   const handleSend = async () => {
@@ -82,24 +95,46 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
     };
 
     const { error } = await supabase.from("rage_comments").insert(newComment);
-    if (error) console.error("Gagal kirim komentar:", error);
-    else {
+    if (error) {
+      console.error("Gagal kirim komentar:", error);
+    } else {
       setInput("");
       setReplyTo(null);
+      await fetchData(); // 🔥 langsung reload komentar setelah kirim
     }
   };
 
   const mainComments = comments.filter((c) => c.parent_id === null);
   const repliesFor = (id: string) => comments.filter((c) => c.parent_id === id);
 
+  const getProfileIcon = (device_id: string) => {
+    const profile = profiles.find((p) => p.device_id === device_id);
+    if (!profile) return <div className="w-7 h-7 bg-gray-300 rounded-full" />;
+
+    const iconName = profile.icon_name as keyof typeof icons;
+    const IconComponent = icons[iconName];
+    const bg = profile.bg_color || "#9ca3af";
+
+    return (
+      <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: bg }}>
+        {IconComponent && <IconComponent className="w-4 h-4 text-white" />}
+      </div>
+    );
+  };
+
+  const getProfileName = (device_id: string, fallback: string | null) => {
+    const profile = profiles.find((p) => p.device_id === device_id);
+    return profile?.nickname || fallback || "Anonim";
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-lg max-w-[95%] pb-2 max-h-[90vh] flex flex-col relative">
+      <div className="bg-white rounded-lg max-w-[95%] pb-2 max-h-[90vh] flex flex-col relative w-full sm:w-[500px]">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black transition">
           <X className="w-6 h-6" />
         </button>
 
-        <div className="p-4">
+        <div className="p-4 border-b">
           <h2 className="text-lg font-bold">Komentar</h2>
         </div>
 
@@ -111,37 +146,40 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
           ) : (
             mainComments.map((main) => (
               <div key={main.id}>
-                <div className="flex flex-col">
-                  <p className="font-semibold text-gray-800">
-                    {main.nickname} {main.emoji}
-                  </p>
-                  <p className="text-sm text-gray-700">{main.isi}</p>
-                  <div className="flex items-center mt-1">
-                    <span className="text-xs text-gray-400 mr-5">
-                      {new Date(main.created_at).toLocaleTimeString("id-ID", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <button onClick={() => setReplyTo(replyTo === main.id ? null : main.id)} className="text-xs text-red-500 hover:underline">
-                      Balas
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pl-6 mt-2 space-y-2">
-                  {repliesFor(main.id).map((r) => (
-                    <div key={r.id} className="border-l-2 border-gray-200 pl-3">
-                      <p className="font-semibold text-gray-800">
-                        {r.nickname} {r.emoji}
-                      </p>
-                      <p className="text-sm text-gray-700">{r.isi}</p>
-                      <span className="text-xs text-gray-400 mt-1">
-                        {new Date(r.created_at).toLocaleTimeString("id-ID", {
+                <div className="flex items-start gap-2">
+                  {getProfileIcon(main.device_id)}
+                  <div className="flex flex-col">
+                    <h3 className="flex items-center gap-1 font-semibold text-gray-800 text-sm">{getProfileName(main.device_id, main.nickname)}</h3>
+                    <p className="text-sm text-gray-700">{main.isi}</p>
+                    <div className="flex items-center mt-1">
+                      <span className="text-xs text-gray-400 mr-5">
+                        {new Date(main.created_at).toLocaleTimeString("id-ID", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </span>
+                      <button onClick={() => setReplyTo(replyTo === main.id ? null : main.id)} className="text-xs text-red-500 hover:underline">
+                        Balas
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Balasan */}
+                <div className="pl-8 mt-2 space-y-2">
+                  {repliesFor(main.id).map((r) => (
+                    <div key={r.id} className="flex items-start gap-2 border-l-2 border-gray-200 pl-3">
+                      {getProfileIcon(r.device_id)}
+                      <div>
+                        <h4 className="flex items-center gap-1 font-semibold text-gray-800 text-sm">{getProfileName(r.device_id, r.nickname)}</h4>
+                        <p className="text-sm text-gray-700">{r.isi}</p>
+                        <span className="text-xs text-gray-400 mt-1">
+                          {new Date(r.created_at).toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -150,6 +188,7 @@ const ModalKomentar = ({ onClose, postId }: ModalKomentarProps) => {
           )}
         </div>
 
+        {/* Input komentar */}
         <div className="p-3 bg-white sticky bottom-0 flex items-center gap-2 border-t">
           {replyTo && <span className="text-xs text-gray-500 absolute -top-4 left-4 italic">Balas komentar...</span>}
           <input
