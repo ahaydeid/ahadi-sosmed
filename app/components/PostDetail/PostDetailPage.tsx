@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { BadgeCheck } from "lucide-react";
 import PostActions from "./PostActions";
@@ -22,6 +24,10 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
 
   const showFollow = authorId && (!user || (user && authorId !== user.id));
   const isSelf = !!user && authorId === user.id;
+
+  const transformImageLinks = (text: string) => {
+    return text.replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp))/g, "![]($1)");
+  };
 
   return (
     <div className="min-h-screen bg-white p-4">
@@ -89,7 +95,19 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
 
       {/* Deskripsi */}
       <div className="text-base text-gray-800 leading-relaxed space-y-4 mb-6 prose max-w-none">
-        <ReactMarkdown>{post.description}</ReactMarkdown>
+        <div className="prose max-w-none">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeRaw]}
+            components={{
+              a: (props: React.DetailedHTMLProps<React.AnchorHTMLAttributes<HTMLAnchorElement>, HTMLAnchorElement>) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+              // eslint-disable-next-line @next/next/no-img-element
+              img: (props: React.DetailedHTMLProps<React.ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>) => <img {...props} alt={props.alt ?? ""} className="rounded-md max-w-full h-auto mx-auto" />,
+            }}
+          >
+            {transformImageLinks(post.description)}
+          </ReactMarkdown>
+        </div>
       </div>
 
       {/* Aksi post */}

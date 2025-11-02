@@ -78,7 +78,7 @@ export async function generateStaticParams() {
   const { data: posts } = await supabase.from("post_content").select("slug");
 
   if (!posts) return [];
-  return posts.map((p) => ({ key: p.slug }));
+  return posts.map((p) => ({ key: String(p.slug) }));
 }
 
 export default async function Page({ params }: Props) {

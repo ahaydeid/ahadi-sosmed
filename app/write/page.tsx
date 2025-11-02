@@ -315,6 +315,16 @@ export default function WritePage() {
     }
   };
 
+  function generateSlug(text: string): string {
+    const base = text
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+    return `${base}-${Date.now().toString(36)}`;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
@@ -369,6 +379,8 @@ export default function WritePage() {
         alert("Gagal membuat post.");
         return;
       }
+      const slug = generateSlug(title);
+
       const { error: contentError } = await supabase.from("post_content").insert([
         {
           post_id: newPost.id,
@@ -376,8 +388,10 @@ export default function WritePage() {
           description: content,
           image_url: imageUrl,
           author_image: authorImage,
+          slug,
         },
       ]);
+
       if (contentError) {
         console.error("Gagal menyimpan konten:", contentError.message);
         alert("Gagal menyimpan konten post.");
