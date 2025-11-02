@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
-import { ArrowLeft, Heart } from "lucide-react";
+import { ArrowLeft, Heart, BadgeCheck } from "lucide-react";
 import ModalLikes from "@/app/components/ModalLikes";
 
 interface RepliesModalProps {
@@ -26,6 +26,7 @@ interface Profile {
   id: string;
   display_name: string;
   avatar_url: string | null;
+  verified: boolean;
 }
 
 interface Item {
@@ -148,10 +149,19 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
     const profMap = new Map(profiles);
     const idsToFetch = uniqIds.filter((id) => !profMap.has(id));
     if (idsToFetch.length > 0) {
-      const profRes = await supabase.from("user_profile").select("id, display_name, avatar_url").in("id", idsToFetch);
+      const profRes = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", idsToFetch);
+
       if (!profRes.error && profRes.data) {
-        (profRes.data as Profile[]).forEach((p) => profMap.set(p.id, { id: p.id, display_name: p.display_name, avatar_url: p.avatar_url ?? null }));
+        (profRes.data as Profile[]).forEach((p) =>
+          profMap.set(p.id, {
+            id: p.id,
+            display_name: p.display_name,
+            avatar_url: p.avatar_url ?? null,
+            verified: !!p.verified,
+          })
+        );
       }
+
       setProfiles(new Map(profMap));
     }
 
@@ -249,9 +259,14 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
 
     const profMap = new Map(profiles);
     if (meId && !profMap.has(meId)) {
-      const meProf = await supabase.from("user_profile").select("id, display_name, avatar_url").eq("id", meId).maybeSingle();
+      const meProf = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").eq("id", meId).maybeSingle();
       if (!meProf.error && meProf.data) {
-        profMap.set(meProf.data.id, { id: meProf.data.id, display_name: meProf.data.display_name, avatar_url: meProf.data.avatar_url ?? null });
+        profMap.set(meProf.data.id, {
+          id: meProf.data.id,
+          display_name: meProf.data.display_name,
+          avatar_url: meProf.data.avatar_url ?? null,
+          verified: !!meProf.data.verified,
+        });
         setProfiles(new Map(profMap));
       }
     }
@@ -339,7 +354,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
           ) : (
             <div className="space-y-4">
               {items.map((it) => (
-                <ReplyItem key={it.id} item={it} onReply={() => handleStartReply(it)} onShowLikes={() => setShowLikesForCommentId(it.id)} likes={it.id === rootCommentId ? rootLikes : undefined} />
+                <ReplyItem key={it.id} item={it} profiles={profiles} onReply={() => handleStartReply(it)} onShowLikes={() => setShowLikesForCommentId(it.id)} likes={it.id === rootCommentId ? rootLikes : undefined} />
               ))}
             </div>
           )}
@@ -367,7 +382,7 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   );
 }
 
-function ReplyItem({ item, onReply, onShowLikes, likes }: { item: Item; onReply: () => void; onShowLikes: () => void; likes?: number }) {
+function ReplyItem({ item, profiles, onReply, onShowLikes, likes }: { item: Item; profiles: Map<string, Profile>; onReply: () => void; onShowLikes: () => void; likes?: number }) {
   const pad = item.level > 0 ? 40 : 0;
   const isRoot = item.level === 0;
 
@@ -381,7 +396,10 @@ function ReplyItem({ item, onReply, onShowLikes, likes }: { item: Item; onReply:
 
       <div className="flex-1">
         <div className="bg-gray-100 rounded-xl p-3">
-          <div className="font-semibold text-sm text-gray-900">{item.authorName}</div>
+          <div className="flex items-center gap-1 font-semibold text-sm text-gray-900">
+            <span>{item.authorName}</span>
+            {profiles.get(item.authorId!)?.verified && <BadgeCheck className="w-4 h-4 text-sky-600" />}
+          </div>
           <div className="mt-1 text-gray-700 text-sm leading-relaxed">
             {isRoot ? (
               <span>{item.text}</span>
