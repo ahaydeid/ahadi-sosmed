@@ -9,7 +9,6 @@ export const revalidate = 60;
 export default async function Page() {
   const cookieStore = await cookies();
 
-  // ✅ Versi terbaru (tanpa deprecated dan tanpa warning)
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     cookies: {
       getAll() {

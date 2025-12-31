@@ -20,7 +20,7 @@ const poppins = localFont({
 export const metadata: Metadata = {
   title: "ahadi",
   description: "Sosial media ahadi",
-  icons: { icon: "/icon.png", apple: "/apple-touch-icon.png" },
+  icons: { icon: "/favicon.ico", apple: "/apple-touch-icon.png" },
 };
 
 export const viewport = {
@@ -30,7 +30,7 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id">
-      <body className={`${poppins.variable} antialiased relative min-h-screen pb-14 bg-gray-50`}>
+      <body suppressHydrationWarning className={`${poppins.variable} antialiased relative min-h-screen pb-14 bg-gray-50`}>
         <Suspense fallback={null}>
           <AuthListener />
           <RegisterSW />
