@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import RichTextEditor from "@/app/components/Editor/RichTextEditor";
+
 export default function WritePage() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,8 +72,7 @@ export default function WritePage() {
         return;
       }
       alert("Tulisan berhasil dikirim!");
-      setTitle("");
-      setContent("");
+      router.push(`/post/${slug}`);
     } catch (err) {
       console.error("Error:", err);
       alert("Terjadi kesalahan saat mengirim post.");

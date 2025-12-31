@@ -46,11 +46,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const desc = (content?.description ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
   
   // Extract thumbnail from description for OG
-  const thumbnailMatch = (content?.description ?? "").match(/<img[^>]+src="([^">]+)"/);
-  const rawImage = thumbnailMatch ? thumbnailMatch[1] : "https://ahadi.my.id/icon.png";
+  const thumbnailMatch = (content?.description ?? "").match(/<img[^>]*\s+src=["']([^"'>]+)["']/i);
+  const rawImage = thumbnailMatch ? thumbnailMatch[1] : `https://ahadi.my.id/icon.png`;
   
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://ahadi.my.id";
-  const absImage = (() => {
+  const ogImage = (() => {
     try {
       if (rawImage.startsWith('http')) return rawImage;
       return new URL(rawImage, base).href;
@@ -58,8 +58,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       return rawImage;
     }
   })();
-  const isWebp = /\.webp(\?.*)?$/i.test(absImage);
-  const ogImage = isWebp ? `${base}/icon.png` : absImage;
 
   const pagePath = slugValue ? slugValue : postId;
   const pageUrl = `${base}/post/${pagePath}`;

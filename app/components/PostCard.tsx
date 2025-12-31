@@ -19,7 +19,8 @@ const COLLAPSE_KEY = "collapsedPosts";
 
 function extractFirstImage(html: string): string | null {
   if (!html) return null;
-  const match = html.match(/<img[^>]+src="([^">]+)"/);
+  // Robust regex to find src in any position within the img tag
+  const match = html.match(/<img[^>]*\s+src=["']([^"'>]+)["']/i);
   return match ? match[1] : null;
 }
 
@@ -69,7 +70,6 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
 
   /* Tombol Menu (Titik Tiga) atau Collapse */
   const [showMenu, setShowMenu] = useState(false);
-  const [imgError, setImgError] = useState(false);
   const router = useRouter();
 
   const handleMenuToggle: React.MouseEventHandler<HTMLButtonElement> = (e) => {
@@ -130,15 +130,15 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
       </div>
 
       {/* KANAN: gambar */}
-      {hasImage && !imgError && (
+      {hasImage && (
         <div className="shrink-0 w-24 h-24 overflow-hidden flex items-center justify-center">
-          <Image 
+          <img 
             src={derivedImage as string} 
             alt={post.title} 
-            width={96}
-            height={96}
             className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
+            onError={(e) => {
+              (e.target as HTMLImageElement).parentElement?.remove();
+            }}
           />
         </div>
       )}
