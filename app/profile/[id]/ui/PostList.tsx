@@ -1,4 +1,7 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import PostCard from "@/app/components/PostCard";
 import { PostCardData } from "@/lib/types/post";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
@@ -10,6 +13,17 @@ interface PostListProps {
 }
 
 export default function PostList({ posts, loading, isOwner }: PostListProps) {
+  const router = useRouter();
+  const [postList, setPostList] = useState(posts);
+
+  useEffect(() => {
+    setPostList(posts);
+  }, [posts]);
+
+  const handleDeleteSuccess = (deletedPostId: string) => {
+    setPostList((prev) => prev.filter((p) => p.id !== deletedPostId));
+  };
+
   return (
     <div className="mt-4 max-w-full mx-auto space-y-2">
       <div className="mb-5">
@@ -17,16 +31,23 @@ export default function PostList({ posts, loading, isOwner }: PostListProps) {
       </div>
 
       <h2 className="text-lg font-semibold text-gray-800 ms-5 mt-4">
-        Tulisan <span className="font-normal text-gray-600">({posts.length})</span>
+        Tulisan <span className="font-normal text-gray-600">({postList.length})</span>
       </h2>
 
       {loading && <p className="text-center py-5 text-gray-500">Memuat tulisan...</p>}
-      {!loading && posts.length === 0 && <p className="text-center py-5 text-gray-500">Belum ada tulisan</p>}
+      {!loading && postList.length === 0 && <p className="text-center py-5 text-gray-500">Belum ada tulisan</p>}
       {!loading &&
-        posts.map((post) => (
-          <Link key={post.id} href={`/post/${post.id}`} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
-            <PostCard post={post} isOwner={isOwner} />
-          </Link>
+        postList.map((post) => (
+          <div
+            key={post.id}
+            onClick={() => {
+              incrementPostViews(post.id);
+              router.push(`/post/${post.id}`);
+            }}
+            className="block transition hover:bg-gray-100 cursor-pointer"
+          >
+            <PostCard post={post} isOwner={isOwner} onDeleteSuccess={handleDeleteSuccess} />
+          </div>
         ))}
     </div>
   );
