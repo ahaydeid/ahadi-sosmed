@@ -311,11 +311,11 @@ function NavItem({
     <Link 
       href={href as Route} 
       className={`relative flex items-center gap-3 px-3 py-2.5 transition-all group ${
-        isActive ? "border-l-3 border-sky-600 bg-sky-50/50 text-black font-semibold" : "text-gray-600 hover:bg-gray-50 hover:text-black"
+        isActive ? "border-l-3 border-black text-black font-bold" : "text-gray-600 hover:bg-gray-50 hover:text-black"
       } ${isCollapsed ? "justify-center" : ""}`}
       title={isCollapsed ? label : ""}
     >
-      <Icon size={22} className={isActive ? "text-sky-600" : "text-gray-500 group-hover:text-black"} />
+      <Icon size={22} className={isActive ? "text-black stroke-[2.5px]" : "text-gray-500 group-hover:text-black"} />
       {!isCollapsed && <span className="truncate">{label}</span>}
       
       {badge > 0 && (

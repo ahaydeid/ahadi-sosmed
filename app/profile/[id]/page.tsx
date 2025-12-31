@@ -21,7 +21,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16 pt-14">
-      <Header displayName={profile.displayName} verified={profile.verified} onLogout={profile.handleLogout} />
+      <Header displayName={profile.displayName} verified={profile.verified} onLogout={profile.handleLogout} isOwnProfile={profile.isOwnProfile} />
 
       <AvatarSection
         displayName={profile.displayName}

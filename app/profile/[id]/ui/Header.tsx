@@ -9,9 +9,10 @@ interface HeaderProps {
   displayName: string;
   verified: boolean;
   onLogout: () => void;
+  isOwnProfile: boolean;
 }
 
-export default function Header({ displayName, verified, onLogout }: HeaderProps) {
+export default function Header({ displayName, verified, onLogout, isOwnProfile }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
 
@@ -30,31 +31,33 @@ export default function Header({ displayName, verified, onLogout }: HeaderProps)
         </h1>
       </div>
 
-      <div className="relative">
-        <button onClick={() => setMenuOpen((prev) => !prev)} aria-label="Menu" className="text-gray-700 hover:text-black transition">
-          <MoreVertical className="w-6 h-6" />
-        </button>
+      {isOwnProfile && (
+        <div className="relative">
+          <button onClick={() => setMenuOpen((prev) => !prev)} aria-label="Menu" className="text-gray-700 hover:text-black transition">
+            < MoreVertical className="w-6 h-6" />
+          </button>
 
-        {menuOpen && (
-          <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
-            <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-gray-100 transition whitespace-nowrap">
-              <LogOut className="w-4 h-4 shrink-0" />
-              <span>Logout</span>
-            </button>
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+              <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-gray-100 transition whitespace-nowrap">
+                <LogOut className="w-4 h-4 shrink-0" />
+                <span>Logout</span>
+              </button>
 
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                router.push(setupRoute);
-              }}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition whitespace-nowrap"
-            >
-              <Settings className="w-4 h-4 shrink-0" />
-              <span>Pengaturan Akun</span>
-            </button>
-          </div>
-        )}
-      </div>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push(setupRoute);
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition whitespace-nowrap"
+              >
+                <Settings className="w-4 h-4 shrink-0" />
+                <span>Pengaturan Akun</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 }
