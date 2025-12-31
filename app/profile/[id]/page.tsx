@@ -38,7 +38,7 @@ export default function ProfilePage() {
         <StatsSection posts={profile.posts} followersCount={profile.followersCount} followingCount={profile.followingCount} onOpenFollowers={follow.openFollowersModal} onOpenFollowing={follow.openFollowingModal} />
       </AvatarSection>
 
-      <PostList posts={profile.posts} loading={profile.loading} />
+      <PostList posts={profile.posts} loading={profile.loading} isOwner={profile.isOwnProfile} />
 
       {showFollowModal && <FollowModal followTab={followTab} setShowFollowModal={setShowFollowModal} follow={follow} />}
     </div>

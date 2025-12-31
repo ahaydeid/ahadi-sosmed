@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";

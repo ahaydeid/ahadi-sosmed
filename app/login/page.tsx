@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -50,6 +50,7 @@ function LoginContent() {
       setLoadingProvider(null);
     }
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">

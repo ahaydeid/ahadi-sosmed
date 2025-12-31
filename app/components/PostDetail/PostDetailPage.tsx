@@ -1,22 +1,22 @@
 "use client";
 
 import Image from "next/image";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import remarkGfm from "remark-gfm";
 import Link from "next/link";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, MoreVertical, Edit } from "lucide-react";
 import PostActions from "./PostActions";
 import PostComments from "../PostComments";
 import CommentInput from "../CommentInput";
 import ModalLikes from "@/app/components/ModalLikes";
 import { usePostDetailData } from "./usePostDetailData";
+import { useState } from "react";
 
 export default function PostDetailPage({ initialPostId, initialSlug }: { initialPostId?: string; initialSlug?: string }) {
   const { post, user, loading, authChecked, hasApresiasi, showLikes, likeCount, authorId, isFollowing, followBusy, setShowLikes, handleApresiasi, handleToggleFollow, handleShare, redirectToLogin } = usePostDetailData(
     initialPostId,
     initialSlug
   );
+
+  const [showMenu, setShowMenu] = useState(false);
 
   if (loading || !post) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500 text-sm">Memuat postingan...</div>;
@@ -25,21 +25,44 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
   const showFollow = authorId && (!user || (user && authorId !== user.id));
   const isSelf = !!user && authorId === user.id;
 
-  const transformImageLinks = (text: string) => {
-    return text.replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp))/g, "![]($1)");
-  };
 
   return (
-    <div className="min-h-screen bg-white p-4">
+    <div className="min-h-screen p-4 ">
       {/* Header atas dengan tombol kembali */}
-      <div className="sticky top-0 left-0 right-0 h-12 bg-white border-b border-gray-200 z-10 flex items-center px-4 -mx-4">
-        <button onClick={() => window.history.back()} className="absolute left-4 rounded-full hover:bg-gray-100 transition z-20" aria-label="Kembali">
+      <div className="sticky top-0 left-0 right-0 h-12 bg-white border-b border-gray-200 z-10 flex items-center px-4 -mx-4 justify-between">
+        <button onClick={() => window.history.back()} className="rounded-full hover:bg-gray-100 transition p-1" aria-label="Kembali">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div className="flex-1 text-center">
+        <div className="flex-1 text-center mx-2 truncate">
           <h2 className="font-base text-gray-800 truncate">Tulisan {post.author}</h2>
+        </div>
+        
+        {/* Right side spacer or Menu */}
+        <div className="w-8 flex justify-end">
+          {isSelf && (
+            <div className="relative">
+              <button 
+                onClick={() => setShowMenu(!showMenu)} 
+                className="p-1 rounded-full hover:bg-gray-100 transition"
+              >
+                <MoreVertical className="w-5 h-5 text-gray-600" />
+              </button>
+              
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-32 bg-white shadow-lg rounded-md border border-gray-100 z-50 py-1">
+                    <Link href={`/edit/${post.id}`} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                       <Edit className="w-4 h-4" />
+                       <span>Edit</span>
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -86,29 +109,68 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
         )}
       </div>
 
-      {/* Gambar post */}
-      {post.image_url && (
-        <div className="w-full rounded-xs overflow-hidden mb-4">
-          <Image src={post.image_url as string} alt={post.title} sizes="100vw" width={1600} height={900} className="w-full h-auto" />
-        </div>
-      )}
+
 
       {/* Deskripsi */}
       <div className="text-base text-gray-800 leading-relaxed space-y-4 mb-6 prose max-w-none">
-        <div className="prose max-w-none">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-            components={{
-              a: (props: React.DetailedHTMLProps<React.AnchorHTMLAttributes<HTMLAnchorElement>, HTMLAnchorElement>) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-              // eslint-disable-next-line @next/next/no-img-element
-              img: (props: React.DetailedHTMLProps<React.ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>) => <img {...props} alt={props.alt ?? ""} className="rounded-md max-w-full h-auto mx-auto" />,
-            }}
-          >
-            {transformImageLinks(post.description)}
-          </ReactMarkdown>
-        </div>
+        <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: post.description }} />
       </div>
+
+      {/* Sumber / Links Footer */}
+      {(() => {
+        const links = new Set<string>();
+        // 1. Ambil dari href (link biasa)
+        const hrefMatches = post.description.matchAll(/href="([^"]+)"/g);
+        for (const m of hrefMatches) links.add(m[1]);
+        
+        // 2. Ambil dari tautan gambar eksternal (yang dipaste, bukan diupload)
+        const srcMatches = post.description.matchAll(/src="([^"]+)"/g);
+        for (const m of srcMatches) {
+          const url = m[1];
+          // Kecualikan gambar yang diupload ke storage internal kita (supabase post-images)
+          if (url.startsWith('http') && !url.includes('/storage/v1/object/public/post-images/')) {
+            links.add(url);
+          }
+        }
+        
+        // 3. Ambil dari atribut LinkCard (Link Preview)
+        const urlMatches = post.description.matchAll(/url="([^"]+)"/g);
+        for (const m of urlMatches) {
+          if (m[1].startsWith('http')) links.add(m[1]);
+        }
+
+        if (links.size === 0) return null;
+
+        return (
+          <div className="mt-8 pt-4 border-t border-gray-100">
+            <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Sumber:</h3>
+            <ul className="space-y-1">
+              {Array.from(links).map((link, idx) => {
+                let displayLabel = link;
+                try {
+                  const urlObj = new URL(link);
+                  displayLabel = urlObj.hostname.replace(/^www\./, '');
+                } catch (e) {
+                  // Fallback to original if not a valid URL
+                }
+                
+                return (
+                  <li key={idx} className="truncate">
+                    <a 
+                      href={link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-sky-600 hover:underline"
+                    >
+                      {displayLabel}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* Aksi post */}
       <PostActions hasApresiasi={hasApresiasi} likeCount={likeCount} views={post.views} comments={post.comments} onApresiasi={handleApresiasi} onShowLikes={() => setShowLikes(true)} onShare={handleShare} />

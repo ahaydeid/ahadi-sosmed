@@ -4,7 +4,7 @@ import Image from "next/image";
 import ChatInput from "@/app/components/ChatInput";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 import { User, MoreVertical, ArrowLeft } from "lucide-react";
 

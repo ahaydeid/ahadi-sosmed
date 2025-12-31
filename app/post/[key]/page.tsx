@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { admin } from "@/lib/supabase/admin";
 import PostDetailPage from "../../components/PostDetail/PostDetailPage";
 
 interface Props {
@@ -10,25 +10,25 @@ const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { key } = await params;
-  const supabase = supabaseServer();
+  const supabase = admin;
 
   let postId: string | null = null;
   let slugValue: string | null = null;
 
   if (isUuid(key)) {
     postId = key;
-    const { data: contentForSlug } = await supabase.from("post_content").select("slug, title, description, image_url").eq("post_id", postId).maybeSingle();
+    const { data: contentForSlug } = await supabase.from("post_content").select("slug, title, description").eq("post_id", postId).maybeSingle();
     slugValue = contentForSlug?.slug ?? null;
   } else {
     slugValue = key;
-    const { data: slugRow } = await supabase.from("post_content").select("post_id, title, description, image_url").eq("slug", key).maybeSingle();
+    const { data: slugRow } = await supabase.from("post_content").select("post_id, title, description").eq("slug", key).maybeSingle();
     postId = slugRow?.post_id ?? null;
   }
 
   const content =
     (await (async () => {
       if (postId) {
-        const { data } = await supabase.from("post_content").select("title, description, image_url").eq("post_id", postId).maybeSingle();
+        const { data } = await supabase.from("post_content").select("title, description").eq("post_id", postId).maybeSingle();
         return data ?? null;
       }
       return null;
@@ -43,11 +43,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = content?.title ?? "ahadi";
-  const desc = (content?.description ?? "").replace(/\n/g, " ").slice(0, 160);
-  const rawImage = content?.image_url ?? "https://ahadi.my.id/icon.png";
+  const desc = (content?.description ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+  
+  // Extract thumbnail from description for OG
+  const thumbnailMatch = (content?.description ?? "").match(/<img[^>]+src="([^">]+)"/);
+  const rawImage = thumbnailMatch ? thumbnailMatch[1] : "https://ahadi.my.id/icon.png";
+  
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://ahadi.my.id";
   const absImage = (() => {
     try {
+      if (rawImage.startsWith('http')) return rawImage;
       return new URL(rawImage, base).href;
     } catch {
       return rawImage;
@@ -74,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export async function generateStaticParams() {
-  const supabase = supabaseServer();
+  const supabase = admin;
   const { data: posts } = await supabase.from("post_content").select("slug");
 
   if (!posts) return [];
@@ -83,7 +88,7 @@ export async function generateStaticParams() {
 
 export default async function Page({ params }: Props) {
   const { key } = await params;
-  const supabase = supabaseServer();
+  const supabase = admin;
 
   let postId: string | null = null;
   let slugValue: string | null = null;

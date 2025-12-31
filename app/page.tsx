@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import Feed from "./components/Feed";
 import TopBar from "./components/TopBar";
@@ -7,24 +7,7 @@ import { PostCardData } from "@/lib/types/post";
 export const revalidate = 60;
 
 export default async function Page() {
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // Abaikan error di edge runtime
-        }
-      },
-    },
-  });
+  const supabase = await createClient();
 
   const { data: posts, error } = await supabase.from("post").select("id, created_at, user_id, visibility").eq("visibility", "public").order("created_at", { ascending: false }).limit(100);
 
@@ -36,7 +19,7 @@ export default async function Page() {
   const postIds = posts.map((p) => p.id);
   const userIds = posts.map((p) => p.user_id);
 
-  const { data: contents } = await supabase.from("post_content").select("post_id, title, description, image_url, author_image, slug").in("post_id", postIds);
+  const { data: contents } = await supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", postIds);
 
   const { data: profiles } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", userIds);
 
@@ -59,7 +42,6 @@ export default async function Page() {
       authorImage: content?.author_image ?? profile?.avatar_url ?? null,
       title: content?.title ?? "(Tanpa judul)",
       description: content?.description ?? "",
-      imageUrl: content?.image_url ?? null,
       date: new Date(p.created_at).toLocaleDateString("id-ID", {
         day: "numeric",
         month: "short",
@@ -74,7 +56,7 @@ export default async function Page() {
   });
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       <TopBar />
       <Feed initialPosts={initialPosts} />
     </div>

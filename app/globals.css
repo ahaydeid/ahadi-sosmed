@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "easymde/dist/easymde.min.css";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -25,17 +25,48 @@ body {
   font-family: var(--font-poppins), sans-serif;
 }
 
-/* Safe fixes biar tampilan rapi */
-.EasyMDEContainer,
-.editor-toolbar {
-  background: #fff;
+/* Tiptap specific styles */
+.ProseMirror {
+  outline: none;
+  min-height: 300px;
 }
 
-.EasyMDEContainer .CodeMirror {
-  min-height: 300px; /* sesuai preferensi awalmu */
-  background: #fff;
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
 
-.editor-statusbar {
-  color: #6b7280; /* abu-abu halus */
+/* 
+  Flexible Image Row support for Typography/Prose 
+  Target paragraphs that contain images.
+  Using specific selector to ensure it applies within .prose
+*/
+.prose p:has(img) {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  margin-top: 1.5em; /* Match default prose paragraph spacing */
+  margin-bottom: 1.5em;
+  width: 100%;
 }
+
+.prose p:has(img) img {
+  margin: 0 !important; /* Override prose default margins */
+  flex: 1 1 0%;        /* Grow and shrink equally */
+  width: auto;         /* Let flex control width */
+  min-width: 0;        /* Allow shrinking below content size */
+  height: auto;
+  object-fit: cover;
+  border-radius: 0.375rem; /* rounded-md somewhat */
+}
+
+@media (min-width: 1024px) {
+  .prose p:has(img) {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+}
+

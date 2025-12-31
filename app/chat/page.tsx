@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search } from "lucide-react";
@@ -145,7 +145,7 @@ export default function ChatPage() {
     const payload = { user_id: currentUserId, message_id: chatId, last_read_at: new Date().toISOString() };
     const { error } = await supabase.from("message_reads").upsert(payload, { onConflict: "user_id,message_id" });
     if (error) return;
-    await loadChats();
+    // await loadChats(); // Jangan reload di sini agar tidak flickering loading
   };
 
   if (loading) {

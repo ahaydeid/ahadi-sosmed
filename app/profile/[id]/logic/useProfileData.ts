@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import { PostCardData } from "@/lib/types/post";
 import { formatPostDate } from "./formatDate";
 import type { Route } from "next";
@@ -92,7 +92,6 @@ export function useProfileData(profileId?: string) {
           authorImage: c?.author_image ?? profile.avatar_url ?? null,
           title: c?.title ?? "(Tanpa judul)",
           description: c?.description ?? "",
-          imageUrl: c?.image_url ?? null,
           date: formatPostDate(p.created_at),
           views: 0,
           likes: 0,

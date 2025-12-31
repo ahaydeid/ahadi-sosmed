@@ -1,6 +1,6 @@
 "use server";
 
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 
 /**
  * Menambah jumlah views untuk posting tertentu.

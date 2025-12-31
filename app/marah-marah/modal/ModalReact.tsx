@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { X } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+
 import { getDeviceId } from "@/lib/device";
 
 type ModalReactProps = {
@@ -10,7 +10,7 @@ type ModalReactProps = {
   onReactSuccess: () => void;
 };
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+import { supabase } from "@/lib/supabase/client";
 
 const creatureIcons: Record<string, string> = {
   kucing: "Cat",

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { User, MoreVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 
 type Actor = {
   id?: string | null;

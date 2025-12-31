@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, usePathname, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 export interface PostDetailData {
@@ -10,7 +10,6 @@ export interface PostDetailData {
   slug?: string | null;
   title: string;
   description: string;
-  image_url?: string | null;
   author: string;
   author_verified?: boolean;
   author_image?: string | null;
@@ -86,7 +85,7 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
 
       setAuthorId(postData.user_id);
 
-      const { data: contentData } = await supabase.from("post_content").select("title, description, image_url, author_image, slug").eq("post_id", postId).single();
+      const { data: contentData } = await supabase.from("post_content").select("title, description, author_image, slug").eq("post_id", postId).single();
 
       const { data: profileData } = await supabase.from("user_profile").select("display_name, verified").eq("id", postData.user_id).single();
 
@@ -105,7 +104,7 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
         slug: resolvedSlug ?? null,
         title: contentData?.title ?? "(Tanpa judul)",
         description: contentData?.description ?? "",
-        image_url: contentData?.image_url ?? null,
+        // image_url removed
         author: profileData?.display_name ?? "Anonim",
         author_verified: profileData?.verified ?? false,
         author_image: contentData?.author_image ?? null,

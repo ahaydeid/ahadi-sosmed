@@ -5,7 +5,7 @@ export interface PostCardData {
   authorImage: string | null; 
   title: string;
   description: string;
-  imageUrl: string | null; 
+  imageUrl?: string | null; 
   date: string;
   views: number;
   likes: number;

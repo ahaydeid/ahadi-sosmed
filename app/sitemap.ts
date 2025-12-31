@@ -1,11 +1,11 @@
 import { MetadataRoute } from "next";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { admin } from "@/lib/supabase/admin";
 
 export const revalidate = 0; // <= ini penting, biar tidak di-cache oleh Next.js
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = "https://ahadi.my.id";
-  const supabase = supabaseServer();
+  const supabase = admin;
 
   const { data: posts } = await supabase.from("post_content").select("slug, updated_at").order("updated_at", { ascending: false });
 

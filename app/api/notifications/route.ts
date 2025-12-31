@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { admin } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
   try {
@@ -16,14 +16,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
     }
 
-    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+    const { data: userData, error: userError } = await admin.auth.getUser(token);
     if (userError || !userData?.user) {
       return NextResponse.json({ error: "Token tidak valid" }, { status: 401 });
     }
 
     const authUserId = userData.user.id;
 
-    const { data: profile, error: profileError } = await supabaseAdmin.from("user_profile").select("id").eq("id", authUserId).single();
+    const { data: profile, error: profileError } = await admin.from("user_profile").select("id").eq("id", authUserId).single();
 
     if (profileError || !profile) {
       console.error("Profil tidak ditemukan:", profileError);
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
     const profileId = profile.id;
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await admin
       .from("notifications")
       .select(
         `

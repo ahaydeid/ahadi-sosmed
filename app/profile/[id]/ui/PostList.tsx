@@ -6,9 +6,10 @@ import { incrementPostViews } from "@/lib/actions/incrementViews";
 interface PostListProps {
   posts: PostCardData[];
   loading: boolean;
+  isOwner?: boolean;
 }
 
-export default function PostList({ posts, loading }: PostListProps) {
+export default function PostList({ posts, loading, isOwner }: PostListProps) {
   return (
     <div className="mt-4 max-w-full mx-auto space-y-2">
       <div className="mb-5">
@@ -24,7 +25,7 @@ export default function PostList({ posts, loading }: PostListProps) {
       {!loading &&
         posts.map((post) => (
           <Link key={post.id} href={`/post/${post.id}`} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
-            <PostCard post={post} />
+            <PostCard post={post} isOwner={isOwner} />
           </Link>
         ))}
     </div>

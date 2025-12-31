@@ -3,11 +3,11 @@
 import type { Route } from "next";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import { Search, User, Pencil } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { incrementPostViews } from "@/lib/actions/incrementViews"; // ✅ import helper
+import { incrementPostViews } from "@/lib/actions/incrementViews";
 
 type TabKey = "teratas" | "followed";
 type SearchItem = { type: "user"; id: string; label: string; avatarUrl?: string | null } | { type: "post"; id: string; label: string; thumbnailUrl?: string | null };
@@ -70,7 +70,7 @@ function TopBarInner() {
           supabase.from("user_profile").select("id, display_name, avatar_url").ilike("display_name", `%${query.trim()}%`).limit(8),
           supabase
             .from("post_content")
-            .select("slug, post_id, title, image_url") // ✅ tambahkan post_id
+            .select("slug, post_id, title") // ✅ tambahkan post_id
             .ilike("title", `%${query.trim()}%`)
             .limit(8),
         ]);
@@ -90,7 +90,7 @@ function TopBarInner() {
             type: "post",
             id: p.slug as string,
             label: (p.title as string) ?? "(Tanpa judul)",
-            thumbnailUrl: (p.image_url as string) ?? null,
+            thumbnailUrl: null, // No image_url anymore
             post_id: p.post_id as string, // ✅ simpan juga post_id
           })) ?? [];
 
@@ -124,17 +124,6 @@ function TopBarInner() {
     router.push(`/login?redirectedFrom=${encodeURIComponent(current)}`);
   };
 
-  const handleOpenSearch = () => {
-    if (!isLoggedIn) return handleGoLogin();
-    setOpenSearch((v) => !v);
-    if (!openSearch) {
-      setQuery("");
-      setResults([]);
-      setLoading(false);
-    }
-  };
-
-  // ✅ Tambahkan increment views dengan post_id yang benar
   const handlePick = async (item: SearchItem & { post_id?: string }) => {
     if (item.type === "post") {
       if (item.post_id) await incrementPostViews(item.post_id);
@@ -181,9 +170,23 @@ function TopBarInner() {
               Login
             </button>
           ) : (
-            <button aria-label="Cari" onClick={handleOpenSearch} className="text-gray-700 hover:text-black transition">
-              <Search className="w-5 h-5" />
-            </button>
+            <div className="relative">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
+                <Search className="w-4 h-4 text-gray-400" />
+                <input
+                  ref={inputRef}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setOpenSearch(true);
+                  }}
+                  onFocus={() => setOpenSearch(true)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Cari"
+                  className="bg-transparent outline-none text-sm w-15 md:w-40"
+                />
+              </div>
+            </div>
           )}
           <Link href="/write" className="relative flex items-center px-2 py-1 rounded-lg space-x-2 bg-black ">
             <Pencil className="w-4 h-4 text-white" />
@@ -196,7 +199,6 @@ function TopBarInner() {
         <div className="px-4">
           <div className="relative">
             <div className="border border-gray-300 rounded-md overflow-hidden absolute z-10 w-full bg-white shadow-lg">
-              <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} placeholder="Cari pengguna atau judul post…" className="w-full px-3 py-2 text-sm outline-none" />
               <div className="max-h-72 overflow-y-auto divide-y border-b border-b-gray-100 divide-gray-100">
                 {loading && <div className="px-3 py-2 text-sm text-gray-500">Mencari…</div>}
                 {!loading && results.length === 0 && query.trim().length > 0 && <div className="px-3 py-2 text-sm text-gray-500">Tidak ada hasil</div>}

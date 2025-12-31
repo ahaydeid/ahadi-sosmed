@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import { X, Send, icons } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+
 import { getDeviceId } from "@/lib/device";
 
 type ModalKomentarProps = {
@@ -26,7 +26,7 @@ type RageProfile = {
   bg_color?: string;
 };
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+import { supabase } from "@/lib/supabase/client";
 
 const animalIcons: Record<string, string> = {
   kucing: "Cat",

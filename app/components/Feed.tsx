@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabaseClientBrowser";
+import { supabase } from "@/lib/supabase/client";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
 import { PostCardData } from "@/lib/types/post";
 import PostCard from "./PostCard";
@@ -53,7 +53,7 @@ export default function Feed({ initialPosts }: FeedProps) {
 
       // === FILTER TAB "DIIKUTI" ===
       if (tab === "followed") {
-        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const { data: sess } = await supabase.auth.getSession();
         const uid = sess.session?.user?.id ?? null;
 
         if (!uid) {
@@ -62,8 +62,11 @@ export default function Feed({ initialPosts }: FeedProps) {
           return;
         }
 
-        // Ambil semua user yang diikuti oleh user ini
-        const { data: follows, error: folErr } = await supabaseBrowser.from("user_followers").select("following_id").eq("follower_id", uid);
+        // 1. Ambil semua user yang diikuti oleh user ini
+        const { data: follows, error: folErr } = await supabase
+          .from("user_followers")
+          .select("following_id")
+          .eq("follower_id", uid);
 
         if (folErr) {
           console.error("Error ambil data follow:", folErr.message);
@@ -72,18 +75,67 @@ export default function Feed({ initialPosts }: FeedProps) {
           return;
         }
 
-        // Ambil semua ID user yang diikuti
-        const followingIds = new Set((follows ?? []).map((f) => String(f.following_id)));
+        const followingIds = (follows ?? []).map((f) => String(f.following_id));
 
-        // Debugging (boleh hapus)
-        console.log("Following IDs:", Array.from(followingIds));
-        console.log(
-          "Post user_ids:",
-          initialPosts.map((p) => p.user_id)
-        );
+        if (followingIds.length === 0) {
+          setPosts([]);
+          setLoading(false);
+          return;
+        }
 
-        // Filter post hanya dari user yang diikuti
-        filtered = initialPosts.filter((p) => p.user_id && followingIds.has(String(p.user_id)));
+        // 2. Ambil postingan terbaru dari user yang diikuti langsung dari database
+        const { data: followedPosts, error: feedErr } = await supabase
+          .from("post")
+          .select("id, created_at, user_id, visibility")
+          .in("user_id", followingIds)
+          .eq("visibility", "public")
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (feedErr || !followedPosts) {
+          console.error("Error ambil followed feed:", feedErr?.message);
+          setPosts([]);
+          setLoading(false);
+          return;
+        }
+
+        // 3. Ambil konten untuk postingan tersebut
+        const postIds = followedPosts.map(p => p.id);
+        const { data: contents } = await supabase
+          .from("post_content")
+          .select("post_id, title, description, author_image, slug")
+          .in("post_id", postIds);
+        
+        const { data: profiles } = await supabase
+          .from("user_profile")
+          .select("id, display_name, avatar_url, verified")
+          .in("id", followingIds);
+
+        const contentMap = new Map(contents?.map((c) => [c.post_id, c]));
+        const profileMap = new Map(profiles?.map((p) => [p.id, p]));
+
+        filtered = followedPosts.map((p) => {
+          const content = contentMap.get(p.id);
+          const profile = profileMap.get(p.user_id);
+          return {
+            id: p.id,
+            user_id: p.user_id,
+            author: profile?.display_name ?? "Anonim",
+            authorImage: content?.author_image ?? profile?.avatar_url ?? null,
+            title: content?.title ?? "(Tanpa judul)",
+            description: content?.description ?? "",
+            date: new Date(p.created_at).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "short",
+            }),
+            created_at: p.created_at,
+            views: 0,
+            likes: 0,
+            comments: 0,
+            slug: content?.slug ?? null,
+            verified: profile?.verified ?? false,
+          };
+        });
       }
 
       // === COLLAPSE STATE ===
@@ -101,9 +153,9 @@ export default function Feed({ initialPosts }: FeedProps) {
       const enriched = await Promise.all(
         filtered.map(async (p) => {
           const [viewsRes, likesRes, commentsRes] = await Promise.all([
-            supabaseBrowser.from("post_views").select("views").eq("post_id", p.id).maybeSingle(),
-            supabaseBrowser.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id).eq("liked", true),
-            supabaseBrowser.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id),
+            supabase.from("post_views").select("views").eq("post_id", p.id).maybeSingle(),
+            supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id).eq("liked", true),
+            supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id),
           ]);
 
           const v = viewsRes?.data?.views ?? 0;
@@ -133,7 +185,7 @@ export default function Feed({ initialPosts }: FeedProps) {
   if (!posts || posts.length === 0) return <p className="text-center py-5 text-gray-500">Belum ada postingan</p>;
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 md:py-2 md:px-3">
       {posts.map((post) => (
         <Link key={post.id} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
           <PostCard post={post} />

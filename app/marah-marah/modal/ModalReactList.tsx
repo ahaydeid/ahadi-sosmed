@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+
 
 type ModalReactListProps = {
   onClose: () => void;
@@ -13,7 +13,7 @@ type ReactionItem = {
   count: number;
 };
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+import { supabase } from "@/lib/supabase/client";
 
 const ModalReactList = ({ onClose, postId }: ModalReactListProps) => {
   const [reactions, setReactions] = useState<ReactionItem[]>([]);

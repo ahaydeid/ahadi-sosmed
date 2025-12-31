@@ -2,16 +2,18 @@
 
 import type { Route } from "next";
 import { useEffect, useState, useCallback } from "react";
-import { Home, Megaphone, MessageSquare, Bell, User } from "lucide-react";
+import { Home, Megaphone, MessageSquare, Bell, User, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
+import { useSidebar } from "../context/SidebarContext";
 
 export default function BottomNavbar() {
   const pathname = usePathname();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+  const { isCollapsed, toggleSidebar } = useSidebar();
 
   const isActive = useCallback((path: string) => pathname === path, [pathname]);
 
@@ -167,49 +169,163 @@ export default function BottomNavbar() {
   const profileActive = currentUserId ? pathname.startsWith(`/profile/${currentUserId}`) : false;
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full bg-white shadow z-50">
-      <ul className="flex justify-around items-center h-14 px-2">
-        <li>
-          <Link href={"/" as Route} className="relative flex flex-col items-center">
-            <Home className={`w-6 h-6 ${isActive("/") ? "text-black" : "text-gray-500"}`} />
-            {isActive("/") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
-          </Link>
-        </li>
+    <>
+      {/* ===== MOBILE NAVBAR ===== */}
+      <nav className="fixed bottom-0 left-0 w-full bg-white shadow z-50 md:hidden">
+        <ul className="flex justify-around items-center h-14 px-2">
+          <li>
+            <Link href={"/" as Route} className="relative flex flex-col items-center">
+              <Home className={`w-6 h-6 ${isActive("/") ? "text-black" : "text-gray-500"}`} />
+              {isActive("/") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
+            </Link>
+          </li>
 
-        <li>
-          <Link href={"/marah-marah" as Route} className="relative flex flex-col items-center">
-            <Megaphone className={`w-6 h-6 ${isActive("/marah-marah") ? "text-black" : "text-gray-500"}`} />
-            {isActive("/marah-marah") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
-          </Link>
-        </li>
+          <li>
+            <Link href={"/marah-marah" as Route} className="relative flex flex-col items-center">
+              <Megaphone className={`w-6 h-6 ${isActive("/marah-marah") ? "text-black" : "text-gray-500"}`} />
+              {isActive("/marah-marah") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
+            </Link>
+          </li>
 
-        <li>
-          <Link href={"/chat" as Route} className="relative flex flex-col items-center">
-            <MessageSquare className={`w-6 h-6 ${isActive("/chat") ? "text-black" : "text-gray-500"}`} />
-            {isActive("/chat") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
-            {unreadChatCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">{unreadChatCount > 99 ? "99+" : unreadChatCount}</span>
-            )}
-          </Link>
-        </li>
+          <li>
+            <Link href={"/chat" as Route} className="relative flex flex-col items-center">
+              <MessageSquare className={`w-6 h-6 ${isActive("/chat") ? "text-black" : "text-gray-500"}`} />
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">{unreadChatCount > 99 ? "99+" : unreadChatCount}</span>
+              )}
+            </Link>
+          </li>
 
-        <li>
-          <Link href={"/notif" as Route} className="relative flex flex-col items-center">
-            <Bell className={`w-6 h-6 ${isActive("/notif") ? "text-black" : "text-gray-500"}`} />
-            {isActive("/notif") && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
-            {unreadNotifCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">{unreadNotifCount > 99 ? "99+" : unreadNotifCount}</span>
-            )}
-          </Link>
-        </li>
+          <li>
+            <Link href={"/notif" as Route} className="relative flex flex-col items-center">
+              <Bell className={`w-6 h-6 ${isActive("/notif") ? "text-black" : "text-gray-500"}`} />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">{unreadNotifCount > 99 ? "99+" : unreadNotifCount}</span>
+              )}
+            </Link>
+          </li>
 
-        <li>
-          <Link href={profileHref} className="relative flex flex-col items-center">
-            <User className={`w-6 h-6 ${profileActive ? "text-black" : "text-gray-500"}`} />
-            {profileActive && <div className="w-6 h-0.5 bg-black rounded-full mt-1" />}
-          </Link>
-        </li>
-      </ul>
-    </nav>
+          <li>
+            <Link href={profileHref} className="flex flex-col items-center">
+              <User className={`w-6 h-6 ${profileActive ? "text-black" : "text-gray-500"}`} />
+            </Link>
+          </li>
+        </ul>
+      </nav>
+
+      {/* ===== DESKTOP SIDEBAR ===== */}
+      <aside 
+        className={`hidden md:fixed md:inset-y-0 md:left-0 md:bg-white md:z-40 md:flex md:flex-col border-r border-gray-200 transition-all duration-300 ${
+          isCollapsed ? "md:w-20" : "md:w-64"
+        }`}
+      >
+        <div className={`px-6 py-5 flex items-center justify-between ${isCollapsed ? "justify-center px-0" : ""}`}>
+          {!isCollapsed && <div className="text-xl font-bold truncate">Ahadi</div>}
+          <button 
+            onClick={toggleSidebar}
+            className={`p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed ? "" : ""}`}
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
+        </div>
+
+        <nav className="flex-1 px-3 space-y-1">
+          <NavItem 
+            href="/" 
+            icon={Home} 
+            label="Beranda" 
+            isActive={isActive("/")} 
+            isCollapsed={isCollapsed} 
+          />
+          <NavItem 
+            href="/marah-marah" 
+            icon={Megaphone} 
+            label="Marah-marah" 
+            isActive={isActive("/marah-marah")} 
+            isCollapsed={isCollapsed} 
+          />
+          <NavItem 
+            href="/chat" 
+            icon={MessageSquare} 
+            label="Chat" 
+            isActive={isActive("/chat")} 
+            isCollapsed={isCollapsed} 
+            badge={unreadChatCount}
+          />
+          <NavItem 
+            href="/notif" 
+            icon={Bell} 
+            label="Notifikasi" 
+            isActive={isActive("/notif")} 
+            isCollapsed={isCollapsed} 
+            badge={unreadNotifCount}
+          />
+          <NavItem 
+            href={profileHref} 
+            icon={User} 
+            label="Profil" 
+            isActive={profileActive} 
+            isCollapsed={isCollapsed} 
+          />
+        </nav>
+        
+        {currentUserId && (
+          <div className="p-4 border-t border-gray-100 text-gray-600">
+            <button 
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = "/login";
+              }}
+              className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors ${isCollapsed ? "justify-center" : ""}`}
+              title="Logout"
+            >
+              <LogOut size={20} />
+              {!isCollapsed && <span>Logout</span>}
+            </button>
+          </div>
+        )}
+      </aside>
+    </>
+  );
+}
+
+interface NavItemProps {
+  href: string;
+  icon: any;
+  label: string;
+  isActive: boolean;
+  isCollapsed: boolean;
+  badge?: number;
+}
+
+function NavItem({ 
+  href, 
+  icon: Icon, 
+  label, 
+  isActive, 
+  isCollapsed, 
+  badge = 0 
+}: NavItemProps) {
+  return (
+    <Link 
+      href={href as Route} 
+      className={`relative flex items-center gap-3 px-3 py-2.5 transition-all group ${
+        isActive ? "border-l-3 border-sky-600 bg-sky-50/50 text-black font-semibold" : "text-gray-600 hover:bg-gray-50 hover:text-black"
+      } ${isCollapsed ? "justify-center" : ""}`}
+      title={isCollapsed ? label : ""}
+    >
+      <Icon size={22} className={isActive ? "text-sky-600" : "text-gray-500 group-hover:text-black"} />
+      {!isCollapsed && <span className="truncate">{label}</span>}
+      
+      {badge > 0 && (
+        <span className={`
+          ${isCollapsed ? "absolute top-1 right-1" : "ml-auto"}
+          bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center
+        `}>
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </Link>
   );
 }

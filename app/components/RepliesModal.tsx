@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
 import { ArrowLeft, Heart, BadgeCheck } from "lucide-react";
 import ModalLikes from "@/app/components/ModalLikes";

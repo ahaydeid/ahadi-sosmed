@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { icons, MessageCircle } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+
 import { getDeviceId } from "@/lib/device";
 import ModalReact from "./modal/ModalReact";
 import ModalPost from "./modal/ModalPost";
 import ModalReactList from "./modal/ModalReactList";
 import ModalKomentar from "./modal/ModalKomentar";
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+import { supabase } from "@/lib/supabase/client";
 
 type RagePost = {
   id: string;
@@ -121,7 +121,6 @@ const MarahMarahPage = () => {
     );
   };
 
-  // ✅ Format tanggal: 2/11/25 | 12:48
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp);
     const day = date.getDate();
@@ -134,7 +133,7 @@ const MarahMarahPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center">
-      <div className="w-full bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
+      <div className="w-full bg-white shadow-sm fixed top-0 left-0 right-0 z-50 md:left-64">
         <div className="flex items-center justify-between p-4 mx-auto">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-1">

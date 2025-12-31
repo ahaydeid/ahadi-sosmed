@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import BottomNavbar from "./components/BottomNavbar";
-import AuthListener from "./components/AuthListener";
-import RegisterSW from "./components/RegisterSW";
-import { Suspense } from "react";
 
 const poppins = localFont({
   src: [
@@ -18,26 +14,22 @@ const poppins = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ahadi",
-  description: "Sosial media ahadi",
+  title: "Ahadi",
+  description: "Sosial media Ahadi",
   icons: { icon: "/favicon.ico", apple: "/apple-touch-icon.png" },
 };
 
-export const viewport = {
-  themeColor: "#0EA5E9",
-};
+import { SidebarProvider } from "./context/SidebarContext";
+import ClientLayout from "./components/ClientLayout";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id">
-      <body suppressHydrationWarning className={`${poppins.variable} antialiased relative min-h-screen pb-14 bg-gray-50`}>
-        <Suspense fallback={null}>
-          <AuthListener />
-          <RegisterSW />
+      <SidebarProvider>
+        <ClientLayout poppinsVariable={poppins.variable}>
           {children}
-          <BottomNavbar />
-        </Suspense>
-      </body>
+        </ClientLayout>
+      </SidebarProvider>
     </html>
   );
 }
