@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import { useEffect, useState, useCallback } from "react";
-import { Home, Megaphone, MessageSquare, Bell, User, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { Home, Megaphone, MessageSquare, Bell, User, ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -214,77 +214,23 @@ export default function BottomNavbar() {
       </nav>
 
       {/* ===== DESKTOP SIDEBAR ===== */}
-      <aside 
-        className={`hidden md:fixed md:inset-y-0 md:left-0 md:bg-white md:z-40 md:flex md:flex-col border-r border-gray-200 transition-all duration-300 ${
-          isCollapsed ? "md:w-20" : "md:w-64"
-        }`}
-      >
+      <aside className={`hidden md:fixed md:inset-y-0 md:left-0 md:bg-white md:z-40 md:flex md:flex-col border-r border-gray-200 transition-all duration-300 ${isCollapsed ? "md:w-20" : "md:w-64"}`}>
         <div className={`px-6 py-5 flex items-center justify-between ${isCollapsed ? "justify-center px-0" : ""}`}>
           {!isCollapsed && <div className="text-xl font-bold truncate">Ahadi</div>}
-          <button 
-            onClick={toggleSidebar}
-            className={`p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed ? "" : ""}`}
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
+          <button onClick={toggleSidebar} className={`p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed ? "" : ""}`} title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
             {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
           </button>
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
-          <NavItem 
-            href="/" 
-            icon={Home} 
-            label="Beranda" 
-            isActive={isActive("/")} 
-            isCollapsed={isCollapsed} 
-          />
-          <NavItem 
-            href="/marah-marah" 
-            icon={Megaphone} 
-            label="Marah-marah" 
-            isActive={isActive("/marah-marah")} 
-            isCollapsed={isCollapsed} 
-          />
-          <NavItem 
-            href="/chat" 
-            icon={MessageSquare} 
-            label="Chat" 
-            isActive={isActive("/chat")} 
-            isCollapsed={isCollapsed} 
-            badge={unreadChatCount}
-          />
-          <NavItem 
-            href="/notif" 
-            icon={Bell} 
-            label="Notifikasi" 
-            isActive={isActive("/notif")} 
-            isCollapsed={isCollapsed} 
-            badge={unreadNotifCount}
-          />
-          <NavItem 
-            href={profileHref} 
-            icon={User} 
-            label="Profil" 
-            isActive={profileActive} 
-            isCollapsed={isCollapsed} 
-          />
+          <NavItem href="/" icon={Home} label="Beranda" isActive={isActive("/")} isCollapsed={isCollapsed} />
+          <NavItem href="/marah-marah" icon={Megaphone} label="Marah-marah" isActive={isActive("/marah-marah")} isCollapsed={isCollapsed} />
+          <NavItem href="/chat" icon={MessageSquare} label="Chat" isActive={isActive("/chat")} isCollapsed={isCollapsed} badge={unreadChatCount} />
+          <NavItem href="/notif" icon={Bell} label="Notifikasi" isActive={isActive("/notif")} isCollapsed={isCollapsed} badge={unreadNotifCount} />
         </nav>
-        
-        {currentUserId && (
-          <div className="p-4 border-t border-gray-100 text-gray-600">
-            <button 
-              onClick={async () => {
-                await supabase.auth.signOut();
-                window.location.href = "/login";
-              }}
-              className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors ${isCollapsed ? "justify-center" : ""}`}
-              title="Logout"
-            >
-              <LogOut size={20} />
-              {!isCollapsed && <span>Logout</span>}
-            </button>
-          </div>
-        )}
+        <div className="ml-5">
+          <NavItem href={profileHref} icon={User} label="Profil" isActive={profileActive} isCollapsed={isCollapsed} />
+        </div>
       </aside>
     </>
   );
@@ -292,37 +238,30 @@ export default function BottomNavbar() {
 
 interface NavItemProps {
   href: string;
-  icon: any;
+  icon: LucideIcon;
   label: string;
   isActive: boolean;
   isCollapsed: boolean;
   badge?: number;
 }
 
-function NavItem({ 
-  href, 
-  icon: Icon, 
-  label, 
-  isActive, 
-  isCollapsed, 
-  badge = 0 
-}: NavItemProps) {
+function NavItem({ href, icon: Icon, label, isActive, isCollapsed, badge = 0 }: NavItemProps) {
   return (
-    <Link 
-      href={href as Route} 
-      className={`relative flex items-center gap-3 px-3 py-2.5 transition-all group ${
-        isActive ? "border-l-3 border-black text-black font-bold" : "text-gray-600 hover:bg-gray-50 hover:text-black"
-      } ${isCollapsed ? "justify-center" : ""}`}
+    <Link
+      href={href as Route}
+      className={`relative flex items-center gap-3 px-3 py-2.5 transition-all group ${isActive ? "border-l-3 border-black text-black font-bold" : "text-gray-600 hover:bg-gray-50 hover:text-black"} ${isCollapsed ? "justify-center" : ""}`}
       title={isCollapsed ? label : ""}
     >
       <Icon size={22} className={isActive ? "text-black stroke-[2.5px]" : "text-gray-500 group-hover:text-black"} />
       {!isCollapsed && <span className="truncate">{label}</span>}
-      
+
       {badge > 0 && (
-        <span className={`
+        <span
+          className={`
           ${isCollapsed ? "absolute top-1 right-1" : "ml-auto"}
           bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center
-        `}>
+        `}
+        >
           {badge > 99 ? "99+" : badge}
         </span>
       )}

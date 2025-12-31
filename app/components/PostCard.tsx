@@ -69,6 +69,7 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
 
   /* Tombol Menu (Titik Tiga) atau Collapse */
   const [showMenu, setShowMenu] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const router = useRouter();
 
   const handleMenuToggle: React.MouseEventHandler<HTMLButtonElement> = (e) => {
@@ -129,15 +130,15 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
       </div>
 
       {/* KANAN: gambar */}
-      {hasImage && (
-        <div className="shrink-0 w-24 h-24 rounded-lg overflow-hidden flex items-center justify-center bg-gray-50 border border-gray-100">
-          <img 
+      {hasImage && !imgError && (
+        <div className="shrink-0 w-24 h-24 overflow-hidden flex items-center justify-center">
+          <Image 
             src={derivedImage as string} 
             alt={post.title} 
+            width={96}
+            height={96}
             className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).parentElement?.remove();
-            }}
+            onError={() => setImgError(true)}
           />
         </div>
       )}

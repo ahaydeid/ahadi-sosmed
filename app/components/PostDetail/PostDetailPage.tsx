@@ -26,17 +26,73 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
   const isSelf = !!user && authorId === user.id;
 
 
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://ahadi.my.id";
+  const postUrl = `${baseUrl}/post/${post.slug || post.id}`;
+  
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": post.title,
+    "description": post.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160),
+    "author": {
+      "@type": "Person",
+      "name": post.author,
+    },
+    "datePublished": post.date, // Assuming post.date is ISO or localized but valid enough for schema
+    "url": postUrl,
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": postUrl
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Ahadi",
+      "logo": {
+        "@type": "ImageObject",
+        "url": `${baseUrl}/icon.png`
+      }
+    }
+  };
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Beranda",
+        "item": baseUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": post.title,
+        "item": postUrl
+      }
+    ]
+  };
+
   return (
     <div className="min-h-screen p-4 ">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
+
       {/* Header atas dengan tombol kembali */}
-      <div className="sticky top-0 left-0 right-0 h-12 bg-white border-b border-gray-200 z-10 flex items-center px-4 -mx-4 justify-between">
-        <button onClick={() => window.history.back()} className="rounded-full hover:bg-gray-100 transition p-1" aria-label="Kembali">
+      <nav className="sticky top-0 left-0 right-0 h-12 bg-white border-b border-gray-200 z-10 flex items-center px-4 -mx-4 justify-between" aria-label="Navigasi Post">
+        <button onClick={() => window.history.back()} className="rounded-full hover:bg-gray-100 transition p-1" aria-label="Kembali ke halaman sebelumnya">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1 text-center mx-2 truncate">
-          <h2 className="font-base text-gray-800 truncate">Tulisan {post.author}</h2>
+          <p className="font-base text-gray-800 truncate" aria-hidden="true">Tulisan {post.author}</p>
         </div>
         
         {/* Right side spacer or Menu */}
@@ -46,6 +102,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
               <button 
                 onClick={() => setShowMenu(!showMenu)} 
                 className="p-1 rounded-full hover:bg-gray-100 transition"
+                aria-label="Menu Opsi Post"
               >
                 <MoreVertical className="w-5 h-5 text-gray-600" />
               </button>
@@ -64,57 +121,59 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
             </div>
           )}
         </div>
-      </div>
+      </nav>
 
-      {/* Judul & tanggal */}
-      <h1 className="text-2xl text-gray-800 mt-5 font-bold leading-snug mb-2">{post.title}</h1>
-      <p className="text-sm text-gray-600 mb-3">{post.date}</p>
+      <article>
+        <header>
+          {/* Judul & tanggal */}
+          <h1 className="text-2xl text-gray-800 mt-5 font-bold leading-snug mb-2">{post.title}</h1>
+          <time className="text-sm text-gray-600 mb-3 block" dateTime={post.date}>{post.date}</time>
 
-      {/* BAGIAN AUTHOR dipindahkan ke sini */}
-      <div className="flex items-center gap-2 mb-4 mt-4">
-        {authorId ? (
-          <Link href={`/profile/${authorId}`} className="flex items-center gap-2 group cursor-pointer" aria-label={`Lihat profil ${post.author}`}>
-            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center ring-1 ring-transparent group-hover:ring-gray-300 transition">
-              {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
-            </div>
-            <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
-              {post.author}
-              {post.author_verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
-            </span>
-          </Link>
-        ) : (
-          <>
-            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center">
-              {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
-            </div>
-            <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
-              {post.author}
-              {post.author_verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
-            </span>
-          </>
-        )}
+          {/* BAGIAN AUTHOR dipindahkan ke sini */}
+          <div className="flex items-center gap-2 mb-4 mt-4">
+            {authorId ? (
+              <Link href={`/profile/${authorId}`} className="flex items-center gap-2 group cursor-pointer" aria-label={`Lihat profil ${post.author}`}>
+                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center ring-1 ring-transparent group-hover:ring-gray-300 transition">
+                  {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
+                </div>
+                <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
+                  {post.author}
+                  {post.author_verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
+                </span>
+              </Link>
+            ) : (
+              <>
+                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center">
+                  {post.author_image ? <Image src={post.author_image} alt={post.author} width={32} height={32} className="object-cover w-8 h-8" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
+                </div>
+                <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
+                  {post.author}
+                  {post.author_verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
+                </span>
+              </>
+            )}
 
-        {isSelf ? (
-          <span className="text-sm rounded-full px-3 py-0.5 border border-gray-300 italic bg-gray-50 text-gray-600">saya</span>
-        ) : (
-          showFollow && (
-            <button
-              onClick={handleToggleFollow}
-              disabled={followBusy}
-              className={`text-sm rounded-full px-3 py-0.5 transition ${isFollowing ? "border border-gray-300 text-gray-600 italic hover:bg-gray-100" : "border border-sky-500 text-sky-500 hover:bg-sky-50"}`}
-            >
-              {isFollowing ? "mengikuti" : "ikuti"}
-            </button>
-          )
-        )}
-      </div>
+            {isSelf ? (
+              <span className="text-sm rounded-full px-3 py-0.5 border border-gray-300 italic bg-gray-50 text-gray-600">saya</span>
+            ) : (
+              showFollow && (
+                <button
+                  onClick={handleToggleFollow}
+                  disabled={followBusy}
+                  className={`text-sm rounded-full px-3 py-0.5 transition ${isFollowing ? "border border-gray-300 text-gray-600 italic hover:bg-gray-100" : "border border-sky-500 text-sky-500 hover:bg-sky-50"}`}
+                >
+                  {isFollowing ? "mengikuti" : "ikuti"}
+                </button>
+              )
+            )}
+          </div>
+        </header>
 
-
-
-      {/* Deskripsi */}
-      <div className="text-base text-gray-800 leading-relaxed space-y-4 mb-6 prose max-w-none">
-        <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: post.description }} />
-      </div>
+        {/* Deskripsi */}
+        <div className="text-base text-gray-800 leading-relaxed space-y-4 mb-6 prose max-w-none">
+          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: post.description }} />
+        </div>
+      </article>
 
       {/* Sumber / Links Footer */}
       {(() => {

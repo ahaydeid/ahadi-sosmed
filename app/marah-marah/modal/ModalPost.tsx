@@ -32,8 +32,9 @@ const ModalPost = ({ onClose, onPostSuccess }: ModalPostProps) => {
       alert("Udah terkirim! 😡🔥");
       onPostSuccess?.();
       onClose();
-    } catch (err: any) {
-      if (err.message === "LIMIT_REACHED") {
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      if (error.message === "LIMIT_REACHED") {
         alert("Lu udah marah 3 kali hari ini 😤. Besok aja lagi 😌");
       } else {
         console.error("❌ Gagal kirim marahan:", err);

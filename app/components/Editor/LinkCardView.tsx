@@ -1,8 +1,16 @@
-import { NodeViewWrapper } from "@tiptap/react";
+import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import React from "react";
 
-const LinkCardView = (props: any) => {
-  const { url, title, description, image, siteName } = props.node.attrs;
+interface LinkCardAttrs {
+  url: string;
+  title: string;
+  description: string;
+  image: string;
+  siteName: string;
+}
+
+const LinkCardView = (props: NodeViewProps) => {
+  const { url, title, description, image, siteName } = props.node.attrs as LinkCardAttrs;
 
   return (
     <NodeViewWrapper className="link-card-wrapper my-4">

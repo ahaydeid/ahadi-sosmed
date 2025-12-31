@@ -3,6 +3,15 @@ import { cookies } from "next/headers";
 import Feed from "./components/Feed";
 import TopBar from "./components/TopBar";
 import { PostCardData } from "@/lib/types/post";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Beranda | Ahadi - Wadah Ekspresi dan Tulisan",
+  description: "Temukan tulisan, opini, dan ekspresi kreatif terbaru dari komunitas Ahadi. Bagikan pemikiran Anda secara bebas.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export const revalidate = 60;
 

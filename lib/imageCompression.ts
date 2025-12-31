@@ -1,6 +1,8 @@
 declare global {
   interface Window {
-    UPNG: any;
+    UPNG: {
+      encode: (buffers: ArrayBuffer[], width: number, height: number, colors: number) => ArrayBuffer;
+    };
   }
 }
 
