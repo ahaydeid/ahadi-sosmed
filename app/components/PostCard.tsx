@@ -8,9 +8,12 @@ import { formatCompact } from "@/lib/formatCompact";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { supabase } from "@/lib/supabase/client";
+
 interface PostCardProps {
   post: PostCardData & { verified?: boolean };
   isOwner?: boolean;
+  onDeleteSuccess?: (postId: string) => void;
 }
 
 const COLLAPSE_KEY = "collapsedPosts";
@@ -42,7 +45,7 @@ function extractPreviewText(html: string): string {
 }
 
 
-export default function PostCard({ post, isOwner }: PostCardProps) {
+export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardProps) {
   // Use image from post.imageUrl if available (legacy or if we decide to keep passing it), 
   // otherwise extract from description. 
   // Since we are removing image_url column, post.imageUrl might be null/undefined soon.
@@ -70,6 +73,8 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
 
   /* Tombol Menu (Titik Tiga) atau Collapse */
   const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
   const handleMenuToggle: React.MouseEventHandler<HTMLButtonElement> = (e) => {
@@ -83,6 +88,47 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
     e.stopPropagation(); // prevent card click
     // Note: card itself is a link, so we need to stop bubbling
     router.push(`/edit/${post.id}`);
+  };
+
+  const handleDeletePost = async () => {
+    try {
+      setIsDeleting(true);
+
+      // 1. Extract images from description for storage cleanup
+      const imgMatches = Array.from(post.description.matchAll(/src=["']([^"'>]+)["']/gi));
+      const storagePaths: string[] = [];
+
+      imgMatches.forEach((m) => {
+        const url = m[1];
+        if (url.includes("/post-images/")) {
+          const path = url.split("/post-images/").pop();
+          if (path) storagePaths.push(path);
+        }
+      });
+
+      // Cover image if exists
+      if (post.imageUrl?.includes("/post-images/")) {
+          const path = post.imageUrl.split("/post-images/").pop();
+          if (path) storagePaths.push(path);
+      }
+
+      // 2. Delete from Storage
+      if (storagePaths.length > 0) {
+        await supabase.storage.from("post-images").remove(storagePaths);
+      }
+
+      // 3. Delete Post
+      const { error } = await supabase.from("post").delete().eq("id", post.id);
+      if (error) throw error;
+
+      setShowDeleteConfirm(false);
+      onDeleteSuccess?.(post.id);
+    } catch (err) {
+      console.error("Gagal menghapus post:", err);
+      alert("Gagal menghapus postingan.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -165,11 +211,16 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
                     <span>Edit</span>
                   </button>
                   <button 
-                    onClick={handleCollapse}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowDeleteConfirm(true);
+                      setShowMenu(false);
+                    }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-50 text-left"
                   >
                     <Trash className="w-4 h-4" />
-                    <span>Sembunyikan</span>
+                    <span>Hapus</span>
                   </button>
                </div>
             )}
@@ -189,6 +240,41 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
           </button>
         )}
       </div>
+      {/* Modal Konfirmasi Hapus */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowDeleteConfirm(false);
+        }}>
+          <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Hapus Postingan?</h3>
+            <p className="text-gray-600 mb-6">
+              Postingan ini akan dihapus permanen beserta semua gambar di dalamnya. Tindakan ini tidak bisa dibatalkan.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleDeletePost}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 rounded-lg text-white font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+              >
+                {isDeleting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Hapus"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

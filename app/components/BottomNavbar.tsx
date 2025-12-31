@@ -7,12 +7,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useSidebar } from "../context/SidebarContext";
+import NextImage from "next/image";
 
 export default function BottomNavbar() {
   const pathname = usePathname();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+  const [profile, setProfile] = useState<{ avatar_url: string | null; display_name: string | null } | null>(null);
   const { isCollapsed, toggleSidebar } = useSidebar();
 
   const isActive = useCallback((path: string) => pathname === path, [pathname]);
@@ -45,6 +47,26 @@ export default function BottomNavbar() {
       subscription.unsubscribe();
     };
   }, []);
+
+  // ===== Fetch Profile =====
+  useEffect(() => {
+    if (!currentUserId) {
+      setProfile(null);
+      return;
+    }
+
+    const fetchProfile = async () => {
+      const { data } = await supabase.from("user_profile").select("display_name, avatar_url").eq("id", currentUserId).maybeSingle();
+      if (data) {
+        setProfile({
+          avatar_url: data.avatar_url,
+          display_name: data.display_name,
+        });
+      }
+    };
+
+    fetchProfile();
+  }, [currentUserId]);
 
   // ===== Hitung jumlah chat belum dibaca (versi aman) =====
   const computeUnreadChats = useCallback(async () => {
@@ -207,7 +229,13 @@ export default function BottomNavbar() {
 
           <li>
             <Link href={profileHref} className="flex flex-col items-center">
-              <User className={`w-6 h-6 ${profileActive ? "text-black" : "text-gray-500"}`} />
+              {profile?.avatar_url ? (
+                <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-200">
+                  <NextImage src={profile.avatar_url} alt="Profil" width={24} height={24} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <User className={`w-6 h-6 ${profileActive ? "text-black" : "text-gray-500"}`} />
+              )}
             </Link>
           </li>
         </ul>
@@ -229,7 +257,14 @@ export default function BottomNavbar() {
           <NavItem href="/notif" icon={Bell} label="Notifikasi" isActive={isActive("/notif")} isCollapsed={isCollapsed} badge={unreadNotifCount} />
         </nav>
         <div className="ml-5">
-          <NavItem href={profileHref} icon={User} label="Profil" isActive={profileActive} isCollapsed={isCollapsed} />
+          <NavItem
+            href={profileHref}
+            icon={profile?.avatar_url ? undefined : User}
+            avatar={profile?.avatar_url}
+            label={profile?.display_name ? profile.display_name.split(" ")[0] : "Profil"}
+            isActive={profileActive}
+            isCollapsed={isCollapsed}
+          />
         </div>
       </aside>
     </>
@@ -238,21 +273,28 @@ export default function BottomNavbar() {
 
 interface NavItemProps {
   href: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  avatar?: string | null;
   label: string;
   isActive: boolean;
   isCollapsed: boolean;
   badge?: number;
 }
 
-function NavItem({ href, icon: Icon, label, isActive, isCollapsed, badge = 0 }: NavItemProps) {
+function NavItem({ href, icon: Icon, avatar, label, isActive, isCollapsed, badge = 0 }: NavItemProps) {
   return (
     <Link
       href={href as Route}
       className={`relative flex items-center gap-3 px-3 py-2.5 transition-all group ${isActive ? "border-l-3 border-black text-black font-bold" : "text-gray-600 hover:bg-gray-50 hover:text-black"} ${isCollapsed ? "justify-center" : ""}`}
       title={isCollapsed ? label : ""}
     >
-      <Icon size={22} className={isActive ? "text-black stroke-[2.5px]" : "text-gray-500 group-hover:text-black"} />
+      {avatar ? (
+        <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-200 shrink-0">
+          <NextImage src={avatar} alt={label} width={24} height={24} className="w-full h-full object-cover" />
+        </div>
+      ) : (
+        Icon && <Icon size={22} className={isActive ? "text-black stroke-[2.5px]" : "text-gray-500 group-hover:text-black"} />
+      )}
       {!isCollapsed && <span className="truncate">{label}</span>}
 
       {badge > 0 && (
