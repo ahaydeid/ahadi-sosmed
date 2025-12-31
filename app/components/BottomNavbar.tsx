@@ -215,7 +215,7 @@ export default function BottomNavbar() {
 
       {/* ===== DESKTOP SIDEBAR ===== */}
       <aside className={`hidden md:fixed md:inset-y-0 md:left-0 md:bg-white md:z-40 md:flex md:flex-col border-r border-gray-200 transition-all duration-300 ${isCollapsed ? "md:w-20" : "md:w-64"}`}>
-        <div className={`px-6 py-5 flex items-center justify-between ${isCollapsed ? "justify-center px-0" : ""}`}>
+        <div className={`px-6 py-5 flex items-center md:mb-5 justify-between ${isCollapsed ? "justify-center px-0" : ""}`}>
           {!isCollapsed && <div className="text-xl font-bold truncate">Ahadi</div>}
           <button onClick={toggleSidebar} className={`p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed ? "" : ""}`} title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
             {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}

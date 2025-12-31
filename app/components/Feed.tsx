@@ -185,7 +185,7 @@ export default function Feed({ initialPosts }: FeedProps) {
   if (!posts || posts.length === 0) return <p className="text-center py-5 text-gray-500">Belum ada postingan</p>;
 
   return (
-    <div className="space-y-1 md:py-2 md:px-3">
+    <div className="space-y-1 md:space-y-3 md:py-2 md:px-3">
       {posts.map((post) => (
         <Link key={post.id} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
           <PostCard post={post} />

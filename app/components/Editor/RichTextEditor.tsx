@@ -128,7 +128,13 @@ export default function RichTextEditor({ content, onChange, placeholder = "Tulis
       // Supabase upload matches File | Blob.
       // We'll rename it to match unique pattern.
 
-      const ext = file.name.split(".").pop() || "png";
+      const extensionMap: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+      };
+      const ext = extensionMap[compressed.type] || "png";
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
       const filePath = `${userId}/${fileName}`;
 

@@ -86,7 +86,7 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
   };
 
   return (
-    <div className="relative bg-white p-5 py-7 flex flex-row hover:shadow-md transition-shadow rounded-xs border-b border-gray-100">
+    <div className="relative bg-white p-5 py-7 flex flex-row hover:shadow-sm transition-shadow rounded-xs border-b border-gray-100">
       {/* KIRI: teks */}
       <div className="flex-1 min-w-0 pr-4 flex flex-col justify-between">
         {/* Author */}
@@ -102,8 +102,8 @@ export default function PostCard({ post, isOwner }: PostCardProps) {
 
         {/* Judul dan deskripsi */}
         <div className="flex flex-col">
-          <h2 className="text-lg font-bold leading-snug mb-1 line-clamp-3">{post.title}</h2>
-          <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+          <h2 className="md:text-2xl text-lg font-bold leading-snug mb-1 line-clamp-3">{post.title}</h2>
+          <p className="text-gray-600 text-sm md:text-base mb-2 line-clamp-2">
             {plainTextDescription}
           </p>
         </div>
