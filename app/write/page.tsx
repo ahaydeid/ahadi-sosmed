@@ -89,11 +89,11 @@ export default function WritePage() {
           placeholder="Judul"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-white border rounded px-3 py-3 text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500"
+          className="w-full bg-white border border-gray-200 rounded px-3 py-3 text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500"
         />
 
 
-        <div className="border rounded-md focus:ring-1 focus:ring-gray-600">
+        <div className="border border-gray-200 rounded-md focus:ring-1 focus:ring-gray-600">
           <RichTextEditor content={content} onChange={setContent} placeholder="Tulis opini kamu di sini..." />
         </div>
 
