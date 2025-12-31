@@ -38,6 +38,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
       "@type": "Person",
       "name": post.author,
     },
+    "image": post.description.match(/<img[^>]*\s+src=["']([^"'>]+)["']/i)?.[1] || `${baseUrl}/icon.png`,
     "datePublished": post.date, // Assuming post.date is ISO or localized but valid enough for schema
     "url": postUrl,
     "mainEntityOfPage": {
