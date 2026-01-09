@@ -10,4 +10,5 @@ export interface PostCardData {
   views: number;
   likes: number;
   comments: number;
+  repost_of?: PostCardData | null;
 }

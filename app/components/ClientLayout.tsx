@@ -22,7 +22,7 @@ export default function ClientLayout({
         <RegisterSW />
 
         {/* WRAPPER KONTEN - Margin mengikuti state sidebar di desktop */}
-        <div suppressHydrationWarning className={`transition-all duration-300 ${isCollapsed ? "md:ml-20" : "md:ml-64"}`}>
+        <div suppressHydrationWarning className={`transition-all duration-300 pb-14 md:pb-0 ${isCollapsed ? "md:ml-20" : "md:ml-64"}`}>
           {children}
         </div>
 

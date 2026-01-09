@@ -49,7 +49,7 @@ export default function Feed({ initialPosts }: FeedProps) {
 
       const { data: followedPosts } = await supabase
         .from("post")
-        .select("id, created_at, user_id, visibility")
+        .select("id, created_at, user_id, visibility, repost_of")
         .in("user_id", followingIds)
         .eq("visibility", "public")
         .order("created_at", { ascending: false })
@@ -58,17 +58,58 @@ export default function Feed({ initialPosts }: FeedProps) {
       if (!followedPosts) return [];
 
       const postIds = followedPosts.map(p => p.id);
-      const [contentsRes, profilesRes] = await Promise.all([
+      const repostIds = followedPosts.map(p => p.repost_of).filter(Boolean);
+
+      const [contentsRes, profilesRes, repostsOriginalRes, repostsContentRes] = await Promise.all([
         supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", postIds),
-        supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", followingIds)
+        supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", followingIds),
+        repostIds.length > 0 ? supabase.from("post").select("id, created_at, user_id").in("id", repostIds) : Promise.resolve({ data: [] }),
+        repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image").in("post_id", repostIds) : Promise.resolve({ data: [] })
       ]);
 
       const contentMap = new Map(contentsRes.data?.map((c) => [c.post_id, c]));
       const profileMap = new Map(profilesRes.data?.map((p) => [p.id, p]));
+      
+      const repostOriginalMap = new Map(repostsOriginalRes.data?.map(p => [p.id, p]));
+      const repostContentMap = new Map(repostsContentRes.data?.map(c => [c.post_id, c]));
+
+      // Fetch profiles for ORIGINAL authors of reposted content
+      let repostAuthorMap = new Map();
+      if (repostsOriginalRes.data && repostsOriginalRes.data.length > 0) {
+          const originalUserIds = Array.from(new Set(repostsOriginalRes.data.map((p: any) => p.user_id)));
+          const { data: originalProfiles } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", originalUserIds);
+          repostAuthorMap = new Map(originalProfiles?.map(p => [p.id, p]));
+      }
 
       filtered = followedPosts.map((p) => {
         const content = contentMap.get(p.id);
         const profile = profileMap.get(p.user_id);
+
+        let repostNode = null;
+        if (p.repost_of) {
+            const originPost = repostOriginalMap.get(p.repost_of);
+            const originContent = repostContentMap.get(p.repost_of);
+            if (originPost && originContent) {
+                const originProfile: any = repostAuthorMap.get(originPost.user_id);
+                if (originProfile) {
+                     const imgMatch = originContent.description?.match(/<img[^>]+src="([^">]+)"/);
+                     const firstImage = imgMatch ? imgMatch[1] : null;
+                     repostNode = {
+                        id: p.repost_of,
+                        title: originContent.title,
+                        description: originContent.description,
+                        author: originProfile.display_name,
+                        authorImage: originProfile.avatar_url,
+                        date: new Date(originPost.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+                        imageUrl: firstImage,
+                        views: 0,
+                        likes: 0,
+                        comments: 0
+                     };
+                }
+            }
+        }
+
         return {
           id: p.id,
           user_id: p.user_id,
@@ -83,6 +124,7 @@ export default function Feed({ initialPosts }: FeedProps) {
           comments: 0,
           slug: content?.slug ?? null,
           verified: profile?.verified ?? false,
+          repost_of: repostNode
         };
       });
     }
@@ -144,7 +186,7 @@ export default function Feed({ initialPosts }: FeedProps) {
   if (!posts || posts.length === 0) return <p className="text-center py-5 text-gray-500">Belum ada postingan</p>;
 
   return (
-    <div className="space-y-1 md:space-y-3 md:py-2 md:px-3">
+    <div className="space-y-1 md:space-y-3 md:px-0">
       {posts.map((post) => (
         <Link key={post.id} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
           <PostCard post={post} />

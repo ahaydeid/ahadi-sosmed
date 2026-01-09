@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Search, User, Pencil } from "lucide-react";
+import { Search, User, Pencil, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
@@ -21,6 +21,7 @@ function TopBarInner() {
   const [activeTab, setActiveTab] = useState<TabKey>(tabParam);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [openSearch, setOpenSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchItem[]>([]);
@@ -41,6 +42,14 @@ function TopBarInner() {
     const run = async () => {
       const { data } = await supabase.auth.getSession();
       setIsLoggedIn(!!data.session);
+      if (data.session?.user) {
+        const { data: profile } = await supabase
+          .from("user_profile")
+          .select("verified")
+          .eq("id", data.session.user.id)
+          .single();
+        setIsVerified(!!profile?.verified);
+      }
     };
     run();
     const {
@@ -97,7 +106,7 @@ function TopBarInner() {
             id: p.slug as string,
             label: (p.title as string) ?? "(Tanpa judul)",
             thumbnailUrl: null, // No image_url anymore
-            post_id: p.post_id as string, // ✅ simpan juga post_id
+            post_id: p.post_id as string,
           })) ?? [];
 
         setResults([...users, ...posts]);
@@ -173,33 +182,43 @@ function TopBarInner() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {!isLoggedIn ? (
+          {mounted && !isLoggedIn ? (
             <button onClick={handleGoLogin} className="bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 text-sm font-medium px-3 py-1.5 rounded transition-colors">
               Login
             </button>
           ) : (
-            <div className="relative">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
-                <Search className="w-4 h-4 text-gray-400" />
-                <input
-                  ref={inputRef}
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setOpenSearch(true);
-                  }}
-                  onFocus={() => setOpenSearch(true)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Cari"
-                  className="bg-transparent outline-none text-sm w-15 md:w-40"
-                />
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
+                  <Search className="w-4 h-4 text-gray-400" />
+                  <input
+                    ref={inputRef}
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setOpenSearch(true);
+                    }}
+                    onFocus={() => setOpenSearch(true)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Cari"
+                    className="bg-transparent outline-none text-sm w-15 md:w-40"
+                  />
+                </div>
               </div>
+
+              {isVerified ? (
+                <Link href="/write" className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition">
+                  <Pencil className="w-4 h-4 text-white" />
+                  <span className="text-sm font-medium text-white">Buat tulisan</span>
+                </Link>
+              ) : (
+                <Link href="/verify" className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                  <span className="text-sm font-medium text-white">Verifikasi Akun</span>
+                </Link>
+              )}
             </div>
           )}
-          <Link href="/write" className="relative flex items-center px-2 py-1 rounded-lg space-x-2 bg-black ">
-            <Pencil className="w-4 h-4 text-white" />
-            <span className="text-sm text-white">Buat tulisan</span>
-          </Link>
         </div>
       </div>
 

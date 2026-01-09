@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import useSWR from "swr";
 
+import { extractFirstImage } from "@/lib/utils/html";
+
 export interface PostDetailData {
   id: string;
   slug?: string | null;
@@ -18,6 +20,15 @@ export interface PostDetailData {
   likes: number;
   comments: number;
   views: number;
+  repost_of?: {
+    id: string;
+    title: string;
+    description: string;
+    author: string;
+    authorImage: string | null;
+    date: string;
+    imageUrl?: string | null;
+  } | null;
 }
 
 const formatPostDate = (dateString: string): string => {
@@ -67,7 +78,7 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
   const fetcher = async () => {
     if (!postId) return null;
 
-    const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id").eq("id", postId).single();
+    const { data: postData, error: postError } = await supabase.from("post").select("id, created_at, user_id, repost_of").eq("id", postId).single();
     if (postError || !postData) return null;
 
     const { data: contentData } = await supabase.from("post_content").select("title, description, author_image, slug").eq("post_id", postId).single();
@@ -78,6 +89,30 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
       supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", postId),
       supabase.from("post_views").select("views").eq("post_id", postId).maybeSingle(),
     ]);
+
+    // Fetch Repost Data if exists
+    let repostNode = null;
+    if (postData.repost_of) {
+        const { data: originPost } = await supabase.from("post").select("created_at, user_id").eq("id", postData.repost_of).single();
+        if (originPost) {
+             const [ { data: originContent }, { data: originProfile } ] = await Promise.all([
+                 supabase.from("post_content").select("*").eq("post_id", postData.repost_of).single(),
+                 supabase.from("user_profile").select("display_name, avatar_url, verified").eq("id", originPost.user_id).single()
+             ]);
+             
+             if (originContent && originProfile) {
+                 repostNode = {
+                     id: postData.repost_of,
+                     title: originContent.title,
+                     description: originContent.description,
+                     author: originProfile.display_name,
+                     authorImage: originProfile.avatar_url,
+                     date: formatPostDate(originPost.created_at),
+                     imageUrl: extractFirstImage(originContent.description)
+                 };
+             }
+        }
+    }
 
     return {
       post: {
@@ -92,6 +127,7 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
         likes: (likesCount as number) ?? 0,
         comments: (commentsCount as number) ?? 0,
         views: viewsRow?.views ?? 0,
+        repost_of: repostNode
       } as PostDetailData,
       authorId: postData.user_id,
       likeCount: (likesCount as number) ?? 0,

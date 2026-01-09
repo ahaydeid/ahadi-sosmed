@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { PostCardData } from "@/lib/types/post";
 import { formatPostDate } from "./formatDate";
+import { extractFirstImage } from "@/lib/utils/html";
 import useSWR from "swr";
 import type { Route } from "next";
 
@@ -37,7 +38,7 @@ export function useProfileData(profileId?: string) {
     if (!profile) return null;
 
     const [{ data: postData }, { count: followersCnt }, { count: followingCnt }] = await Promise.all([
-      supabase.from("post").select("id, created_at").eq("user_id", profileId).order("created_at", { ascending: false }),
+      supabase.from("post").select("id, created_at, repost_of").eq("user_id", profileId).order("created_at", { ascending: false }),
       supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("following_id", profileId),
       supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
     ]);
@@ -46,10 +47,61 @@ export function useProfileData(profileId?: string) {
     let formattedPosts: PostCardData[] = [];
 
     if (ids.length > 0) {
-      const { data: contents } = await supabase.from("post_content").select("*").in("post_id", ids);
+      // 1. Identify reposts
+      const repostIds = postData?.map(p => p.repost_of).filter(Boolean) as string[] || [];
+      
+      // 2. Fetch data for reposts (Original Post & Author)
+      let originalPostsMap = new Map(); // id -> { user_id, created_at }
+      let originalProfilesMap = new Map(); // user_id -> { display_name, avatar_url }
+
+      if (repostIds.length > 0) {
+          const { data: originals } = await supabase.from("post").select("id, user_id, created_at").in("id", repostIds);
+          if (originals) {
+              originals.forEach(o => originalPostsMap.set(o.id, o));
+              const originalUserIds = originals.map(o => o.user_id);
+              
+              const { data: origProfiles } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", originalUserIds);
+              origProfiles?.forEach(op => originalProfilesMap.set(op.id, op));
+          }
+      }
+
+      // 3. Fetch content for ALL posts (Main + Original)
+      const allContentIds = [...ids, ...repostIds];
+      const { data: contents } = await supabase.from("post_content").select("*").in("post_id", allContentIds);
       const contentMap = new Map((contents ?? []).map((c) => [c.post_id, c]));
-      formattedPosts = (postData || []).map((p) => {
+
+      formattedPosts = await Promise.all((postData || []).map(async (p) => {
         const c = contentMap.get(p.id);
+        
+        // Fetch stats for the post (including reposts)
+        const [viewsRes, likesRes, commentsRes] = await Promise.all([
+             supabase.from("post_views").select("views").eq("post_id", p.id).maybeSingle(),
+             supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id),
+             supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id)
+        ]);
+
+        // Construct Repost Data if exists
+        let repostNode = null;
+        if (p.repost_of) {
+            const origin = originalPostsMap.get(p.repost_of);
+            if (origin) {
+                const originContent = contentMap.get(p.repost_of);
+                const originProfile = originalProfilesMap.get(origin.user_id);
+                if (originContent && originProfile) {
+                    repostNode = {
+                        id: p.repost_of,
+                        author: originProfile.display_name,
+                        authorImage: originProfile.avatar_url,
+                        title: originContent.title,
+                        description: originContent.description,
+                        date: formatPostDate(origin.created_at),
+                        views: 0, likes: 0, comments: 0, // original stats ignored by UI for subcard
+                        imageUrl: extractFirstImage(originContent.description)
+                    };
+                }
+            }
+        }
+
         return {
           id: p.id,
           author: profile.display_name ?? "Pengguna",
@@ -57,11 +109,12 @@ export function useProfileData(profileId?: string) {
           title: c?.title ?? "(Tanpa judul)",
           description: c?.description ?? "",
           date: formatPostDate(p.created_at),
-          views: 0,
-          likes: 0,
-          comments: 0,
+          views: viewsRes?.data?.views ?? 0,
+          likes: likesRes?.count ?? 0,
+          comments: commentsRes?.count ?? 0,
+          repost_of: repostNode
         };
-      });
+      }));
     }
 
     return {

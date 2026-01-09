@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Home, Megaphone, MessageSquare, Bell, User, Menu, type LucideIcon } from "lucide-react";
+import { Home, Megaphone, MessageSquare, Bell, User, Menu, Check, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -14,7 +14,7 @@ export default function BottomNavbar() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
-  const [profile, setProfile] = useState<{ avatar_url: string | null; display_name: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ avatar_url: string | null; display_name: string | null; email?: string } | null>(null);
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [mounted, setMounted] = useState(false);
   
@@ -69,7 +69,8 @@ export default function BottomNavbar() {
     }
     const fetchProfile = async () => {
       const { data } = await supabase.from("user_profile").select("display_name, avatar_url").eq("id", currentUserId).maybeSingle();
-      if (data) setProfile({ avatar_url: data.avatar_url, display_name: data.display_name });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (data) setProfile({ avatar_url: data.avatar_url, display_name: data.display_name, email: user?.email });
     };
     fetchProfile();
   }, [currentUserId]);
@@ -235,6 +236,9 @@ export default function BottomNavbar() {
           <NavItem href="/marah-marah" icon={Megaphone} label="Marah²" isActive={isActive("/marah-marah")} isCollapsed={isCollapsed} />
           <NavItem href="/chat" icon={MessageSquare} label="Chat" isActive={isActive("/chat")} isCollapsed={isCollapsed} badge={mounted ? unreadChatCount : 0} />
           <NavItem href="/notif" icon={Bell} label="Notifikasi" isActive={isActive("/notif")} isCollapsed={isCollapsed} badge={mounted ? unreadNotifCount : 0} />
+          {["adihadi270@gmail.com", "adi.hadi270@gmail.com"].includes(profile?.email || "") && (
+             <NavItem href="/admin/verify" icon={Check} label="Verify" isActive={isActive("/admin/verify")} isCollapsed={isCollapsed} />
+          )}
         </nav>
 
         <div suppressHydrationWarning className={`mt-auto mb-5 px-3 ${isCollapsed ? "flex justify-center" : ""}`}>
