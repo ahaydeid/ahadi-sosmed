@@ -25,7 +25,7 @@ export default async function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50/10">
       <TopBar />
       
       <div className="max-w-7xl mx-auto px-2 md:px-4 md:py-4 py-1">

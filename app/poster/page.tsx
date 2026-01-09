@@ -3,17 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { ArrowLeft, CheckCircle, Clock, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, XCircle, Pencil } from "lucide-react";
 import Link from "next/link";
 
-export default function VerifyPage() {
+export default function PosterPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState<"none" | "pending" | "approved" | "rejected">("none");
     const [rejectionReason, setRejectionReason] = useState<string | null>(null);
     const [formData, setFormData] = useState({ title: "", description: "" });
     const [submitting, setSubmitting] = useState(false);
-
     const [isRetryMode, setIsRetryMode] = useState(false);
 
     useEffect(() => {
@@ -27,11 +26,11 @@ export default function VerifyPage() {
             // Check if already approved in user_profile
             const { data: profile } = await supabase
                 .from("user_profile")
-                .select("verified")
+                .select("can_post")
                 .eq("id", user.id)
                 .single();
             
-            if (profile?.verified) {
+            if (profile?.can_post) {
                 setStatus("approved");
                 setLoading(false);
                 return;
@@ -42,7 +41,7 @@ export default function VerifyPage() {
                 .from("verification_requests")
                 .select("status, rejection_reason")
                 .eq("user_id", user.id)
-                .eq("request_type", "verified")
+                .eq("request_type", "poster")
                 .order("created_at", { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -68,7 +67,7 @@ export default function VerifyPage() {
             title: formData.title,
             description: formData.description,
             status: "pending",
-            request_type: "verified",
+            request_type: "poster",
             terms_accepted: true
         });
 
@@ -82,7 +81,7 @@ export default function VerifyPage() {
         setSubmitting(false);
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Memuat status verifikasi...</div>;
+    if (loading) return <div className="p-8 text-center text-gray-500">Memuat status pengajuan...</div>;
 
     if (status === "approved") {
         return (
@@ -90,9 +89,10 @@ export default function VerifyPage() {
                 <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                     <CheckCircle size={32} />
                 </div>
-                <h1 className="text-2xl font-bold mb-2">Akun Terverifikasi</h1>
-                <p className="text-gray-600 mb-8">Selamat! Akun Anda sudah terverifikasi. Sekarang Anda dapat menulis dan mempublikasikan konten.</p>
-                <Link href="/write" className="bg-black text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition">
+                <h1 className="text-2xl font-bold mb-2">Izin Poster Disetujui</h1>
+                <p className="text-gray-600 mb-8">Selamat! Kamu sudah bisa membuat tulisan. Mulai berbagi pemikiran kamu sekarang!</p>
+                <Link href="/write" className="bg-black text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition inline-flex items-center gap-2">
+                    <Pencil size={18} />
                     Mulai Menulis
                 </Link>
             </div>
@@ -112,39 +112,32 @@ export default function VerifyPage() {
                     }
                 `}</style>
                 
-                {/* CSS Animation Illustration */}
                 <div className="relative w-32 h-32 mx-auto mb-8 flex items-center justify-center">
-                    {/* Pulsing Background Circles */}
-                    <div className="absolute inset-0 bg-yellow-50 rounded-full animate-ping opacity-75 duration-[3000ms]"></div>
-                    <div className="absolute inset-4 bg-yellow-100 rounded-full animate-pulse opacity-50"></div>
+                    <div className="absolute inset-0 bg-blue-50 rounded-full animate-ping opacity-75 duration-[3000ms]"></div>
+                    <div className="absolute inset-4 bg-blue-100 rounded-full animate-pulse opacity-50"></div>
                     
-                    {/* Document Icon */}
                     <div className="relative w-20 h-24 bg-white border-2 border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col p-3 gap-2 z-10">
-                        {/* Header/Avatar placeholder */}
                         <div className="flex gap-2 items-center mb-1">
                              <div className="w-6 h-6 bg-gray-200 rounded-full"></div>
                              <div className="h-2 w-8 bg-gray-200 rounded"></div>
                         </div>
-                        {/* Lines */}
                         <div className="h-1.5 w-full bg-gray-100 rounded"></div>
                         <div className="h-1.5 w-full bg-gray-100 rounded"></div>
                         <div className="h-1.5 w-3/4 bg-gray-100 rounded"></div>
                         <div className="h-1.5 w-1/2 bg-gray-100 rounded"></div>
 
-                        {/* Scanner Bar */}
-                        <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-transparent via-yellow-200/50 to-transparent border-b border-yellow-400/50 animate-scan z-20"></div>
+                        <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-transparent via-blue-200/50 to-transparent border-b border-blue-400/50 animate-scan z-20"></div>
                     </div>
                     
-                    {/* Floating status icon */}
-                    <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-white p-2 rounded-full border-4 border-white z-20 shadow-sm">
+                    <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-2 rounded-full border-4 border-white z-20 shadow-sm">
                         <Clock size={20} className="animate-spin-slow" style={{ animationDuration: '4s' }} />
                     </div>
                 </div>
 
                 <h1 className="text-2xl font-bold mb-2 text-gray-900">Pengajuan Sedang Ditinjau</h1>
                 <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
-                    Terima kasih telah mengajukan verifikasi.<br/>
-                    Pengajuan Anda sedang ditinjau. Proses ini biasanya memakan waktu suka-suka si Ahadi.
+                    Terima kasih telah mengajukan izin poster.<br/>
+                    Pengajuan kamu sedang ditinjau. Proses ini biasanya memakan waktu suka-suka si Ahadi.
                 </p>
                 
                 <div className="flex flex-col gap-3 justify-center items-center">
@@ -159,7 +152,6 @@ export default function VerifyPage() {
         );
     }
 
-    // Rejected View (Only shown if NOT in retry mode)
     if (status === "rejected" && !isRetryMode) {
         return (
              <div className="max-w-xl mx-auto px-4 py-12 text-center">
@@ -173,13 +165,10 @@ export default function VerifyPage() {
                     }
                 `}</style>
                 
-                {/* Big Rejected Animation */}
                 <div className="relative w-40 h-40 mx-auto mb-10 flex items-center justify-center">
-                    {/* Floating Papers Background */}
                      <div className="absolute top-0 left-4 w-24 h-32 bg-gray-50 border border-gray-200 rounded shadow-sm -rotate-6"></div>
                      <div className="absolute top-2 right-4 w-24 h-32 bg-white border border-gray-200 rounded shadow-md rotate-3 z-10"></div>
                      
-                     {/* The Huge Stamp */}
                      <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 animate-stamp" style={{ animationDelay: '0.2s' }}>
                         <div className="w-32 h-32 rounded-full border-4 border-red-500 flex items-center justify-center bg-red-50/90 backdrop-blur-sm shadow-xl">
                             <XCircle size={64} className="text-red-500" strokeWidth={2.5} />
@@ -189,19 +178,18 @@ export default function VerifyPage() {
 
                 <h1 className="text-3xl font-bold mb-4 text-gray-900">Pengajuan Ditolak</h1>
                 
-                {/* Rejection Reason Box */}
                 <div className="bg-red-50 border border-red-100 p-6 mb-8 text-left max-w-md mx-auto">
                     <p className="text-xs font-bold text-red-600 uppercase tracking-widest mb-2 flex items-center gap-2">
                         <XCircle size={14} className="fill-red-600 text-white" />
                         Alasan Penolakan
                     </p>
                     <p className="text-gray-800 text-lg leading-relaxed font-medium">
-                        "{rejectionReason || "Profil belum memenuhi kriteria verifikasi."}"
+                        "{rejectionReason || "Pengajuan belum memenuhi kriteria."}"
                     </p>
                 </div>
 
                 <p className="text-gray-500 mb-8 max-w-sm mx-auto">
-                    Jangan khawatir, Anda dapat memperbaiki data dan mengajukan verifikasi kembali.
+                    Jangan khawatir, kamu dapat memperbaiki data dan mengajukan kembali.
                 </p>
 
                 <div className="flex flex-col gap-4 justify-center items-center">
@@ -225,8 +213,8 @@ export default function VerifyPage() {
                 <ArrowLeft size={18} className="mr-2" /> Kembali
             </button>
 
-            <h1 className="text-3xl font-bold mb-2">{isRetryMode ? "Ajukan Kembali" : "Verifikasi Akun"}</h1>
-            <p className="text-gray-600 mb-8">Ajukan verifikasi akun untuk mendapatkan akses fitur menulis dan tanda centang biru.</p>
+            <h1 className="text-3xl font-bold mb-2">{isRetryMode ? "Ajukan Kembali" : "Ajukan Izin Poster"}</h1>
+            <p className="text-gray-600 mb-8">Ajukan izin poster untuk dapat membuat dan mempublikasikan tulisan di platform ini.</p>
             
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
@@ -235,19 +223,19 @@ export default function VerifyPage() {
                         type="text" 
                         required
                         className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-black"
-                        placeholder="Contoh: Penulis Aktif / Content Creator"
+                        placeholder="Contoh: Penulis Pemula / Mahasiswa"
                         value={formData.title}
                         onChange={e => setFormData({...formData, title: e.target.value})}
                     />
                 </div>
 
                 <div>
-                    <label className="block font-bold mb-2 text-gray-800">Alasan Verifikasi</label>
+                    <label className="block font-bold mb-2 text-gray-800">Alasan Pengajuan</label>
                     <textarea 
                         required
                         rows={5}
                         className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-black"
-                        placeholder="Jelaskan mengapa Anda ingin mengajukan verifikasi..."
+                        placeholder="Jelaskan mengapa kamu ingin menjadi poster di platform ini..."
                         value={formData.description}
                         onChange={e => setFormData({...formData, description: e.target.value})}
                     />

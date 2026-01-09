@@ -12,6 +12,7 @@ export default function EditPostPage() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isRepost, setIsRepost] = useState(false);
 
   useEffect(() => {
     async function fetchPost() {
@@ -30,7 +31,7 @@ export default function EditPostPage() {
         // Fetch post to check ownership
         const { data: post, error: postError } = await supabase
           .from("post")
-          .select("user_id")
+          .select("user_id, repost_of")
           .eq("id", id)
           .single();
 
@@ -46,6 +47,8 @@ export default function EditPostPage() {
           router.push("/");
           return;
         }
+
+        setIsRepost(!!post.repost_of);
 
         // Fetch content
         const { data: contentData, error: contentError } = await supabase
@@ -94,6 +97,9 @@ export default function EditPostPage() {
     }
     setSaving(true);
     try {
+      // Only regenerate slug if NOT a repost, optionally? 
+      // Actually usually you don't change slug for reposts or even existing posts often.
+      // But preserving existing logic:
       const slug = generateSlug(title);
 
       const { error: updateError } = await supabase
@@ -101,10 +107,7 @@ export default function EditPostPage() {
         .update({
           title,
           description: content,
-          slug,
-          // We don't update image_url or author_image here implicitly, 
-          // assumes they persist or are handled elsewhere if we wanted cover image edit.
-          // Since cover image input was removed, we only update text.
+          slug, 
         })
         .eq("post_id", id);
 
@@ -137,13 +140,15 @@ export default function EditPostPage() {
       <h1 className="text-2xl font-bold mb-4">Edit Tulisan</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          placeholder="Judul"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-white border rounded px-3 py-3 text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500"
-        />
+        {!isRepost && (
+          <input
+            type="text"
+            placeholder="Judul"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-white border rounded px-3 py-3 text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500"
+          />
+        )}
 
         <div className="border rounded-md focus:ring-1 focus:ring-gray-600">
           <RichTextEditor content={content} onChange={setContent} placeholder="Tulis opini kamu di sini..." />

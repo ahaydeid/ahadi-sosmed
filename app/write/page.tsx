@@ -10,10 +10,42 @@ export default function WritePage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingPermission, setCheckingPermission] = useState(true);
 
+  useEffect(() => {
+    async function checkPermission() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        router.push("/login");
+        return;
+      }
 
+      const { data: profile } = await supabase
+        .from("user_profile")
+        .select("can_post")
+        .eq("id", session.user.id)
+        .single();
 
+      if (!profile?.can_post) {
+        alert("Kamu belum memiliki izin untuk membuat tulisan. Silakan ajukan izin poster terlebih dahulu.");
+        router.push("/");
+        return;
+      }
 
+      setCheckingPermission(false);
+    }
+
+    checkPermission();
+  }, [router]);
+
+  if (checkingPermission) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Memeriksa izin...</p>
+      </div>
+    );
+  }
 
 
   function generateSlug(text: string): string {

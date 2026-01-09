@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { BadgeCheck } from "lucide-react";
+import Link from "next/link";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -13,6 +15,7 @@ export default function EditProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -25,7 +28,7 @@ export default function EditProfilePage() {
       }
       setUserId(uid);
 
-      const { data, error } = await supabase.from("user_profile").select("display_name, bio").eq("id", uid).maybeSingle();
+      const { data, error } = await supabase.from("user_profile").select("display_name, bio, verified").eq("id", uid).maybeSingle();
 
       if (error) {
         console.error("Gagal memuat profil:", error.message);
@@ -33,6 +36,7 @@ export default function EditProfilePage() {
       } else if (data) {
         setDisplayName(data.display_name ?? "");
         setBio(data.bio ?? "");
+        setIsVerified(data.verified ?? false);
       }
       setLoading(false);
     };
@@ -122,6 +126,36 @@ export default function EditProfilePage() {
           {saving ? "Menyimpan..." : "Simpan Perubahan"}
         </button>
       </form>
+
+      {/* Verified Badge Section */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <BadgeCheck className="w-5 h-5 text-sky-500" />
+          Badge Verified
+        </h2>
+        
+        {isVerified ? (
+          <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
+            <p className="text-sm text-sky-800 flex items-center gap-2">
+              <BadgeCheck className="w-4 h-4" />
+              Akun kamu sudah verified
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Badge verified menunjukkan bahwa akun kamu adalah akun resmi.
+            </p>
+            <Link
+              href="/verify"
+              className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition font-medium text-sm flex items-center justify-center gap-2"
+            >
+              <BadgeCheck className="w-4 h-4" />
+              Ajukan Verified
+            </Link>
+          </div>
+        )}
+      </div>
 
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

@@ -16,7 +16,7 @@ export default function ClientLayout({
   const { isCollapsed } = useSidebar();
   
   return (
-    <div suppressHydrationWarning className={`${poppinsVariable} antialiased relative min-h-screen bg-gray-50 transition-all duration-300`}>
+    <div suppressHydrationWarning className={`${poppinsVariable} antialiased relative min-h-screen bg-gray-50/10 transition-all duration-300`}>
       <Suspense fallback={null}>
         <AuthListener />
         <RegisterSW />

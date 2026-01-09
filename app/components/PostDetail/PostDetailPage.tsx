@@ -192,7 +192,6 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
           )}
           <time className="text-sm text-gray-600 mb-3 block" dateTime={post.date}>{post.date}</time>
 
-          {/* BAGIAN AUTHOR dipindahkan ke sini */}
           <div className="flex items-center gap-2 mb-4 mt-4">
             {authorId ? (
               <Link href={`/profile/${authorId}`} className="flex items-center gap-2 group cursor-pointer" aria-label={`Lihat profil ${post.author}`}>
@@ -233,7 +232,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
         </header>
 
         {/* Deskripsi */}
-        <div className="text-base text-gray-800 leading-relaxed space-y-4 mb-6 prose max-w-none">
+        <div className="text-base text-gray-800 leading-relaxed space-y-4 mb-6 md:pl-10 md:pr-20 prose max-w-none">
           <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: post.description }} />
         </div>
 

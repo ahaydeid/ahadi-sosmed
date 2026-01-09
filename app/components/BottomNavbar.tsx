@@ -215,7 +215,7 @@ export default function BottomNavbar() {
       )}
 
       {/* ===== DESKTOP SIDEBAR ===== */}
-      <aside suppressHydrationWarning className={`hidden md:fixed md:inset-y-0 md:left-0 md:bg-white md:z-40 md:flex md:flex-col border-r border-gray-200 transition-all duration-300 ${isCollapsed ? "md:w-20" : "md:w-64"}`}>
+      <aside suppressHydrationWarning className={`hidden md:fixed md:inset-y-0 md:left-0 md:bg-white md:z-40 md:flex md:flex-col border-r border-gray-100 transition-all duration-300 ${isCollapsed ? "md:w-20" : "md:w-64"}`}>
         <div suppressHydrationWarning className={`px-3 py-5 flex items-center md:mb-5 transition-all ${isCollapsed ? "justify-center" : "relative min-h-[44px]"}`}>
           <button
             onClick={toggleSidebar}

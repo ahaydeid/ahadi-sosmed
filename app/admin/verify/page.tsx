@@ -64,6 +64,15 @@ export default function AdminVerifyPage() {
     const handleAction = async (requestId: string, userId: string, action: "approve" | "reject", reason?: string) => {
         // Confirmation is now handled by ConfirmModal before calling this
         
+        // Get the request to check its type
+        const request = requests.find(r => r.id === requestId);
+        if (!request) {
+            alert("Request not found");
+            return;
+        }
+
+        const requestType = request.request_type || "verified"; // Default to verified for backward compatibility
+
         const updatePayload: any = { status: action === "approve" ? "approved" : "rejected" };
         if (action === "reject" && reason) {
             updatePayload.rejection_reason = reason;
@@ -80,17 +89,18 @@ export default function AdminVerifyPage() {
             return;
         }
 
-        // Check if verified column exists by trying to update it
-        // If Approved, update user_profile verified = true
+        // If Approved, update user_profile with appropriate field based on request type
         if (action === "approve") {
+            const updateField = requestType === "poster" ? { can_post: true } : { verified: true };
+            
             const { error: profileError } = await supabase
                 .from("user_profile")
-                .update({ verified: true })
+                .update(updateField)
                 .eq("id", userId);
             
             if (profileError) {
-                console.error("Failed to update profile verification", profileError);
-                alert("Request approved but failed to update user profile 'verified' status. Check if column exists.");
+                console.error("Failed to update profile", profileError);
+                alert(`Request approved but failed to update user profile '${requestType}' status. Check if column exists.`);
             }
         }
         
@@ -152,6 +162,13 @@ export default function AdminVerifyPage() {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <h3 className="font-bold text-lg">{req.title}</h3>
+                                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                                req.request_type === 'poster' 
+                                                    ? 'bg-blue-100 text-blue-700' 
+                                                    : 'bg-sky-100 text-sky-700'
+                                            }`}>
+                                                {req.request_type === 'poster' ? 'Poster' : 'Verified'}
+                                            </span>
                                             <Link href={`/profile/${req.user_id}`} className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 hover:bg-gray-200">
                                                 Lihat Profil
                                             </Link>

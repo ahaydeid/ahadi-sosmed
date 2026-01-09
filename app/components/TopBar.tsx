@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Search, User, Pencil, CheckCircle } from "lucide-react";
+import { Search, User, Pencil } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
@@ -21,7 +21,7 @@ function TopBarInner() {
   const [activeTab, setActiveTab] = useState<TabKey>(tabParam);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
+  const [canPost, setCanPost] = useState(false);
   const [openSearch, setOpenSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchItem[]>([]);
@@ -45,10 +45,10 @@ function TopBarInner() {
       if (data.session?.user) {
         const { data: profile } = await supabase
           .from("user_profile")
-          .select("verified")
+          .select("can_post")
           .eq("id", data.session.user.id)
           .single();
-        setIsVerified(!!profile?.verified);
+        setCanPost(!!profile?.can_post);
       }
     };
     run();
@@ -85,7 +85,7 @@ function TopBarInner() {
           supabase.from("user_profile").select("id, display_name, avatar_url").ilike("display_name", `%${query.trim()}%`).limit(8),
           supabase
             .from("post_content")
-            .select("slug, post_id, title") // ✅ tambahkan post_id
+            .select("slug, post_id, title")
             .ilike("title", `%${query.trim()}%`)
             .limit(8),
         ]);
@@ -105,7 +105,7 @@ function TopBarInner() {
             type: "post",
             id: p.slug as string,
             label: (p.title as string) ?? "(Tanpa judul)",
-            thumbnailUrl: null, // No image_url anymore
+            thumbnailUrl: null,
             post_id: p.post_id as string,
           })) ?? [];
 
@@ -171,7 +171,7 @@ function TopBarInner() {
 
           <button
             onClick={() => {
-              if (!isLoggedIn) return; // cegah klik kalau belum login
+              if (!isLoggedIn) return;
               handleTab("followed");
             }}
             disabled={!isLoggedIn}
@@ -206,15 +206,18 @@ function TopBarInner() {
                 </div>
               </div>
 
-              {isVerified ? (
+              {canPost ? (
                 <Link href="/write" className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition">
                   <Pencil className="w-4 h-4 text-white" />
                   <span className="text-sm font-medium text-white">Buat tulisan</span>
                 </Link>
               ) : (
-                <Link href="/verify" className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                  <span className="text-sm font-medium text-white">Verifikasi Akun</span>
+                <Link 
+                  href="/poster"
+                  className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition"
+                >
+                  <Pencil className="w-4 h-4 text-white" />
+                  <span className="text-sm font-medium text-white">Ajukan Poster</span>
                 </Link>
               )}
             </div>
@@ -226,7 +229,7 @@ function TopBarInner() {
         <div className="px-4">
           <div className="relative">
             <div className="border border-gray-300 rounded-md overflow-hidden absolute z-10 w-full bg-white shadow-lg">
-              <div className="max-h-72 overflow-y-auto divide-y border-b border-b-gray-100 divide-gray-100">
+              <div className="max-h-72 overflow-y-auto divide-y border-b border-b-gray-50 divide-gray-50">
                 {loading && <div className="px-3 py-2 text-sm text-gray-500">Mencari…</div>}
                 {!loading && results.length === 0 && query.trim().length > 0 && <div className="px-3 py-2 text-sm text-gray-500">Tidak ada hasil</div>}
                 {!loading &&
