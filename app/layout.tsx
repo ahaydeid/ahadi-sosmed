@@ -64,12 +64,43 @@ import ClientLayout from "./components/ClientLayout";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id">
-      <SidebarProvider>
-        <ClientLayout poppinsVariable={poppins.variable}>
-          {children}
-        </ClientLayout>
-      </SidebarProvider>
+    <html lang="id" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const scrub = (el) => {
+                  if (el.hasAttribute('bis_skin_checked')) el.removeAttribute('bis_skin_checked');
+                };
+                const observer = new MutationObserver(mutations => {
+                  for (const mutation of mutations) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'bis_skin_checked') {
+                      scrub(mutation.target);
+                    } else if (mutation.type === 'childList') {
+                      mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) {
+                          scrub(node);
+                          node.querySelectorAll('[bis_skin_checked]').forEach(scrub);
+                        }
+                      });
+                    }
+                  }
+                });
+                observer.observe(document.documentElement, { attributes: true, childList: true, subtree: true });
+                document.querySelectorAll('[bis_skin_checked]').forEach(scrub);
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body suppressHydrationWarning>
+        <SidebarProvider>
+          <ClientLayout poppinsVariable={poppins.variable}>
+            {children}
+          </ClientLayout>
+        </SidebarProvider>
+      </body>
     </html>
   );
 }

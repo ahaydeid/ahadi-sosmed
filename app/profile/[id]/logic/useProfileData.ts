@@ -1,94 +1,58 @@
-import { useEffect, useRef, useState } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { PostCardData } from "@/lib/types/post";
 import { formatPostDate } from "./formatDate";
+import useSWR from "swr";
 import type { Route } from "next";
 
 export function useProfileData(profileId?: string) {
   const router = useRouter();
-  const [posts, setPosts] = useState<PostCardData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [displayName, setDisplayName] = useState("Memuat...");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [verified, setVerified] = useState(false);
-  const [bio, setBio] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
-  const mounted = useRef(true);
 
+  // Auth Session
   useEffect(() => {
-    mounted.current = true;
+    let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
-      if (!mounted.current) return;
+      if (!mounted) return;
       setCurrentUserId(data.session?.user.id ?? null);
     });
     return () => {
-      mounted.current = false;
+      mounted = false;
     };
   }, []);
 
-  useEffect(() => {
-    const run = async () => {
-      if (!currentUserId || !profileId || currentUserId === profileId) return;
-      const { data } = await supabase.from("user_followers").select("follower_id").eq("follower_id", currentUserId).eq("following_id", profileId).maybeSingle();
+  // Main Profile Fetcher
+  const fetcher = async () => {
+    if (!profileId) return null;
 
-      if (!mounted.current) return;
-      setIsFollowing(!!data);
-    };
-    run();
-  }, [currentUserId, profileId]);
+    const { data: profile } = await supabase
+      .from("user_profile")
+      .select("display_name, avatar_url, verified, bio")
+      .eq("id", profileId)
+      .single();
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      if (!profileId) return;
-      setLoading(true);
+    if (!profile) return null;
 
-      const { data: profile } = await supabase.from("user_profile").select("display_name, avatar_url, verified, bio").eq("id", profileId).single();
+    const [{ data: postData }, { count: followersCnt }, { count: followingCnt }] = await Promise.all([
+      supabase.from("post").select("id, created_at").eq("user_id", profileId).order("created_at", { ascending: false }),
+      supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("following_id", profileId),
+      supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
+    ]);
 
-      if (!mounted.current) return;
+    const ids = postData?.map((p) => p.id) || [];
+    let formattedPosts: PostCardData[] = [];
 
-      if (!profile) {
-        setDisplayName("Profil Tidak Ditemukan");
-        setLoading(false);
-        return;
-      }
-
-      setDisplayName(profile.display_name || "Pengguna");
-      setAvatarUrl(profile.avatar_url || null);
-      setVerified(profile.verified || false);
-      setBio(profile.bio || null);
-
-      const [{ data: postData }, { count: followersCnt }, { count: followingCnt }] = await Promise.all([
-        supabase.from("post").select("id, created_at").eq("user_id", profileId).order("created_at", { ascending: false }),
-        supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("following_id", profileId),
-        supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
-      ]);
-
-      if (!mounted.current) return;
-
-      setFollowersCount(followersCnt ?? 0);
-      setFollowingCount(followingCnt ?? 0);
-
-      if (!postData || postData.length === 0) {
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-
-      const ids = postData.map((p) => p.id);
+    if (ids.length > 0) {
       const { data: contents } = await supabase.from("post_content").select("*").in("post_id", ids);
-
-      if (!mounted.current) return;
-
       const contentMap = new Map((contents ?? []).map((c) => [c.post_id, c]));
-      const formattedPosts: PostCardData[] = postData.map((p) => {
+      formattedPosts = (postData || []).map((p) => {
         const c = contentMap.get(p.id);
         return {
           id: p.id,
-          author: profile.display_name,
+          author: profile.display_name ?? "Pengguna",
           authorImage: c?.author_image ?? profile.avatar_url ?? null,
           title: c?.title ?? "(Tanpa judul)",
           description: c?.description ?? "",
@@ -98,12 +62,46 @@ export function useProfileData(profileId?: string) {
           comments: 0,
         };
       });
-      setPosts(formattedPosts);
-      setLoading(false);
-    };
+    }
 
-    loadUserData();
-  }, [profileId]);
+    return {
+      displayName: profile.display_name || "Pengguna",
+      avatarUrl: profile.avatar_url || null,
+      verified: profile.verified || false,
+      bio: profile.bio || null,
+      followersCount: followersCnt ?? 0,
+      followingCount: followingCnt ?? 0,
+      posts: formattedPosts,
+    };
+  };
+
+  const { data, isLoading, mutate } = useSWR(profileId ? `profile-${profileId}` : null, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnMount: true,
+  });
+
+  // Following Status Fetcher
+  const { data: followData, mutate: mutateFollow } = useSWR(
+    currentUserId && profileId && currentUserId !== profileId ? `follow-status-${currentUserId}-${profileId}` : null,
+    async () => {
+      const { data } = await supabase
+        .from("user_followers")
+        .select("follower_id")
+        .eq("follower_id", currentUserId!)
+        .eq("following_id", profileId!)
+        .maybeSingle();
+      return !!data;
+    }
+  );
+
+  const posts = data?.posts || [];
+  const displayName = data?.displayName || "Memuat...";
+  const avatarUrl = data?.avatarUrl || null;
+  const verified = data?.verified || false;
+  const bio = data?.bio || null;
+  const followersCount = data?.followersCount || 0;
+  const followingCount = data?.followingCount || 0;
+  const isFollowing = !!followData;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -117,26 +115,32 @@ export function useProfileData(profileId?: string) {
     }
     if (!profileId || currentUserId === profileId) return;
 
-    if (isFollowing) {
-      await supabase.from("user_followers").delete().eq("follower_id", currentUserId).eq("following_id", profileId);
-      if (!mounted.current) return;
-      setIsFollowing(false);
-      setFollowersCount((v) => Math.max(0, v - 1));
-    } else {
-      await supabase.from("user_followers").insert([{ follower_id: currentUserId, following_id: profileId }]);
-      if (!mounted.current) return;
-      setIsFollowing(true);
-      setFollowersCount((v) => v + 1);
+    const newFollowing = !isFollowing;
+    
+    // Optimistic Update
+    mutateFollow(newFollowing, false);
+    mutate({ 
+      ...data!, 
+      followersCount: followersCount + (newFollowing ? 1 : -1) 
+    }, false);
+
+    try {
+      if (isFollowing) {
+        await supabase.from("user_followers").delete().eq("follower_id", currentUserId).eq("following_id", profileId);
+      } else {
+        await supabase.from("user_followers").insert([{ follower_id: currentUserId, following_id: profileId }]);
+      }
+    } catch {
+       mutateFollow();
+       mutate();
     }
   };
 
   const handleSecondary = async () => {
     if (currentUserId === profileId) {
       const url = `${window.location.origin}/profile/${profileId}`;
-      try {
-        if (navigator.share) await navigator.share({ title: displayName, url });
-        else await navigator.clipboard.writeText(url);
-      } catch {}
+      if (navigator.share) await navigator.share({ title: displayName, url });
+      else await navigator.clipboard.writeText(url);
     } else {
       if (!currentUserId) {
         router.push("/login");
@@ -148,7 +152,7 @@ export function useProfileData(profileId?: string) {
 
   return {
     posts,
-    loading,
+    loading: isLoading && !data,
     displayName,
     avatarUrl,
     verified,

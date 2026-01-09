@@ -4,6 +4,7 @@ import { MoreVertical, ArrowLeft, BadgeCheck, LogOut, Settings } from "lucide-re
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
+import { useSidebar } from "@/app/context/SidebarContext";
 
 interface HeaderProps {
   displayName: string;
@@ -15,11 +16,12 @@ interface HeaderProps {
 export default function Header({ displayName, verified, onLogout, isOwnProfile }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
+  const { isCollapsed } = useSidebar();
 
   const setupRoute = "/profile/setup" as Route;
 
   return (
-    <header className="fixed top-0 left-0 w-full bg-white border-b border-gray-200 shadow-sm z-20 h-14 flex items-center justify-between px-4">
+    <header className={`fixed top-0 right-0 bg-white border-b border-gray-200 shadow-sm z-20 h-14 flex items-center justify-between px-4 transition-all duration-300 ${isCollapsed ? "left-0 md:left-20" : "left-0 md:left-64"}`}>
       <div className="flex items-center">
         <button onClick={() => window.history.back()} aria-label="Kembali" className="mr-4 text-gray-700 hover:text-black transition">
           <ArrowLeft className="w-6 h-6" />

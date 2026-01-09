@@ -85,6 +85,13 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
 
       console.log("Pesan berhasil dikirim:", inserted.id);
 
+      // 2.5️⃣ Tandai sebagai terbaca secara instan agar badge langsung hilang
+      await supabase.from("message_reads").upsert({
+        user_id: currentUserId,
+        message_id: chatId,
+        last_read_at: new Date().toISOString()
+      }, { onConflict: "user_id,message_id" });
+
       // 3️⃣ Reset input
       el.value = "";
       el.style.height = "auto";
@@ -99,8 +106,8 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
   };
 
   return (
-    <div className="sticky bottom-0 left-0 w-full flex items-end gap-2 pt-1 z-40">
-      <div className="flex items-end w-full bg-white border border-gray-300 rounded-lg px-3 py-2">
+    <div className="sticky bottom-0 left-0 w-full flex items-center gap-2 pt-1 z-40">
+      <div className="flex items-center w-full bg-white border border-gray-300 rounded-lg px-3 py-2">
         <textarea
           ref={textareaRef}
           placeholder="Tulis pesan..."
@@ -122,7 +129,7 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
         disabled={sending}
         className="flex items-center justify-center bg-sky-600 text-white w-10 h-10 rounded-full shadow active:scale-95 transition shrink-0 disabled:opacity-50"
       >
-        <Send className="w-5 h-5" />
+        <Send className="w-5 h-5 transform translate-x-[-1px] translate-y-[1px]" />
       </button>
     </div>
   );

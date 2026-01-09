@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { icons, MessageCircle } from "lucide-react";
+import useSWR from "swr";
 
 import { getDeviceId } from "@/lib/device";
 import ModalReact from "./modal/ModalReact";
@@ -9,6 +10,7 @@ import ModalReactList from "./modal/ModalReactList";
 import ModalKomentar from "./modal/ModalKomentar";
 
 import { supabase } from "@/lib/supabase/client";
+import { RageSkeleton } from "../components/Skeleton";
 
 type RagePost = {
   id: string;
@@ -22,17 +24,8 @@ type RagePost = {
   total_comment: number;
 };
 
-type RageProfile = {
-  device_id: string;
-  nickname: string | null;
-  icon_name: string;
-  bg_color?: string;
-};
 
 const MarahMarahPage = () => {
-  const [posts, setPosts] = useState<RagePost[]>([]);
-  const [profiles, setProfiles] = useState<RageProfile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showPostModal, setShowPostModal] = useState(false);
   const [showReactModal, setShowReactModal] = useState(false);
   const [showReactList, setShowReactList] = useState(false);
@@ -42,69 +35,37 @@ const MarahMarahPage = () => {
 
   const deviceId = getDeviceId();
 
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-
-    const { data: postsData, error: postError } = await supabase.from("rage_posts").select("*").order("created_at", { ascending: false });
-
-    if (postError || !postsData) {
-      console.error("Error fetching posts:", postError);
-      setLoading(false);
-      return;
-    }
-
-    const { data: commentsData } = await supabase.from("rage_comments").select("rage_post_id");
-
-    const { data: reactsData } = await supabase.from("rage_reacts").select("rage_post_id, emoji, device_id");
-
-    const { data: profilesData } = await supabase.from("rage_profiles").select("device_id, nickname, icon_name, bg_color");
-
-    if (profilesData) setProfiles(profilesData);
-
-    const merged = postsData.map((post) => {
-      const reacts = reactsData?.filter((r) => r.rage_post_id === post.id) || [];
-      const comments = commentsData?.filter((c) => c.rage_post_id === post.id) || [];
-
-      const emojiCount: Record<string, number> = {};
-      reacts.forEach((r) => {
-        emojiCount[r.emoji] = (emojiCount[r.emoji] || 0) + 1;
-      });
-
-      const topReacts = Object.entries(emojiCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 2)
-        .map(([emoji]) => emoji);
-
-      return {
-        ...post,
-        top_reacts: topReacts,
-        total_react: reacts.length,
-        total_comment: comments.length,
-      };
-    });
-
-    const reacted = reactsData?.filter((r) => r.device_id === deviceId).map((r) => r.rage_post_id) || [];
-
+  const fetcher = async () => {
+    const { getRagePosts } = await import("@/lib/services/rageService");
+    const { posts, profiles, reacts } = await getRagePosts();
+    
+    const reacted = reacts?.filter((r) => r.device_id === deviceId).map((r) => r.rage_post_id) || [];
     setReactedPosts(reacted);
-    setPosts(merged);
-    setLoading(false);
-  }, [deviceId]);
+    
+    return { posts, profiles };
+  };
+
+  const { data, isLoading, mutate } = useSWR("rage-posts", fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnMount: true,
+  });
+
+  const posts = data?.posts || [];
+  const profiles = data?.profiles || [];
+  const loading = isLoading && posts.length === 0;
 
   useEffect(() => {
-    const load = async () => await fetchPosts();
-    load();
-
     const channel = supabase
       .channel("rage_updates")
-      .on("postgres_changes", { event: "*", schema: "public", table: "rage_posts" }, () => fetchPosts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "rage_reacts" }, () => fetchPosts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "rage_comments" }, () => fetchPosts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rage_posts" }, () => mutate())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rage_reacts" }, () => mutate())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rage_comments" }, () => mutate())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchPosts]);
+  }, [mutate]);
 
   const getProfileIcon = (device_id: string) => {
     const profile = profiles.find((p) => p.device_id === device_id);
@@ -132,9 +93,9 @@ const MarahMarahPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center">
-      <div className="w-full bg-white shadow-sm fixed top-0 left-0 right-0 z-50 md:left-64">
-        <div className="flex items-center justify-between p-4 mx-auto">
+    <div className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full bg-white shadow-sm sticky top-0 z-50">
+        <div className="flex items-center justify-between p-4 mx-auto w-full">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-1">
               Marah-marah <span>😡</span>
@@ -142,9 +103,6 @@ const MarahMarahPage = () => {
             <p className="text-sm text-gray-500 italic">*Lo anonim, bebas luapin semuanya di sini!*</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* <button type="button" className="text-gray-700 hover:text-black transition">
-              <Search className="w-6 h-6" />
-            </button> */}
             <button onClick={() => setShowPostModal(true)} className="bg-red-600 text-white font-semibold px-3 py-1 rounded-lg hover:bg-red-700 transition">
               marahin
             </button>
@@ -152,14 +110,18 @@ const MarahMarahPage = () => {
         </div>
       </div>
 
-      <div className="pt-28 w-full bg-white">
+      <div className="w-full bg-white">
         <div className="flex flex-col">
           {loading ? (
-            <div className="p-6 text-center text-gray-500">Loading...</div>
+            <div className="flex flex-col w-full">
+              <RageSkeleton />
+              <RageSkeleton />
+              <RageSkeleton />
+            </div>
           ) : posts.length === 0 ? (
             <div className="p-6 text-center text-gray-500 italic">Belum ada yang marah hari ini 😌</div>
           ) : (
-            posts.map((post) => {
+            posts.map((post: RagePost) => {
               const alreadyReacted = reactedPosts.includes(post.id);
               const profile = profiles.find((p) => p.device_id === post.device_id);
 
@@ -223,9 +185,9 @@ const MarahMarahPage = () => {
         </div>
       </div>
 
-      {showPostModal && <ModalPost onClose={() => setShowPostModal(false)} onPostSuccess={fetchPosts} />}
+      {showPostModal && <ModalPost onClose={() => setShowPostModal(false)} onPostSuccess={() => mutate()} />}
 
-      {showReactModal && activePostId && <ModalReact onClose={() => setShowReactModal(false)} postId={activePostId} onReactSuccess={() => setReactedPosts((prev) => [...prev, activePostId])} />}
+      {showReactModal && activePostId && <ModalReact onClose={() => setShowReactModal(false)} postId={activePostId} onReactSuccess={() => { setReactedPosts((prev) => [...prev, activePostId]); mutate(); }} />}
       {showReactList && activePostId && <ModalReactList onClose={() => setShowReactList(false)} postId={activePostId} />}
       {showKomentarModal && activePostId && <ModalKomentar onClose={() => setShowKomentarModal(false)} postId={activePostId} />}
     </div>

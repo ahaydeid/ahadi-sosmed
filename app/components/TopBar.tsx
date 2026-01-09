@@ -27,6 +27,12 @@ function TopBarInner() {
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     setActiveTab(tabParam);
   }, [tabParam]);
@@ -144,10 +150,12 @@ function TopBarInner() {
     }
   };
 
+  if (!mounted) return <div className="h-12 border-b border-gray-200 bg-white" />;
+
   return (
-    <div className="sticky top-0 mb-1 z-40 bg-white border-b border-gray-200">
-      <div className="flex items-center justify-between px-4 h-12">
-        <div className="flex items-center space-x-4">
+    <div suppressHydrationWarning className="sticky top-0 mb-1 z-40 bg-white border-b border-gray-200">
+      <div suppressHydrationWarning className="flex items-center justify-between px-4 h-12">
+        <div suppressHydrationWarning className="flex items-center space-x-4">
           <button onClick={() => handleTab("teratas")} className={`text-sm ${activeTab === "teratas" ? "font-semibold text-black" : "text-gray-500"}`}>
             Teratas
           </button>

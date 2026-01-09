@@ -1,6 +1,3 @@
-// components/PostCard.tsx
-"use client";
-
 import Image from "next/image";
 import { CalendarDays, Eye, Heart, MessageCircle, X, User, BadgeCheck, MoreVertical, Edit, Trash } from "lucide-react";
 import { PostCardData } from "@/lib/types/post";
@@ -8,7 +5,8 @@ import { formatCompact } from "@/lib/formatCompact";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { supabase } from "@/lib/supabase/client";
+import { extractFirstImage, extractPreviewText } from "@/lib/utils/html";
+import { deletePostAction } from "@/lib/actions/postActions";
 
 interface PostCardProps {
   post: PostCardData & { verified?: boolean };
@@ -18,37 +16,8 @@ interface PostCardProps {
 
 const COLLAPSE_KEY = "collapsedPosts";
 
-
-
-function extractFirstImage(html: string): string | null {
-  if (!html) return null;
-  // Robust regex to find src in any position within the img tag
-  const match = html.match(/<img[^>]*\s+src=["']([^"'>]+)["']/i);
-  return match ? match[1] : null;
-}
-
-function extractPreviewText(html: string): string {
-  if (!html) return "";
-  // Replace block endings with a space to separate paragraphs
-  const withSpaces = html
-    .replace(/<\/(p|div|h[1-6]|li|blockquote)>/gi, " ")
-    .replace(/<br\s*\/?>/gi, " ");
-  
-  // Strip all tags
-  const text = withSpaces
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-    
-  return text;
-}
-
-
 export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardProps) {
-  // Use image from post.imageUrl if available (legacy or if we decide to keep passing it), 
-  // otherwise extract from description. 
-  // Since we are removing image_url column, post.imageUrl might be null/undefined soon.
+  // Use utility functions to clean up component logic
   const derivedImage = post.imageUrl || extractFirstImage(post.description);
   const hasImage = !!derivedImage;
   const plainTextDescription = extractPreviewText(post.description);
@@ -85,44 +54,21 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
 
   const handleEdit: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     e.preventDefault();
-    e.stopPropagation(); // prevent card click
-    // Note: card itself is a link, so we need to stop bubbling
+    e.stopPropagation(); 
     router.push(`/edit/${post.id}`);
   };
 
   const handleDeletePost = async () => {
     try {
       setIsDeleting(true);
-
-      // 1. Extract images from description for storage cleanup
-      const imgMatches = Array.from(post.description.matchAll(/src=["']([^"'>]+)["']/gi));
-      const storagePaths: string[] = [];
-
-      imgMatches.forEach((m) => {
-        const url = m[1];
-        if (url.includes("/post-images/")) {
-          const path = url.split("/post-images/").pop();
-          if (path) storagePaths.push(path);
-        }
-      });
-
-      // Cover image if exists
-      if (post.imageUrl?.includes("/post-images/")) {
-          const path = post.imageUrl.split("/post-images/").pop();
-          if (path) storagePaths.push(path);
+      const result = await deletePostAction(post.id);
+      
+      if (result.success) {
+        setShowDeleteConfirm(false);
+        onDeleteSuccess?.(post.id);
+      } else {
+        alert(result.error || "Gagal menghapus postingan.");
       }
-
-      // 2. Delete from Storage
-      if (storagePaths.length > 0) {
-        await supabase.storage.from("post-images").remove(storagePaths);
-      }
-
-      // 3. Delete Post
-      const { error } = await supabase.from("post").delete().eq("id", post.id);
-      if (error) throw error;
-
-      setShowDeleteConfirm(false);
-      onDeleteSuccess?.(post.id);
     } catch (err) {
       console.error("Gagal menghapus post:", err);
       alert("Gagal menghapus postingan.");
