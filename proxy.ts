@@ -18,6 +18,13 @@ export const config = {
 export default async function proxyMiddleware(req: NextRequest) {
   const currentPath = req.nextUrl.pathname;
 
+  // Redirect /index.html to / (permanent 301)
+  if (currentPath === "/index.html") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url, 301);
+  }
+
   // Daftar Rute Publik (Tidak memerlukan otentikasi)
   if (
     currentPath === "/" ||
