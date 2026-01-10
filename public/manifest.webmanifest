@@ -1,7 +1,7 @@
 {
-  "name": "ahadi",
-  "short_name": "ahadi",
-  "description": "Dibuat oleh ahadi",
+  "name": "Ahadi - Wadah Ekspresi dan Tulisan",
+  "short_name": "Ahadi",
+  "description": "Platform sosial media untuk berbagi tulisan, opini, dan ekspresi secara bebas dan kreatif",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

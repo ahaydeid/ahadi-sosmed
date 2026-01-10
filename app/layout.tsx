@@ -46,7 +46,7 @@ export const metadata: Metadata = {
         url: "/icon.png",
         width: 1200,
         height: 630,
-        alt: "Ahadi Logo",
+        alt: "Logo Ahadi - Platform Sosial Media untuk Berbagi Tulisan dan Ekspresi",
       },
     ],
   },
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     description: "Platform sosial media untuk berbagi tulisan dan ekspresi secara bebas.",
     images: ["/icon.png"],
   },
-  icons: { icon: "/favicon.ico", apple: "/apple-touch-icon.png" },
+  icons: { icon: "/favicon.ico", apple: "/icons/apple-touch-icon.png" },
 };
 
 import { SidebarProvider } from "./context/SidebarContext";
@@ -66,6 +66,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "Ahadi",
+              "url": baseUrl,
+              "logo": `${baseUrl}/icon.png`,
+              "description": "Platform sosial media untuk berbagi tulisan, opini, dan ekspresi secara bebas dan kreatif.",
+              "sameAs": [],
+            }),
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
