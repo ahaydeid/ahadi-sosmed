@@ -125,6 +125,7 @@ export default function Feed({ initialPosts }: FeedProps) {
           comments: 0,
           slug: content?.slug ?? p.id,
           verified: profile?.verified ?? false,
+          isRepost: !!p.repost_of,
           repost_of: repostNode
         };
       });

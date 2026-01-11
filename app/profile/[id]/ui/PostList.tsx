@@ -42,7 +42,7 @@ export default function PostList({ posts, loading, isOwner }: PostListProps) {
             key={post.id}
             onClick={() => {
               incrementPostViews(post.id);
-              router.push(`/post/${post.id}`);
+              router.push(`/post/${post.slug || post.id}`);
             }}
             className="block transition hover:bg-gray-100 cursor-pointer"
           >

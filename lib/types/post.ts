@@ -12,4 +12,5 @@ export interface PostCardData {
   likes: number;
   comments: number;
   repost_of?: PostCardData | null;
+  isRepost?: boolean;
 }

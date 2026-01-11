@@ -61,7 +61,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
             .from("post_content")
             .insert([{
                 post_id: newPost.id,
-                title: user.user_metadata?.full_name || "Repost", // Generic title or user name?
+                title: "", // Remove default title (previously reposter's name)
                 description: comment, // User's comment
                 author_image: user.user_metadata?.avatar_url,
                 slug: slug
@@ -187,10 +187,10 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
       <article>
         <header>
           {/* Judul & tanggal */}
-          {!post.repost_of && (
-              <h1 className="text-2xl text-gray-800 mt-5 font-bold leading-snug mb-2">{post.title}</h1>
+          {!(post.isRepost || post.repost_of || post.title === post.author) && (
+              <h1 className="text-2xl text-gray-800 mt-5 font-bold leading-snug mb-[-5]">{post.title}</h1>
           )}
-          <time className="text-sm text-gray-600 mb-3 block" dateTime={post.date}>{post.date}</time>
+          <time className="text-sm text-gray-600 mt-5 block" dateTime={post.date}>{post.date}</time>
 
           <div className="flex items-center gap-2 mb-4 mt-4">
             {authorId ? (
@@ -240,7 +240,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
           {post.repost_of && (
             <div className="mt-2 mb-6 pl-4 border-l-4 border-gray-900 flex gap-4 transition cursor-pointer group hover:bg-gray-50 p-2 rounded-r-lg" onClick={(e) => {
                 e.preventDefault();
-                router.push(`/post/${post.repost_of!.id}`); 
+                router.push(`/post/${post.repost_of!.slug || post.repost_of!.id}`); 
             }}>
                 <div className="flex-1 min-w-0 py-1">
                     <div className="flex items-center gap-2 mb-1">

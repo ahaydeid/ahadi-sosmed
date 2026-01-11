@@ -103,7 +103,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
 
         {/* Judul dan deskripsi */}
         <div className="flex flex-col">
-          {!post.repost_of && (
+          {!(post.isRepost || post.repost_of || post.title === post.author) && (
               <h2 className="md:text-2xl text-lg font-bold leading-snug mb-1 line-clamp-3">{post.title}</h2>
           )}
           <p className="text-gray-600 text-sm md:text-base mb-2 line-clamp-2">
@@ -115,7 +115,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
             <div className="mt-3 pl-4 border-l-4 border-gray-900 flex gap-4 transition cursor-pointer group" onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                router.push(`/post/${post.repost_of!.id}`); 
+                router.push(`/post/${post.repost_of!.slug || post.repost_of!.id}`); 
             }}>
                 <div className="flex-1 min-w-0 py-1">
                     <div className="flex items-center gap-2 mb-1">

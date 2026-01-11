@@ -4,13 +4,13 @@ import type { Route } from "next";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Search, User, Pencil } from "lucide-react";
+import { Search, User, Pencil, BadgeCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
 
 type TabKey = "teratas" | "followed";
-type SearchItem = { type: "user"; id: string; label: string; avatarUrl?: string | null } | { type: "post"; id: string; label: string; thumbnailUrl?: string | null };
+type SearchItem = { type: "user"; id: string; label: string; avatarUrl?: string | null; verified?: boolean } | { type: "post"; id: string; label: string; thumbnailUrl?: string | null };
 
 function TopBarInner() {
   const router = useRouter();
@@ -82,7 +82,7 @@ function TopBarInner() {
 
       id = setTimeout(async () => {
         const [usersRes, postsRes] = await Promise.all([
-          supabase.from("user_profile").select("id, display_name, avatar_url").ilike("display_name", `%${query.trim()}%`).limit(8),
+          supabase.from("user_profile").select("id, display_name, avatar_url, verified").ilike("display_name", `%${query.trim()}%`).limit(8),
           supabase
             .from("post_content")
             .select("slug, post_id, title")
@@ -98,6 +98,7 @@ function TopBarInner() {
             id: u.id as string,
             label: (u.display_name as string) ?? "Pengguna",
             avatarUrl: (u.avatar_url as string) ?? null,
+            verified: u.verified as boolean,
           })) ?? [];
 
         const posts: SearchItem[] =
@@ -249,7 +250,10 @@ function TopBarInner() {
                         ) : null}
 
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate">{item.label}</div>
+                          <div className="flex items-center gap-1">
+                            <div className="font-medium text-gray-900 truncate">{item.label}</div>
+                            {item.type === "user" && item.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                          </div>
                           <div className="text-gray-500 text-xs">{item.type === "user" ? "Pengguna" : "Post"}</div>
                         </div>
                       </div>

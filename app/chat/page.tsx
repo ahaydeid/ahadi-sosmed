@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Search } from "lucide-react";
+import { Search, BadgeCheck } from "lucide-react";
 import { ChatSkeleton } from "../components/Skeleton";
 import useSWR from "swr";
 
@@ -17,12 +17,14 @@ interface ChatItem {
   lastTs: number;
   unreadCount: number;
   lastFromSelf: boolean;
+  verified?: boolean;
 }
 
 interface UserProfile {
   id: string;
   display_name: string;
   avatar_url?: string | null;
+  verified?: boolean;
 }
 
 export default function ChatPage() {
@@ -82,7 +84,7 @@ export default function ChatPage() {
       }
 
       const partnerId = isSender ? m.receiver_id : m.sender_id;
-      const { data: partner } = await supabase.from("user_profile").select("display_name, avatar_url").eq("id", partnerId).maybeSingle();
+      const { data: partner } = await supabase.from("user_profile").select("display_name, avatar_url, verified").eq("id", partnerId).maybeSingle();
 
       const { data: mr } = await supabase.from("message_reads").select("last_read_at").eq("user_id", currentUserId).eq("message_id", m.id).maybeSingle();
       const lastRead = mr?.last_read_at ?? "1970-01-01T00:00:00Z";
@@ -113,6 +115,7 @@ export default function ChatPage() {
         lastTs: lastCreatedAt,
         unreadCount: effectiveUnread,
         lastFromSelf,
+        verified: partner?.verified
       } as ChatItem;
     });
 
@@ -186,7 +189,7 @@ export default function ChatPage() {
     // Cari user yang namanya match DAN ada di visible partner list
     const { data, error } = await supabase
       .from("user_profile")
-      .select("id, display_name, avatar_url")
+      .select("id, display_name, avatar_url, verified")
       .ilike("display_name", `%${term}%`)
       .in("id", visiblePartnerIds)
       .limit(20);
@@ -236,7 +239,10 @@ export default function ChatPage() {
                       <div suppressHydrationWarning className="w-9 h-9 rounded-full overflow-hidden bg-gray-200 relative shrink-0">
                         {user.avatar_url ? <Image src={user.avatar_url} alt={user.display_name} fill sizes="36px" className="object-cover" /> : <div suppressHydrationWarning className="w-9 h-9 rounded-full bg-gray-300" />}
                       </div>
-                      <p suppressHydrationWarning className="text-sm font-medium text-gray-800 truncate">{user.display_name}</p>
+                      <div suppressHydrationWarning className="flex items-center gap-1 min-w-0">
+                        <p suppressHydrationWarning className="text-sm font-medium text-gray-800 truncate">{user.display_name}</p>
+                        {user.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                      </div>
                     </div>
                   ))
                 )}
@@ -264,7 +270,10 @@ export default function ChatPage() {
                 {chat.avatar_url ? <Image src={chat.avatar_url} alt={chat.name} fill sizes="40px" className="object-cover" /> : <div suppressHydrationWarning className="w-10 h-10 rounded-full bg-gray-300" />}
               </div>
               <div suppressHydrationWarning className="flex-1 min-w-0">
-                <p suppressHydrationWarning className="font-semibold text-sm truncate">{chat.name}</p>
+                <div suppressHydrationWarning className="flex items-center gap-1">
+                  <p suppressHydrationWarning className="font-semibold text-sm truncate">{chat.name}</p>
+                  {chat.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                </div>
                 <p suppressHydrationWarning className="text-gray-500 text-sm line-clamp-1">{chat.lastMessage}</p>
               </div>
             </div>

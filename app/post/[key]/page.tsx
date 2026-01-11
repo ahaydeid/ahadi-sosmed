@@ -98,31 +98,40 @@ export default async function Page({ params }: Props) {
 
   let postId: string | null = null;
   let slugValue: string | null = null;
+  let fetchError = null;
 
   if (isUuid(key)) {
     postId = key;
-    const { data: contentForSlug } = await supabase.from("post_content").select("slug").eq("post_id", postId).maybeSingle();
+    const { data: contentForSlug, error } = await supabase.from("post_content").select("slug").eq("post_id", postId).maybeSingle();
+    if (error) fetchError = error;
     slugValue = contentForSlug?.slug ?? null;
   } else {
     slugValue = key;
-    const { data: slugRow } = await supabase.from("post_content").select("post_id").eq("slug", key).maybeSingle();
+    const { data: slugRow, error } = await supabase.from("post_content").select("post_id").eq("slug", key).maybeSingle();
+    if (error) fetchError = error;
     postId = slugRow?.post_id ?? null;
   }
 
-  if (!postId) {
+  if (fetchError || !postId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <h1 className="text-center text-gray-600">Tulisan tidak ditemukan</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <h1 className="text-xl font-bold text-gray-800 mb-2">Ops! Terjadi masalah</h1>
+        <p className="text-center text-gray-600 max-w-xs">
+          {fetchError ? "Gagal memuat konten. Silakan cek koneksi internet Anda atau coba lagi nanti." : "Tulisan tidak ditemukan atau tautan salah."}
+        </p>
       </div>
     );
   }
 
-  const { data: post } = await supabase.from("post").select("id").eq("id", postId).maybeSingle();
+  const { data: post, error: err3 } = await supabase.from("post").select("id").eq("id", postId).maybeSingle();
 
-  if (!post) {
+  if (err3 || !post) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <h1 className="text-center text-gray-600">Tulisan tidak ditemukan</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <h1 className="text-xl font-bold text-gray-800 mb-2">Ops! Terjadi masalah</h1>
+        <p className="text-center text-gray-600 max-w-xs">
+          {err3 ? "Gagal memuat detail tulisan. Silakan coba beberapa saat lagi." : "Tulisan tidak ditemukan."}
+        </p>
       </div>
     );
   }

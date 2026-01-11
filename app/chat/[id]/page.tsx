@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
-import { User, MoreVertical, ArrowLeft, Trash2, ShieldAlert } from "lucide-react";
+import { User, MoreVertical, ArrowLeft, Trash2, ShieldAlert, BadgeCheck } from "lucide-react";
 import { ChatDetailSkeleton } from "@/app/components/Skeleton";
 import { useSidebar } from "@/app/context/SidebarContext";
 import ConfirmModal from "@/app/components/ConfirmModal";
@@ -23,6 +23,7 @@ interface PartnerProfile {
   id: string;
   display_name: string;
   avatar_url: string | null;
+  verified?: boolean;
 }
 
 export default function ChatDetailPage() {
@@ -54,7 +55,15 @@ export default function ChatDetailPage() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const scrollToBottom = () => {
+      if (bottomRef.current) {
+        bottomRef.current.scrollIntoView({ behavior: "auto" });
+      }
+    };
+    // Scroll immediately and then again after a short delay for mobile Safari/Chrome
+    scrollToBottom();
+    const timer = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   // Effect 1: Loading initial data (room, partner, etc)
@@ -101,7 +110,7 @@ export default function ChatDetailPage() {
           return;
         }
 
-        const { data: partnerProfile } = await supabase.from("user_profile").select("id, display_name, avatar_url").eq("id", partnerId).single();
+        const { data: partnerProfile } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").eq("id", partnerId).single();
         setPartner(partnerProfile ?? null);
         setMessageRoomId(activeRoomId);
 
@@ -200,7 +209,7 @@ export default function ChatDetailPage() {
   }
 
   return (
-    <div suppressHydrationWarning className="min-h-screen bg-white flex flex-col">
+    <div suppressHydrationWarning className="h-[100dvh] bg-white flex flex-col overflow-hidden">
       {/* HEADER */}
       <div suppressHydrationWarning className="sticky top-0 z-40 bg-white flex items-center justify-between px-3 pb-3 border-b border-gray-200">
         <div suppressHydrationWarning className="flex items-center gap-3 pt-3 flex-1 min-w-0">
@@ -214,7 +223,10 @@ export default function ChatDetailPage() {
               {partner?.avatar_url ? <Image src={partner.avatar_url} alt={partner.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <div suppressHydrationWarning className="w-6 h-6 text-gray-600 flex items-center justify-center"><User className="w-6 h-6" /></div>}
             </div>
             {/* Nama Pengguna */}
-            <h1 className="font-semibold text-gray-800 truncate">{partner?.display_name ?? "Pengguna"}</h1>
+            <div className="flex items-center gap-1 min-w-0">
+              <h1 className="font-semibold text-gray-800 truncate">{partner?.display_name ?? "Pengguna"}</h1>
+              {partner?.verified && <BadgeCheck className="w-4 h-4 text-sky-500 shrink-0" />}
+            </div>
           </Link>
         </div>
 
@@ -252,7 +264,7 @@ export default function ChatDetailPage() {
       </div>
 
       {/* CHAT CONTENT */}
-      <div suppressHydrationWarning className="flex-1 flex flex-col gap-3 overflow-y-auto px-3 pt-4 pb-16">
+      <div suppressHydrationWarning className="flex-1 overflow-y-auto px-3 pt-4 pb-4 bg-white flex flex-col gap-2">
         {messages.length === 0 ? (
           <p className="text-center text-gray-500 text-sm mt-10">
             Belum ada pesan. Mulailah percakapan dengan <span className="font-semibold">{partner?.display_name ?? "Pengguna"}</span>.
@@ -285,7 +297,7 @@ export default function ChatDetailPage() {
       </div>
 
       {/* CHAT INPUT */}
-      <div suppressHydrationWarning className={`fixed bottom-0 right-0 z-40 bg-white px-3 pb-3 pt-2 transition-all duration-300 ${isCollapsed ? "left-0 md:left-20" : "left-0 md:left-64"}`}>
+      <div suppressHydrationWarning className="bg-white px-3 pb-3 pt-2 border-t border-gray-100 shadow-sm">
         <ChatInput receiverId={partner?.id ?? ""} messageRoomId={messageRoomId} currentUserId={currentUserId} setMessageRoomId={setMessageRoomId} />
       </div>
 

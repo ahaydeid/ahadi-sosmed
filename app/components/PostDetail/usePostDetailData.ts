@@ -22,6 +22,7 @@ export interface PostDetailData {
   views: number;
   repost_of?: {
     id: string;
+    slug: string;
     title: string;
     description: string;
     author: string;
@@ -29,6 +30,7 @@ export interface PostDetailData {
     date: string;
     imageUrl?: string | null;
   } | null;
+  isRepost?: boolean;
 }
 
 const formatPostDate = (dateString: string): string => {
@@ -103,6 +105,7 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
              if (originContent && originProfile) {
                  repostNode = {
                      id: postData.repost_of,
+                     slug: originContent.slug as string,
                      title: originContent.title,
                      description: originContent.description,
                      author: originProfile.display_name,
@@ -127,6 +130,7 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
         likes: (likesCount as number) ?? 0,
         comments: (commentsCount as number) ?? 0,
         views: viewsRow?.views ?? 0,
+        isRepost: !!postData.repost_of,
         repost_of: repostNode
       } as PostDetailData,
       authorId: postData.user_id,

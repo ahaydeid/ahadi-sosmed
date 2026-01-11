@@ -3,14 +3,29 @@
 import useSWR from "swr";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Heart, MessageSquare } from "lucide-react";
+import { Heart, MessageSquare, BadgeCheck } from "lucide-react";
 import NextImage from "next/image";
+import { extractPreviewText } from "@/lib/utils/html";
 
 // Fetcher
 const fetchTrending = async () => {
-    const { data, error } = await supabase.rpc("get_trending_posts", { limit_count: 5 });
+    const { data: trending, error } = await supabase.rpc("get_trending_posts", { limit_count: 5 });
     if (error) throw error;
-    return data;
+    if (!trending || trending.length === 0) return [];
+
+    // Enrich with description from post_content for snippet display
+    const postIds = trending.map((p: any) => p.post_id);
+    const { data: contentData } = await supabase
+        .from("post_content")
+        .select("post_id, description")
+        .in("post_id", postIds);
+
+    const descriptionMap = new Map(contentData?.map(c => [c.post_id, c.description]));
+    
+    return trending.map((p: any) => ({
+        ...p,
+        description: descriptionMap.get(p.post_id)
+    }));
 };
 
 export default function TrendingPosts() {
@@ -54,9 +69,10 @@ export default function TrendingPosts() {
                                     )}
                                 </div>
                                 <span className="text-xs font-medium text-gray-600 truncate max-w-[150px]">{post.author_name}</span>
+                                {post.author_verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
                             </div>
                             <h3 className="font-bold text-gray-900 leading-snug mb-1.5 group-hover:text-blue-600 transition-colors line-clamp-2">
-                                {post.title || "Untitled Post"}
+                                {(post.title && post.title !== post.author_name) ? post.title : (post.description ? extractPreviewText(post.description) : "Postingan")}
                             </h3>
                             <div className="flex items-center gap-4 text-xs text-gray-500">
                                 <span className="flex items-center gap-1">

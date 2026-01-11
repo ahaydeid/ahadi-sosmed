@@ -105,6 +105,7 @@ export async function getPublicPosts(limit = 100) {
       comments: 0,
       slug: (content?.slug || p.id) as string,
       verified: profile?.verified ?? false,
+      isRepost: !!p.repost_of,
       repost_of: repostNode
     };
   });
