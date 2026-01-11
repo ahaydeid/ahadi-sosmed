@@ -25,7 +25,7 @@ export default function PostList({ posts, loading, isOwner }: PostListProps) {
   };
 
   return (
-    <div className="mt-4 max-w-full mx-auto space-y-2">
+    <div className="mt-4 max-w-full mx-auto md:px-4 space-y-2">
       <div className="mb-5">
         <hr className="border border-gray-200 max-w-[95%] mx-auto" />
       </div>

@@ -111,14 +111,9 @@ export default async function TopicPage({ params }: TopicPageProps) {
       const { data: postHashtags, error } = await supabase
         .from('post_hashtags')
         .select(`
-          post:post_id (
-            id,
-            created_at,
-            user_id
-          )
+          post_id
         `)
-        .eq('hashtag_id', hashtagData.id)
-        .order('created_at', { ascending: false });
+        .eq('hashtag_id', hashtagData.id);
 
       if (!error && postHashtags) {
         // Extract unique post IDs
@@ -131,9 +126,6 @@ export default async function TopicPage({ params }: TopicPageProps) {
           const { data: postsData } = await supabase
             .from('post')
             .select(`
-              id,
-              created_at,
-              user_id,
               post_content (
                 title,
                 description,
@@ -147,6 +139,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
               )
             `)
             .in('id', postIds)
+            .eq('visibility', 'public')
             .order('created_at', { ascending: false });
 
           if (postsData) {
@@ -167,7 +160,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
                     .from('post_views')
                     .select('views')
                     .eq('post_id', post.id)
-                    .single(),
+                    .maybeSingle(),
                 ]);
 
                 const content = post.post_content?.[0] || post.post_content;
