@@ -41,7 +41,7 @@ export default function Header({ displayName, verified, onLogout, isOwnProfile }
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-sm py-1 z-50">
-              <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-gray-100 transition whitespace-nowrap">
+              <button onClick={onLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-gray-100 transition whitespace-nowrap text-left">
                 <LogOut className="w-4 h-4 shrink-0" />
                 <span>Logout</span>
               </button>
@@ -51,7 +51,7 @@ export default function Header({ displayName, verified, onLogout, isOwnProfile }
                   setMenuOpen(false);
                   router.push(setupRoute);
                 }}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition whitespace-nowrap"
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition whitespace-nowrap text-left"
               >
                 <Settings className="w-4 h-4 shrink-0" />
                 <span>Pengaturan Akun</span>

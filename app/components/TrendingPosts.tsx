@@ -13,18 +13,32 @@ const fetchTrending = async () => {
     if (error) throw error;
     if (!trending || trending.length === 0) return [];
 
-    // Enrich with description from post_content for snippet display
     const postIds = trending.map((p: any) => p.post_id);
-    const { data: contentData } = await supabase
-        .from("post_content")
-        .select("post_id, description")
-        .in("post_id", postIds);
+    
+    // Fetch content AND repost info
+    const [{ data: contentData }, { data: postData }] = await Promise.all([
+        supabase.from("post_content").select("post_id, description").in("post_id", postIds),
+        supabase.from("post").select("id, repost_of").in("id", postIds)
+    ]);
 
     const descriptionMap = new Map(contentData?.map(c => [c.post_id, c.description]));
+    const repostMap = new Map(postData?.map(p => [p.id, p.repost_of]));
     
+    // Fetch original titles for reposts
+    const repostIds = (postData?.map(p => p.repost_of).filter(Boolean) as string[]) || [];
+    let originalTitlesMap = new Map();
+    if (repostIds.length > 0) {
+        const { data: originalContents } = await supabase
+            .from("post_content")
+            .select("post_id, title")
+            .in("post_id", repostIds);
+        originalTitlesMap = new Map(originalContents?.map(c => [c.post_id, c.title]));
+    }
+
     return trending.map((p: any) => ({
         ...p,
-        description: descriptionMap.get(p.post_id)
+        description: descriptionMap.get(p.post_id),
+        repost_title: repostMap.get(p.post_id) ? originalTitlesMap.get(repostMap.get(p.post_id)) : null
     }));
 };
 
@@ -71,9 +85,14 @@ export default function TrendingPosts() {
                                 <span className="text-xs font-medium text-gray-600 truncate max-w-[150px]">{post.author_name}</span>
                                 {post.author_verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
                             </div>
-                            <h3 className="font-bold text-gray-900 leading-snug mb-1.5 group-hover:text-blue-600 transition-colors line-clamp-2">
+                            <h3 className="font-bold text-gray-900 leading-snug mb-0.5 group-hover:text-blue-600 transition-colors line-clamp-2">
                                 {(post.title && post.title !== post.author_name) ? post.title : (post.description ? extractPreviewText(post.description) : "Postingan")}
                             </h3>
+                            {post.repost_title && (
+                                <div className="text-xs text-gray-500 mb-1.5 italic">
+                                    pada &quot;{post.repost_title}&quot;
+                                </div>
+                            )}
                             <div className="flex items-center gap-4 text-xs text-gray-500">
                                 <span className="flex items-center gap-1">
                                     <Heart size={12} className="text-gray-400" /> {post.like_count}

@@ -22,11 +22,12 @@ function TopBarInner() {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [canPost, setCanPost] = useState(false);
-  const [openSearch, setOpenSearch] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const searchRef = useRef<HTMLDivElement | null>(null);
 
   const [mounted, setMounted] = useState(false);
 
@@ -59,14 +60,25 @@ function TopBarInner() {
   }, []);
 
   useEffect(() => {
-    if (!openSearch) return;
+    if (!isSearching) return;
     const t = setTimeout(() => inputRef.current?.focus(), 0);
-    return () => clearTimeout(t);
-  }, [openSearch]);
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setIsSearching(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isSearching]);
 
   // search debounced
   useEffect(() => {
-    if (!openSearch) return;
+    if (!isSearching) return;
     let cancelled = false;
     let id: ReturnType<typeof setTimeout> | null = null;
 
@@ -120,7 +132,7 @@ function TopBarInner() {
       cancelled = true;
       if (id) clearTimeout(id);
     };
-  }, [openSearch, query]);
+  }, [isSearching, query]);
 
   const setTabInUrl = (val: TabKey) => {
     const sp = new URLSearchParams(searchParams.toString());
@@ -147,25 +159,31 @@ function TopBarInner() {
     } else {
       router.push(`/profile/${item.id}`);
     }
-    setOpenSearch(false);
+    setIsSearching(false);
     setQuery("");
     setResults([]);
   };
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
     if (e.key === "Escape") {
-      setOpenSearch(false);
+      setIsSearching(false);
       setQuery("");
       setResults([]);
     }
   };
 
+  const closeMobileSearch = () => {
+    setIsSearching(false);
+    setQuery("");
+    setResults([]);
+  };
+
   if (!mounted) return <div className="h-12 border-b border-gray-200 bg-white" />;
 
   return (
-    <div suppressHydrationWarning className="sticky top-0 mb-1 z-40 bg-white border-b border-gray-200">
+    <div suppressHydrationWarning className="sticky top-0 mb-1 z-40 bg-white border-b border-gray-200" ref={searchRef}>
       <div suppressHydrationWarning className="flex items-center justify-between px-4 h-12">
-        <div suppressHydrationWarning className="flex items-center space-x-4">
+        <div suppressHydrationWarning className={`flex items-center space-x-4 ${isSearching ? 'hidden md:flex' : 'flex'}`}>
           <button onClick={() => handleTab("teratas")} className={`text-sm ${activeTab === "teratas" ? "font-semibold text-black" : "text-gray-500"}`}>
             Teratas
           </button>
@@ -182,82 +200,115 @@ function TopBarInner() {
           </button>
         </div>
 
-        <div className="flex items-center space-x-4">
-          {/* Search - Always visible */}
-          <div className="relative">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
-              <Search className="w-4 h-4 text-gray-400" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setOpenSearch(true);
-                }}
-                onFocus={() => setOpenSearch(true)}
-                onKeyDown={handleKeyDown}
-                placeholder="Cari"
-                className="bg-transparent outline-none text-sm w-15 md:w-40"
-              />
+        <div className={`flex items-center space-x-4 flex-1 justify-end`}>
+          {/* Search Wrapper */}
+          <div className={`relative ${isSearching ? 'w-full md:w-[450px] ml-0' : 'w-auto md:w-[200px]'}`}>
+            <div className={`flex items-center gap-2 rounded-full transition-all duration-300 ${isSearching ? 'bg-gray-100 px-4 h-9 w-full' : 'bg-transparent md:bg-gray-100 md:px-4 md:h-9 md:w-full'}`}>
+              
+              {/* Mobile Icon Button */}
+              {!isSearching && (
+                <button 
+                  onClick={() => setIsSearching(true)}
+                  className="w-9 h-9 md:hidden text-gray-500 hover:bg-gray-100 rounded-full flex items-center justify-center shrink-0"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              )}
+
+              {/* Desktop Icon & Input (Visible if isSearching or MD+) */}
+              <div className={`${isSearching ? 'flex' : 'hidden md:flex'} items-center gap-2 w-full`}>
+                <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                <input
+                  ref={inputRef}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setIsSearching(true);
+                  }}
+                  onFocus={() => setIsSearching(true)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Cari"
+                  className="bg-transparent outline-none text-sm w-full"
+                />
+                
+                {/* Clear button for search (visible on mobile if searching, or on desktop if query exists) */}
+                {(isSearching || query.length > 0) && (
+                  <button 
+                    onClick={closeMobileSearch}
+                    className="text-gray-400 p-1 hover:text-gray-600 transition-colors"
+                    title="Bersihkan pencarian"
+                  >
+                    <span className="text-xs font-bold px-1">×</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Login/Post buttons - Conditional */}
-          {mounted && !isLoggedIn ? (
-            <button onClick={handleGoLogin} className="bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 text-sm font-medium px-3 py-1.5 rounded transition-colors">
-              Login
-            </button>
-          ) : (
-            <>
-              {canPost ? (
-                <Link href="/write" className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition">
-                  <Pencil className="w-4 h-4 text-white" />
-                  <span className="text-sm font-medium text-white">Buat tulisan</span>
-                </Link>
-              ) : (
-                <Link 
-                  href="/poster"
-                  className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition"
-                >
-                  <Pencil className="w-4 h-4 text-white" />
-                  <span className="text-sm font-medium text-white">Ajukan Poster</span>
-                </Link>
-              )}
-            </>
-          )}
+          {/* Login/Post buttons - Hidden on mobile search */}
+          <div className={`${isSearching ? 'hidden md:flex' : 'flex'} items-center space-x-2`}>
+            {mounted && !isLoggedIn ? (
+              <button 
+                onClick={handleGoLogin} 
+                className="bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 text-sm font-medium px-3 h-9 rounded transition-colors whitespace-nowrap flex items-center"
+              >
+                Login
+              </button>
+            ) : (
+              // ... pencil Link code ...
+              <>
+                {canPost ? (
+                  <Link href="/write" className="flex items-center px-4 h-9 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition whitespace-nowrap">
+                    <Pencil className="w-4 h-4 text-white" />
+                    <span className="text-sm font-medium text-white hidden sm:block">Buat tulisan</span>
+                  </Link>
+                ) : (
+                  <Link 
+                    href="/poster"
+                    className="flex items-center px-4 h-9 rounded-lg bg-black hover:bg-gray-800 transition whitespace-nowrap"
+                  >
+                    <span className="text-sm font-medium text-white">Ajukan Poster</span>
+                  </Link>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {openSearch && (
-        <div className="px-4">
-          <div className="relative">
+      {isSearching && (query.trim() !== "" || loading) && (
+        <div className="px-4 flex justify-end" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="relative w-full md:w-[50%]">
             <div className="border border-gray-300 rounded-md overflow-hidden absolute z-10 w-full bg-white shadow-lg">
               <div className="max-h-72 overflow-y-auto divide-y border-b border-b-gray-50 divide-gray-50">
                 {loading && <div className="px-3 py-2 text-sm text-gray-500">Mencari…</div>}
                 {!loading && results.length === 0 && query.trim().length > 0 && <div className="px-3 py-2 text-sm text-gray-500">Tidak ada hasil</div>}
                 {!loading &&
                   results.map((item) => (
-                    <button key={`${item.type}-${item.id}`} onClick={() => handlePick(item as SearchItem & { post_id?: string })} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm">
-                      <div className="flex items-center gap-3">
-                        {item.type === "user" ? (
-                          item.avatarUrl ? (
-                            <Image src={item.avatarUrl} alt={item.label} width={28} height={28} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <User className="w-6 h-6 text-gray-400" />
-                          )
-                        ) : item.thumbnailUrl ? (
-                          <Image src={item.thumbnailUrl} alt={item.label} width={40} height={24} className="w-10 h-6 rounded object-cover" />
-                        ) : null}
+                    <Link 
+                      key={`${item.type}-${item.id}`} 
+                      href={item.type === "post" ? `/post/${item.id}` : `/profile/${item.id}` as any}
+                      onClick={() => handlePick(item as any)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm flex items-center gap-3"
+                    >
+                      {item.type === "user" ? (
+                        item.avatarUrl ? (
+                          <Image src={item.avatarUrl} alt={item.label} width={28} height={28} className="w-7 h-7 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <User className="w-6 h-6 text-gray-400 shrink-0" />
+                        )
+                      ) : item.thumbnailUrl ? (
+                        <Image src={item.thumbnailUrl} alt={item.label} width={40} height={24} className="w-10 h-6 rounded object-cover shrink-0" />
+                      ) : null}
 
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1">
-                            <div className="font-medium text-gray-900 truncate">{item.label}</div>
-                            {item.type === "user" && item.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
-                          </div>
-                          <div className="text-gray-500 text-xs">{item.type === "user" ? "Pengguna" : "Post"}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1">
+                          <div className="font-medium text-gray-900 truncate">{item.label}</div>
+                          {item.type === "user" && item.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
                         </div>
+                        <div className="text-gray-500 text-xs">{item.type === "user" ? "Pengguna" : "Post"}</div>
                       </div>
-                    </button>
+                    </Link>
                   ))}
               </div>
             </div>

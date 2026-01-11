@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useSidebar } from "@/app/context/SidebarContext";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function EditProfilePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const { isCollapsed } = useSidebar();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -86,15 +88,29 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-8 relative">
-      <h1 className="text-2xl font-semibold mb-6 text-center text-gray-800">Edit Profil</h1>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header 
+        className={`fixed top-0 right-0 h-14 bg-white border-b border-gray-200 z-50 flex items-center px-4 transition-all duration-300 ${isCollapsed ? "left-0 md:left-20" : "left-0 md:left-64"}`}
+      >
+        <button 
+          onClick={() => router.back()} 
+          className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition text-gray-700"
+          aria-label="Kembali"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+        <h1 className="ml-2 text-lg font-bold text-gray-800">Edit Profil</h1>
+      </header>
+
+      <div className="max-w-md mx-auto px-4 pt-20 pb-8 relative">
 
       {error && <div className="bg-red-100 text-red-700 px-3 py-2 mb-4 rounded-md text-sm">{error}</div>}
 
       <form onSubmit={handleSave} className="space-y-5">
         <div>
           <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">
-            Display Name
+            Tampilan Nama
           </label>
           <input
             id="displayName"
@@ -168,6 +184,7 @@ export default function EditProfilePage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -226,10 +226,20 @@ export default function BottomNavbar() {
           </button>
           {!isCollapsed && (
             <div suppressHydrationWarning className="flex-1 text-center">
-              <Link href="/" className="inline-block">
+              <Link href="/" className="inline-block relative group-logo">
+                {/* Decorative Particles */}
+                <span className="logo-particle particle-star p-tl particle-idle text-[#fbbf24]">⭐</span>
+                <span className="logo-particle particle-sparkle p-tr text-[#f472b6]">✨</span>
+                <span className="logo-particle particle-dot p-bl particle-idle"></span>
+                <span className="logo-particle particle-star p-br text-[#fbbf24] particle-idle">⭐</span>
+                <span className="logo-particle particle-dot p-tc"></span>
+                <span className="logo-particle particle-sparkle p-bc text-[#f472b6]">✨</span>
+                <span className="logo-particle particle-dot p-ml"></span>
+                <span className="logo-particle particle-star p-mr text-[#fbbf24]">⭐</span>
+
                 <span
                   suppressHydrationWarning
-                  className="text-xl font-bold truncate cursor-pointer hover:opacity-80"
+                  className="text-xl font-bold truncate cursor-pointer animate-ahadi relative z-10"
                 >
                   Ahadi
                 </span>

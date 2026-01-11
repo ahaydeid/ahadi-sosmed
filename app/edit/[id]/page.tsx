@@ -64,8 +64,8 @@ export default function EditPostPage() {
         }
 
         if (contentData) {
-          setTitle(contentData.title);
-          setContent(contentData.description);
+          setTitle(contentData.title || "");
+          setContent(contentData.description || "");
         }
       } catch (err) {
         console.error("Error:", err);
@@ -91,7 +91,7 @@ export default function EditPostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) {
+    if ((!isRepost && !title?.trim()) || !content?.trim()) {
       alert("Judul dan isi tidak boleh kosong.");
       return;
     }
@@ -100,14 +100,14 @@ export default function EditPostPage() {
       // Only regenerate slug if NOT a repost, optionally? 
       // Actually usually you don't change slug for reposts or even existing posts often.
       // But preserving existing logic:
-      const slug = generateSlug(title);
+      const slug = !isRepost ? generateSlug(title) : id;
 
       const { error: updateError } = await supabase
         .from("post_content")
         .update({
-          title,
+          title: isRepost ? null : title,
           description: content,
-          slug, 
+          slug: isRepost ? undefined : slug, 
         })
         .eq("post_id", id);
 

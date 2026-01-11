@@ -24,5 +24,5 @@ export function calculateReadingTime(text: string): number {
  */
 export function formatReadingTime(text: string): string {
   const minutes = calculateReadingTime(text);
-  return `${minutes} min read`;
+  return `${minutes} menit baca`;
 }
