@@ -322,9 +322,9 @@ export default function ChatDetailPage() {
             }
           }
         }}
-        title="Bersihkan History?"
-        message="History pesan sebelumnya akan hilang bagi Anda, namun tetap ada di daftar lawan bicara sampai mereka juga menghapusnya."
-        confirmLabel="Bersihkan untuk Saya"
+        title="Hapus Chat?"
+        message="Chat ini akan dihapus dan tidak dapat dikembalikan."
+        confirmLabel="Hapus"
         isDanger
       />
 

@@ -53,10 +53,10 @@ export default function ConfirmModal({
           <div className="flex flex-col gap-3">
             <button
               onClick={onConfirm}
-              className={`w-full py-3 rounded-xl font-semibold text-white transition-all active:scale-[0.98] ${
+              className={`w-full py-3 rounded font-semibold text-white transition-all active:scale-[0.98] ${
                 isDanger 
-                  ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-200" 
-                  : "bg-black hover:bg-gray-800 shadow-lg shadow-gray-200"
+                  ? "bg-red-500 shadow-xs"
+                  : "bg-black shadow-xs"
               }`}
             >
               {confirmLabel}
