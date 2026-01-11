@@ -11,14 +11,11 @@ export async function POST(req: Request) {
     }
 
     const { subscription } = await req.json();
-    console.log("[API Subscribe] Incoming subscription for user:", session.user.id);
 
     if (!subscription) {
-      console.error("[API Subscribe] No subscription provided");
       return NextResponse.json({ error: "Subscription required" }, { status: 400 });
     }
 
-    // Save to database
     const { error } = await supabase
       .from("push_subscriptions")
       .upsert({
@@ -27,11 +24,9 @@ export async function POST(req: Request) {
       }, { onConflict: "user_id,subscription" });
 
     if (error) {
-      console.error("[API Subscribe] DB Error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log("[API Subscribe] Success for user:", session.user.id);
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
