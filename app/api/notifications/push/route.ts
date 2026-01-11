@@ -27,6 +27,7 @@ export async function POST(req: Request) {
     }
 
     const { receiverId, text, messageId, senderName, senderAvatar } = await req.json();
+    console.log("[API Push] Request for receiver:", receiverId);
 
     if (!receiverId) {
       return NextResponse.json({ error: "Receiver ID required" }, { status: 400 });
@@ -38,9 +39,17 @@ export async function POST(req: Request) {
       .select("subscription")
       .eq("user_id", receiverId);
 
-    if (error || !subs || subs.length === 0) {
+    if (error) {
+      console.error("[API Push] DB Error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!subs || subs.length === 0) {
+      console.log("[API Push] No subscriptions found for user:", receiverId);
       return NextResponse.json({ success: true, message: "No subscriptions found" });
     }
+
+    console.log("[API Push] Sending to", subs.length, "subscriptions");
 
     // 2. Prepare payload
     const payload = JSON.stringify({

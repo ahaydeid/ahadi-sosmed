@@ -46,23 +46,29 @@ export default function NotificationHandler() {
 
         // 4. Subscribe or Sync Subscription
         try {
+            console.log("[Push] Checking existing subscription...");
             let subscription = await registration.pushManager.getSubscription();
             
             if (!subscription) {
+                console.log("[Push] No subscription found, subscribing now with Key:", VAPID_PUBLIC_KEY.slice(0, 10) + "...");
                 subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
                 });
+                console.log("[Push] New subscription obtained:", !!subscription);
             }
 
             // Always sync with backend to ensure user_id is linked
-            await fetch("/api/notifications/subscribe", {
+            console.log("[Push] Syncing subscription with backend...");
+            const res = await fetch("/api/notifications/subscribe", {
                 method: "POST",
                 body: JSON.stringify({ subscription }),
                 headers: { "Content-Type": "application/json" },
             });
+            const resData = await res.json();
+            console.log("[Push] Sync result:", resData);
         } catch (err) {
-            console.error("Failed to subscribe to push notifications:", err);
+            console.error("[Push] Failed to subscribe to push notifications:", err);
         }
     };
 
