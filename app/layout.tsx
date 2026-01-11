@@ -21,8 +21,31 @@ export const metadata: Metadata = {
     default: "Ahadi | Wadah Ekspresi dan Tulisan",
     template: "%s | Ahadi"
   },
-  description: "Ahadi adalah platform sosial media untuk berbagi tulisan, opini, dan ekspresi secara bebas dan kreatif.",
-  keywords: ["sosial media", "blog", "tulisan", "opini", "ekspresi", "ahadi", "indonesia"],
+  description: "Ahadi adalah platform sosial media Indonesia untuk berbagi tulisan, opini, cerita, dan ekspresi secara bebas. Komunitas penulis dan blogger untuk berbagi pengalaman, pendapat, dan kreativitas.",
+  keywords: [
+    // Brand & Platform
+    "ahadi", "ahadi.my.id", "platform ahadi",
+    // Core Platform Keywords
+    "sosial media", "sosial media Indonesia", "platform sosial media",
+    "blog", "blog Indonesia", "platform blog",
+    // Content Type
+    "tulisan", "berbagi tulisan", "platform menulis",
+    "opini", "berbagi opini", "artikel opini",
+    "ekspresi", "ekspresi bebas", "ekspresi kreatif",
+    // Community & Interaction
+    "komunitas penulis", "komunitas penulis Indonesia",
+    "forum diskusi", "forum diskusi Indonesia",
+    "berbagi cerita", "platform berbagi cerita",
+    // Niche Keywords (based on content)
+    "blog pendakian", "cerita pendakian gunung",
+    "blog traveling", "cerita perjalanan",
+    "blog petualangan", "komunitas pendaki",
+    // Features
+    "platform anonim", "berbagi anonim",
+    "media sosial penulis", "wadah ekspresi",
+    // Local SEO
+    "indonesia", "penulis Indonesia", "blogger Indonesia",
+  ],
   authors: [{ name: "Ahadi Team" }],
   creator: "Ahadi Team",
   publisher: "Ahadi",

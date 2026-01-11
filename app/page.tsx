@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Beranda | Ahadi - Wadah Ekspresi dan Tulisan",
-  description: "Temukan tulisan, opini, dan ekspresi kreatif terbaru dari komunitas Ahadi. Bagikan pemikiran Anda secara bebas.",
+  description: "Temukan tulisan, opini, cerita perjalanan, dan ekspresi kreatif terbaru dari komunitas penulis Indonesia. Bergabunglah dengan Ahadi untuk berbagi pengalaman, pendapat, dan kreativitas Anda secara bebas.",
   alternates: {
     canonical: "/",
   },
