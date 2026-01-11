@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { admin } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import webpush from "web-push";
 
@@ -33,8 +34,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Receiver ID required" }, { status: 400 });
     }
 
-    // 1. Fetch subscriptions for the receiver
-    const { data: subs, error } = await supabase
+    // 1. Fetch subscriptions using ADMIN client to bypass RLS
+    const { data: subs, error } = await admin
       .from("push_subscriptions")
       .select("subscription")
       .eq("user_id", receiverId);
