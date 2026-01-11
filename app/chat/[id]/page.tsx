@@ -6,7 +6,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
-import { User, MoreVertical, ArrowLeft, Trash2, ShieldAlert, BadgeCheck } from "lucide-react";
+import { User, MoreVertical, ArrowLeft, Trash2, ShieldAlert } from "lucide-react";
+import VerifiedBadge from "@/app/components/ui/VerifiedBadge";
 import { ChatDetailSkeleton } from "@/app/components/Skeleton";
 import { useSidebar } from "@/app/context/SidebarContext";
 import ConfirmModal from "@/app/components/ConfirmModal";
@@ -209,9 +210,9 @@ export default function ChatDetailPage() {
   }
 
   return (
-    <div suppressHydrationWarning className="h-[100dvh] bg-white flex flex-col overflow-hidden">
+    <div suppressHydrationWarning className="h-[100dvh] bg-white flex flex-col overflow-hidden relative">
       {/* HEADER */}
-      <div suppressHydrationWarning className="sticky top-0 z-40 bg-white flex items-center justify-between px-3 pb-3 border-b border-gray-200">
+      <div suppressHydrationWarning className="sticky top-0 z-40 bg-white/80 backdrop-blur-md flex items-center justify-between px-3 pb-3 border-b border-gray-100">
         <div suppressHydrationWarning className="flex items-center gap-3 pt-3 flex-1 min-w-0">
           {/* Tombol Kembali (Tetap terpisah) */}
           <ArrowLeft className="w-6 h-6 text-gray-800 cursor-pointer shrink-0" onClick={() => router.back()} />
@@ -225,7 +226,7 @@ export default function ChatDetailPage() {
             {/* Nama Pengguna */}
             <div className="flex items-center gap-1 min-w-0">
               <h1 className="font-semibold text-gray-800 truncate">{partner?.display_name ?? "Pengguna"}</h1>
-              {partner?.verified && <BadgeCheck className="w-4 h-4 text-sky-500 shrink-0" />}
+              {partner?.verified && <VerifiedBadge className="w-4 h-4" />}
             </div>
           </Link>
         </div>

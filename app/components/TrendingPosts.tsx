@@ -3,7 +3,8 @@
 import useSWR from "swr";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Heart, MessageSquare, BadgeCheck } from "lucide-react";
+import { Heart, MessageSquare } from "lucide-react";
+import VerifiedBadge from "./ui/VerifiedBadge";
 import NextImage from "next/image";
 import { extractPreviewText } from "@/lib/utils/html";
 
@@ -83,7 +84,7 @@ export default function TrendingPosts() {
                                     )}
                                 </div>
                                 <span className="text-xs font-medium text-gray-600 truncate max-w-[150px]">{post.author_name}</span>
-                                {post.author_verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                                {post.author_verified && <VerifiedBadge className="w-3 h-3" />}
                             </div>
                             <h3 className="font-bold text-gray-900 leading-snug mb-0.5 group-hover:text-blue-600 transition-colors line-clamp-2">
                                 {(post.title && post.title !== post.author_name) ? post.title : (post.description ? extractPreviewText(post.description) : "Postingan")}

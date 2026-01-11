@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { BadgeCheck, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import VerifiedBadge from "@/app/components/ui/VerifiedBadge";
 import Link from "next/link";
 import { useSidebar } from "@/app/context/SidebarContext";
 
@@ -58,13 +59,18 @@ export default function EditProfilePage() {
     setSaving(true);
     setError(null);
 
+    const payload: any = {
+      bio: bio.trim(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (!isVerified) {
+      payload.display_name = displayName.trim();
+    }
+
     const { error: updateError } = await supabase
       .from("user_profile")
-      .update({
-        display_name: displayName.trim(),
-        bio: bio.trim(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(payload)
       .eq("id", userId);
 
     setSaving(false);
@@ -118,8 +124,14 @@ export default function EditProfilePage() {
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            disabled={isVerified}
+            className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-500 ${isVerified ? "bg-gray-100 cursor-not-allowed opacity-75" : ""}`}
           />
+          {isVerified && (
+            <p className="text-[10px] text-sky-600 mt-1 italic">
+              Nama tidak dapat diubah karena akun Anda sudah terverifikasi.
+            </p>
+          )}
         </div>
 
         <div>
@@ -145,15 +157,11 @@ export default function EditProfilePage() {
 
       {/* Verified Badge Section */}
       <div className="mt-8 pt-6 border-t border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          <BadgeCheck className="w-5 h-5 text-sky-500" />
-          Badge Verified
-        </h2>
-        
+          
         {isVerified ? (
           <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
-            <p className="text-sm text-sky-800 flex items-center gap-2">
-              <BadgeCheck className="w-4 h-4" />
+            <p className="text-sm text-sky-800 flex items-center justify-center gap-2">
+              <VerifiedBadge className="w-4 h-4" />
               Akun kamu sudah verified
             </p>
           </div>
@@ -166,7 +174,7 @@ export default function EditProfilePage() {
               href="/verify"
               className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition font-medium text-sm flex items-center justify-center gap-2"
             >
-              <BadgeCheck className="w-4 h-4" />
+              <VerifiedBadge className="w-5 h-5" />
               Ajukan Verified
             </Link>
           </div>

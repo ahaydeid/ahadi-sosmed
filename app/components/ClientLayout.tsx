@@ -6,6 +6,7 @@ import AuthListener from "./AuthListener";
 import RegisterSW from "./RegisterSW";
 import NotificationHandler from "./NotificationHandler";
 import { Suspense } from "react";
+import { usePathname } from "next/navigation";
 
 export default function ClientLayout({ 
   children, 
@@ -15,6 +16,10 @@ export default function ClientLayout({
   poppinsVariable: string;
 }) {
   const { isCollapsed } = useSidebar();
+  const pathname = usePathname();
+
+  // Deteksi apakah ini halaman detail chat (misal: /chat/123)
+  const isChatDetail = pathname.startsWith("/chat/") && pathname !== "/chat";
   
   return (
     <div suppressHydrationWarning className={`${poppinsVariable} antialiased relative min-h-screen bg-gray-50/10 transition-all duration-300`}>
@@ -23,8 +28,11 @@ export default function ClientLayout({
         <RegisterSW />
         <NotificationHandler />
 
-        {/* WRAPPER KONTEN - Margin mengikuti state sidebar di desktop */}
-        <div suppressHydrationWarning className={`transition-all duration-300 pb-14 md:pb-0 ${isCollapsed ? "md:ml-20" : "md:ml-64"}`}>
+        {/* WRAPPER KONTEN - PB-14 (jarak buat menu bawah mobile) dihapus kalau di detail chat */}
+        <div 
+          suppressHydrationWarning 
+          className={`transition-all duration-300 ${!isChatDetail ? "pb-14" : ""} md:pb-0 ${isCollapsed ? "md:ml-20" : "md:ml-64"}`}
+        >
           {children}
         </div>
 

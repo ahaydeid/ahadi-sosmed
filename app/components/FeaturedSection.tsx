@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Clock, Eye, Heart, MessageCircle, User, BadgeCheck } from "lucide-react";
+import { Clock, Eye, Heart, MessageCircle, User } from "lucide-react";
+import VerifiedBadge from "./ui/VerifiedBadge";
 import { formatCompact } from "@/lib/formatCompact";
 import { formatReadingTime } from "@/lib/utils/readingTime";
 import { extractFirstImage, extractPreviewText } from "@/lib/utils/html";
@@ -51,22 +52,22 @@ export default function FeaturedSection({ posts }: FeaturedSectionProps) {
                 {/* Content */}
                 <div className="p-4">
                   {/* Author */}
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center mb-2">
                     {post.authorImage ? (
                       <Image
                         src={post.authorImage}
                         alt={post.author}
                         width={20}
                         height={20}
-                        className="rounded-full"
+                        className="rounded-full mr-2"
                       />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                      <div className="w-5 h-5 mr-2 rounded-full bg-gray-200 flex items-center justify-center">
                         <User className="w-3 h-3 text-gray-500" />
                       </div>
                     )}
-                    <span className="text-xs font-medium text-gray-900">{post.author}</span>
-                    {post.verified && <BadgeCheck className="w-3 h-3 text-sky-500" />}
+                    <span className="text-xs font-medium text-gray-900 mr-0.5">{post.author}</span>
+                    {post.verified && <VerifiedBadge className="w-3 h-3" />}
                   </div>
 
                   {/* Title */}

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
-import { ArrowLeft, Heart, BadgeCheck } from "lucide-react";
+import { ArrowLeft, Heart } from "lucide-react";
+import VerifiedBadge from "./ui/VerifiedBadge";
 import ModalLikes from "@/app/components/ModalLikes";
 
 interface RepliesModalProps {
@@ -398,7 +399,7 @@ function ReplyItem({ item, profiles, onReply, onShowLikes, likes }: { item: Item
         <div className="bg-gray-100 rounded-xl p-3">
           <div className="flex items-center gap-1 font-semibold text-sm text-gray-900">
             <span>{item.authorName}</span>
-            {profiles.get(item.authorId!)?.verified && <BadgeCheck className="w-4 h-4 text-sky-600" />}
+            {profiles.get(item.authorId!)?.verified && <VerifiedBadge className="w-4 h-4" />}
           </div>
           <div className="mt-1 text-gray-700 text-sm leading-relaxed">
             {isRoot ? (

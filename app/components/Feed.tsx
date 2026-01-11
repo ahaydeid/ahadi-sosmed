@@ -39,6 +39,9 @@ export default function Feed({ initialPosts }: FeedProps) {
 
     // === FILTER TAB "DIIKUTI" ===
     if (tab === "followed") {
+      // ... followed tab logic remains similar but could be optimized later
+      // For now, let's keep it but ensure it doesn't do the individual stat fetching loop
+      // (I'll keep the existing followed logic for now but skip the loop)
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user?.id ?? null;
       if (!uid) return [];
@@ -47,6 +50,8 @@ export default function Feed({ initialPosts }: FeedProps) {
       const followingIds = (follows ?? []).map((f) => String(f.following_id));
       if (followingIds.length === 0) return [];
 
+      // Note: This followed tab should also ideally be moved to a server action 
+      // to benefit from bulk fetching. But for now we just optimize the loop.
       const { data: followedPosts } = await supabase
         .from("post")
         .select("id, created_at, user_id, visibility, repost_of")
@@ -139,32 +144,26 @@ export default function Feed({ initialPosts }: FeedProps) {
     } catch { }
 
     const now = Date.now();
-    const enriched = await Promise.all(
-      filtered.map(async (p) => {
-        const [viewsRes, likesRes, commentsRes] = await Promise.all([
-          supabase.from("post_views").select("views").eq("post_id", p.id).maybeSingle(),
-          supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id).eq("liked", true),
-          supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id),
-        ]);
-
-        const v = viewsRes?.data?.views ?? 0;
-        const l = likesRes?.count ?? 0;
-        const c = commentsRes?.count ?? 0;
+    // NO MORE Promise.all LOOP HERE
+    const enriched = filtered.map((p) => {
+        const v = p.views || 0;
+        const l = p.likes || 0;
+        const c = p.comments || 0;
         const hours = Math.max(0, (now - (Date.parse(p.created_at) || now)) / 3_600_000);
         const timeBoost = BASE_TIME_BOOST * Math.pow(TIME_DECAY_PER_HOUR, hours);
 
         let score = v * WEIGHTS.view + l * WEIGHTS.like + c * WEIGHTS.comment + timeBoost;
         if (collapsedSet.has(p.id)) score -= PENALTY_VALUE;
 
-        return { ...p, views: v, likes: l, comments: c, score };
-      })
-    );
+        return { ...p, score };
+    });
 
     return enriched.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   }, {
     fallbackData: tab === "teratas" ? initialPosts.map(p => ({ ...p, score: 0 })) : undefined,
     revalidateOnFocus: false,
-    revalidateOnMount: true
+    revalidateOnMount: false, // Trust fallbackData (initialPosts) on first mount
+    dedupingInterval: 60000 // Cache for 1 minute
   });
 
   const posts = postsData || [];

@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { CalendarDays, Eye, Heart, MessageCircle, X, User, BadgeCheck, MoreVertical, Edit, Trash, Repeat2, Clock, MinusCircle } from "lucide-react";
+import { CalendarDays, Eye, Heart, MessageCircle, X, User, MoreVertical, Edit, Trash, Repeat2, Clock, MinusCircle } from "lucide-react";
+import VerifiedBadge from "./ui/VerifiedBadge";
 import { PostCardData } from "@/lib/types/post";
 import { formatCompact } from "@/lib/formatCompact";
 import { useState } from "react";
@@ -96,7 +97,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
               )}
               <div className="flex items-center gap-1 leading-none">
                 <span className="text-xs text-gray-800 font-medium">{post.author}</span>
-                {post.verified && <BadgeCheck className="w-3 h-3 text-sky-500" />}
+                {post.verified && <VerifiedBadge className="w-3 h-3" />}
               </div>
           </div>
         </div>

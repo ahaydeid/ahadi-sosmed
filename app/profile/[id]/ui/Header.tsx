@@ -1,6 +1,7 @@
 "use client";
 
-import { MoreVertical, ArrowLeft, BadgeCheck, LogOut, Settings } from "lucide-react";
+import { MoreVertical, ArrowLeft, LogOut, Settings } from "lucide-react";
+import VerifiedBadge from "@/app/components/ui/VerifiedBadge";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
@@ -29,7 +30,7 @@ export default function Header({ displayName, verified, onLogout, isOwnProfile }
 
         <h1 className="text-lg font-bold text-gray-800 truncate flex items-center gap-1">
           {displayName}
-          {verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
+          {verified && <VerifiedBadge className="w-4 h-4" />}
         </h1>
       </div>
 

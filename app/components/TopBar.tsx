@@ -4,7 +4,8 @@ import type { Route } from "next";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Search, User, Pencil, BadgeCheck } from "lucide-react";
+import { Search, User, Pencil } from "lucide-react";
+import VerifiedBadge from "./ui/VerifiedBadge";
 import Image from "next/image";
 import Link from "next/link";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
@@ -304,7 +305,7 @@ function TopBarInner() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
                           <div className="font-medium text-gray-900 truncate">{item.label}</div>
-                          {item.type === "user" && item.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                          {item.type === "user" && item.verified && <VerifiedBadge className="w-3 h-3" />}
                         </div>
                         <div className="text-gray-500 text-xs">{item.type === "user" ? "Pengguna" : "Post"}</div>
                       </div>

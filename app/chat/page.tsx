@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Search, BadgeCheck } from "lucide-react";
+import { Search } from "lucide-react";
+import VerifiedBadge from "../components/ui/VerifiedBadge";
 import { ChatSkeleton } from "../components/Skeleton";
 import useSWR from "swr";
 
@@ -241,7 +242,7 @@ export default function ChatPage() {
                       </div>
                       <div suppressHydrationWarning className="flex items-center gap-1 min-w-0">
                         <p suppressHydrationWarning className="text-sm font-medium text-gray-800 truncate">{user.display_name}</p>
-                        {user.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                        {user.verified && <VerifiedBadge className="w-4 h-4" />}
                       </div>
                     </div>
                   ))
@@ -272,7 +273,7 @@ export default function ChatPage() {
               <div suppressHydrationWarning className="flex-1 min-w-0">
                 <div suppressHydrationWarning className="flex items-center gap-1">
                   <p suppressHydrationWarning className="font-semibold text-sm truncate">{chat.name}</p>
-                  {chat.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                  {chat.verified && <VerifiedBadge className="w-3 h-3" />}
                 </div>
                 <p suppressHydrationWarning className="text-gray-500 text-sm line-clamp-1">{chat.lastMessage}</p>
               </div>

@@ -30,16 +30,34 @@ export async function getPublicPosts(limit = 100) {
   const repostIds = posts.map(p => p.repost_of).filter(Boolean);
 
   // 3. Fetch data in parallel
-  const [profilesRes, repostsOriginalRes, repostsContentRes] = await Promise.all([
+  const [profilesRes, repostsOriginalRes, repostsContentRes, viewsRes, likesRes, commentsRes] = await Promise.all([
     supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", Array.from(userIds)),
     // For reposts, we need the original author ID to fetch THEIR profile next
     repostIds.length > 0 ? supabase.from("post").select("id, created_at, user_id").in("id", repostIds) : Promise.resolve({ data: [] }),
-    repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", repostIds) : Promise.resolve({ data: [] })
+    repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", repostIds) : Promise.resolve({ data: [] }),
+    // Bulk fetch views, likes, and comments
+    supabase.from("post_views").select("post_id, views").in("post_id", posts.map(p => p.id)),
+    supabase.from("post_likes").select("post_id").in("post_id", posts.map(p => p.id)).eq("liked", true),
+    supabase.from("comments").select("post_id").in("post_id", posts.map(p => p.id))
   ]);
 
   const profileMap = new Map(profilesRes.data?.map((p) => [p.id, p]));
   const repostOriginalMap = new Map(repostsOriginalRes.data?.map(p => [p.id, p]));
   const repostContentMap = new Map(repostsContentRes.data?.map(c => [c.post_id, c]));
+  
+  // Stats Maps
+  const viewsMap = new Map(viewsRes.data?.map(v => [v.post_id, v.views]));
+  
+  // Manually count likes and comments per post since Supabase JS doesn't do group-by-count easily in one query
+  const likesCountMap = new Map<string, number>();
+  likesRes.data?.forEach(l => {
+    likesCountMap.set(l.post_id, (likesCountMap.get(l.post_id) || 0) + 1);
+  });
+  
+  const commentsCountMap = new Map<string, number>();
+  commentsRes.data?.forEach(c => {
+    commentsCountMap.set(c.post_id, (commentsCountMap.get(c.post_id) || 0) + 1);
+  });
 
   // 4. Fetch profiles for ORIGINAL authors of reposted content
   let repostAuthorMap = new Map();
@@ -80,9 +98,9 @@ export async function getPublicPosts(limit = 100) {
                     authorImage: originProfile.avatar_url, // Using camelCase
                     date: new Date(originPost.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long" }),
                     imageUrl: firstImage,
-                    views: 0,
-                    likes: 0,
-                    comments: 0
+                    views: viewsMap.get(p.repost_of) || 0,
+                    likes: likesCountMap.get(p.repost_of) || 0,
+                    comments: commentsCountMap.get(p.repost_of) || 0
                 };
             }
         }
@@ -100,9 +118,9 @@ export async function getPublicPosts(limit = 100) {
         month: "short",
       }),
       created_at: p.created_at,
-      views: 0,
-      likes: 0,
-      comments: 0,
+      views: viewsMap.get(p.id) || 0,
+      likes: likesCountMap.get(p.id) || 0,
+      comments: commentsCountMap.get(p.id) || 0,
       slug: (content?.slug || p.id) as string,
       verified: profile?.verified ?? false,
       isRepost: !!p.repost_of,

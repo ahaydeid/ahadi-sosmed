@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { UserPlus, BadgeCheck, Forward, MessageCircle } from "lucide-react";
+import { UserPlus, Forward, MessageCircle } from "lucide-react";
+import VerifiedBadge from "@/app/components/ui/VerifiedBadge";
 
 interface AvatarSectionProps {
   displayName: string;
@@ -24,8 +25,8 @@ export default function AvatarSection({ displayName, avatarUrl, verified, bio, i
           {avatarUrl ? <Image src={avatarUrl} alt={displayName} width={96} height={96} className="object-cover w-24 h-24" /> : <div className="w-12 h-12 rounded-full bg-gray-300" />}
         </div>
         {verified && (
-          <div className="absolute bottom-0 -right-1">
-            <BadgeCheck className="w-7 h-7 text-sky-500 fill-white" />
+          <div className="absolute bottom-0 -right-3">
+            <VerifiedBadge className="w-10 h-10" />
           </div>
         )}
       </div>

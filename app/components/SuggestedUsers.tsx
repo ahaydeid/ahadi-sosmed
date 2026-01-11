@@ -5,7 +5,8 @@ import useSWR from "swr";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 import NextImage from "next/image";
-import { UserPlus, UserCheck, User, BadgeCheck } from "lucide-react";
+import { UserPlus, UserCheck, User } from "lucide-react";
+import VerifiedBadge from "./ui/VerifiedBadge";
 
 const fetchSuggestions = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -95,7 +96,7 @@ export default function SuggestedUsers() {
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-1">
                                         <p className="font-bold text-sm text-gray-900 truncate group-hover:underline">{user.display_name}</p>
-                                        {user.verified && <BadgeCheck className="w-3 h-3 text-sky-500 shrink-0" />}
+                                        {user.verified && <VerifiedBadge className="w-3 h-3" />}
                                     </div>
                                     <p className="text-xs text-gray-500 truncate">{user.total_posts || 0} posts</p>
                                 </div>

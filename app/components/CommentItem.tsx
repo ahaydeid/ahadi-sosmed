@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
+import VerifiedBadge from "./ui/VerifiedBadge";
 import type { CommentData } from "@/lib/types/comment";
 import { getInitials } from "@/lib/format";
 
@@ -44,7 +45,7 @@ export default function CommentItem({ comment, onReply, onLike, likeBusy, onShow
         <div className="bg-gray-100 rounded-xl p-3">
           <Link href={`/profile/${comment.user_id}`} className="flex items-center gap-1 mb-1 hover:underline">
             <p className="font-semibold text-sm text-gray-800">{comment.author}</p>
-            {comment.verified && <BadgeCheck className="w-3.5 h-3.5 text-sky-500" />}
+            {comment.verified && <VerifiedBadge className="w-3.5 h-3.5" />}
           </Link>
 
           <p className="text-sm text-gray-800 whitespace-pre-wrap">{comment.text}</p>

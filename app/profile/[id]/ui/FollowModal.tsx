@@ -1,4 +1,5 @@
-import { X, BadgeCheck } from "lucide-react";
+import { X } from "lucide-react";
+import VerifiedBadge from "@/app/components/ui/VerifiedBadge";
 import Link from "next/link";
 import Image from "next/image";
 import { SimpleProfile } from "../logic/useFollowData";
@@ -48,14 +49,14 @@ export default function FollowModal({ followTab, setShowFollowModal, follow }: F
                         {u.avatar_url ? <Image src={u.avatar_url} alt={u.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
                         {u.verified && (
                           <div className="absolute bottom-0 -right-0.5">
-                            <BadgeCheck className="w-4 h-4 text-sky-500 fill-white" />
+                            <VerifiedBadge className="w-4 h-4" />
                           </div>
                         )}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
                           {u.display_name}
-                          {u.verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
+                          {u.verified && <VerifiedBadge className="w-4 h-4" />}
                         </p>
                         <p className="text-xs text-gray-500">Lihat profil</p>
                       </div>

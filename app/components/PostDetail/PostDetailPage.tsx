@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, MoreVertical, Edit, User } from "lucide-react";
+import { MoreVertical, Edit, User } from "lucide-react";
+import VerifiedBadge from "../ui/VerifiedBadge";
 import PostActions from "./PostActions";
 import PostComments from "../PostComments";
 import CommentInput from "../CommentInput";
@@ -200,7 +201,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
                 </div>
                 <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
                   {post.author}
-                  {post.author_verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
+                  {post.author_verified && <VerifiedBadge className="w-4 h-4" />}
                 </span>
               </Link>
             ) : (
@@ -210,7 +211,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
                 </div>
                 <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
                   {post.author}
-                  {post.author_verified && <BadgeCheck className="w-4 h-4 text-sky-500" />}
+                  {post.author_verified && <VerifiedBadge className="w-4 h-4" />}
                 </span>
               </>
             )}
