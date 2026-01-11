@@ -122,11 +122,9 @@ export default function RichTextEditor({ content, onChange, placeholder = "Tulis
       const userId = session?.user?.id;
       if (!userId) throw new Error("Unauthorized");
 
+      console.log(`[Upload] Starting compression for ${file.name}...`);
       const compressed = await compressImage(file);
-
-      // Use compressed blob for upload, but need to check if it's Blob or File.
-      // Supabase upload matches File | Blob.
-      // We'll rename it to match unique pattern.
+      console.log(`[Upload] Compression finished. Resulting type: ${compressed.type}, size: ${Math.round(compressed.size / 1024)}KB`);
 
       const extensionMap: Record<string, string> = {
         "image/jpeg": "jpg",
@@ -134,13 +132,19 @@ export default function RichTextEditor({ content, onChange, placeholder = "Tulis
         "image/webp": "webp",
         "image/gif": "gif",
       };
-      const ext = extensionMap[compressed.type] || "png";
+      
+      // If the type is image/jpeg, force jpg extension regardless of mapping
+      const ext = compressed.type === "image/jpeg" ? "jpg" : (extensionMap[compressed.type] || "png");
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
       const filePath = `${userId}/${fileName}`;
 
+      console.log(`[Upload] Uploading to Supabase: ${filePath}`);
       const { error: uploadError } = await supabase.storage.from("post-images").upload(filePath, compressed);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("[Upload] Supabase error:", uploadError);
+        throw uploadError;
+      }
 
       const { data } = supabase.storage.from("post-images").getPublicUrl(filePath);
       return data.publicUrl;
