@@ -112,7 +112,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
 
           {/* Repost Content - Quote Style */}
           {post.repost_of && (
-            <div className="mt-3 pl-4 border-l-4 border-gray-900 flex gap-4 transition cursor-pointer group" onClick={(e) => {
+            <div className="mt-3 mx-2 pl-4 border-l-4 border-gray-900 flex gap-4 transition cursor-pointer group" onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 router.push(`/post/${post.repost_of!.slug || post.repost_of!.id}`); 
