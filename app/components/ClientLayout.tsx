@@ -4,6 +4,7 @@ import { useSidebar } from "@/app/context/SidebarContext";
 import BottomNavbar from "./BottomNavbar";
 import AuthListener from "./AuthListener";
 import RegisterSW from "./RegisterSW";
+import NotificationHandler from "./NotificationHandler";
 import { Suspense } from "react";
 
 export default function ClientLayout({ 
@@ -20,6 +21,7 @@ export default function ClientLayout({
       <Suspense fallback={null}>
         <AuthListener />
         <RegisterSW />
+        <NotificationHandler />
 
         {/* WRAPPER KONTEN - Margin mengikuti state sidebar di desktop */}
         <div suppressHydrationWarning className={`transition-all duration-300 pb-14 md:pb-0 ${isCollapsed ? "md:ml-20" : "md:ml-64"}`}>

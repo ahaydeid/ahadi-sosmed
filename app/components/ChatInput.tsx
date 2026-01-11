@@ -31,17 +31,11 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
     if (!text) return;
 
     setSending(true);
-    console.log("=== Mulai kirim pesan ===");
-    console.log("receiverId:", receiverId);
-    console.log("messageRoomId:", messageRoomId);
-    console.log("currentUserId:", currentUserId);
-
     try {
       let chatId: string = messageRoomId ?? "";
 
       // 1️⃣ Buat room jika belum ada
       if (!chatId) {
-        console.log("Belum ada chatId, buat room baru...");
         const { data, error } = await supabase
           .from("messages")
           .insert([{ sender_id: currentUserId, receiver_id: receiverId }])
@@ -49,7 +43,6 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
           .single();
 
         if (error) {
-          console.error("Gagal buat room:", error);
           alert("Gagal membuat room: " + error.message);
           return;
         }
@@ -59,38 +52,47 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
         }
 
         chatId = data.id;
-        console.log("Room berhasil dibuat:", chatId);
         setMessageRoomId?.(chatId);
       }
 
       // 2️⃣ Insert pesan
-      console.log("Kirim pesan ke messages_content...");
-      const { data: inserted, error: msgError, status, statusText } = await supabase
+      const { data: inserted, error: msgError } = await supabase
         .from("messages_content")
         .insert([{ message_id: chatId, sender_id: currentUserId, text }])
         .select("id")
         .single();
 
-      console.log("Insert result:", { inserted, msgError, status, statusText });
-
       if (msgError) {
-        console.error("Error insert messages_content:", msgError);
         alert("Gagal insert messages_content: " + msgError.message);
         return;
       }
-      if (!inserted?.id) {
-        alert("Insert messages_content tidak mengembalikan ID!");
-        return;
-      }
-
-      console.log("Pesan berhasil dikirim:", inserted.id);
-
-      // 2.5️⃣ Tandai sebagai terbaca secara instan agar badge langsung hilang
+      
+      // 2.5️⃣ Tandai sebagai terbaca secara instan
       await supabase.from("message_reads").upsert({
         user_id: currentUserId,
         message_id: chatId,
         last_read_at: new Date().toISOString()
       }, { onConflict: "user_id,message_id" });
+
+      // 2.6️⃣ Kirim Push Notification ke Penerima
+      // Kita fetch profile pengirim (kita sendiri) untuk badge/nama di notif
+      const { data: myProfile } = await supabase
+        .from("user_profile")
+        .select("display_name, avatar_url")
+        .eq("id", currentUserId)
+        .single();
+
+      void fetch("/api/notifications/push", {
+        method: "POST",
+        body: JSON.stringify({
+           receiverId,
+           text,
+           messageId: inserted.id,
+           senderName: myProfile?.display_name,
+           senderAvatar: myProfile?.avatar_url
+        }),
+        headers: { "Content-Type": "application/json" }
+      }).catch(err => console.error("Push secondary error:", err));
 
       // 3️⃣ Reset input
       el.value = "";
@@ -101,7 +103,6 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
       alert(err instanceof Error ? err.message : JSON.stringify(err));
     } finally {
       setSending(false);
-      console.log("=== Selesai kirim pesan ===");
     }
   };
 

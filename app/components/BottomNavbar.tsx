@@ -226,7 +226,14 @@ export default function BottomNavbar() {
           </button>
           {!isCollapsed && (
             <div suppressHydrationWarning className="flex-1 text-center">
-              <span suppressHydrationWarning className="text-xl font-bold truncate">Ahadi</span>
+              <Link href="/" className="inline-block">
+                <span
+                  suppressHydrationWarning
+                  className="text-xl font-bold truncate cursor-pointer hover:opacity-80"
+                >
+                  Ahadi
+                </span>
+              </Link>
             </div>
           )}
         </div>
