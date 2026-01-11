@@ -61,14 +61,22 @@ export async function POST(req: Request) {
     });
 
     // 3. Send notifications
+    console.log("[API Push] Payload:", payload);
     const results = await Promise.allSettled(
       subs.map((s) => webpush.sendNotification(s.subscription as any, payload))
     );
 
-    // 4. Handle expired subscriptions
+    // 4. Handle results and expired subscriptions
+    const failures = results.filter(res => res.status === "rejected");
+    if (failures.length > 0) {
+        console.error("[API Push] Some failures occurred:", failures.map(f => (f as any).reason));
+    } else {
+        console.log("[API Push] All notifications sent successfully");
+    }
+
     const expiredSubs = results
       .map((res, index) => {
-        if (res.status === "rejected" && (res.reason.statusCode === 404 || res.reason.statusCode === 410)) {
+        if (res.status === "rejected" && ((res as any).reason.statusCode === 404 || (res as any).reason.statusCode === 410)) {
           return subs[index].subscription;
         }
         return null;

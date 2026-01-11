@@ -125,5 +125,32 @@ export default function NotificationHandler() {
     };
   }, [pathname]);
 
-  return null;
+  const handleTestPush = async () => {
+    if (!currentUserIdRef.current) return alert("Belum login");
+    try {
+        const res = await fetch("/api/notifications/push", {
+            method: "POST",
+            body: JSON.stringify({
+                receiverId: currentUserIdRef.current,
+                text: "Ini adalah pesan tes notifikasi push!",
+                senderName: "Sistem Tes",
+                messageId: "test-" + Date.now()
+            }),
+            headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        alert("Status kirim: " + JSON.stringify(data));
+    } catch (err) {
+        alert("Error tes: " + err);
+    }
+  };
+
+  return (
+    <button 
+      onClick={handleTestPush}
+      style={{ position: 'fixed', bottom: 10, right: 10, zIndex: 9999, opacity: 0.1, background: 'red', color: 'white', padding: '5px', borderRadius: '5px' }}
+    >
+      Test Notif
+    </button>
+  );
 }
