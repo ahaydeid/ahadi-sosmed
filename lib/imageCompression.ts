@@ -18,14 +18,14 @@ export type CompressOpts = {
 export const COMPRESS_PREF: CompressOpts = {
   maxWidth: 1280,
   maxHeight: 1280,
-  maxSizeKB: 550, // 550KB max
+  maxSizeKB: 300, // 300KB max for WhatsApp
   initialQuality: 0.9,
   minQuality: 0.4,
   qualityStep: 0.1,
 };
 
-const NON_PNG_TARGET_KB = 500;
-const COMPRESS_THRESHOLD_BYTES = 500 * 1024; // 500KB
+const NON_PNG_TARGET_KB = 280;
+const COMPRESS_THRESHOLD_BYTES = 250 * 1024; // Lower threshold to 250KB
 
 function getTargetSize(srcW: number, srcH: number, maxW: number, maxH: number) {
   let w = srcW;
@@ -163,7 +163,7 @@ async function convertToPng(file: File, opts: CompressOpts): Promise<Blob> {
   return out;
 }
 
-async function compressSameType(file: File, opts: CompressOpts): Promise<Blob> {
+async function compressToType(file: File, opts: CompressOpts, targetMime?: string): Promise<Blob> {
   const img = await loadImageFromFile(file);
   const srcW = img.naturalWidth || img.width;
   const srcH = img.naturalHeight || img.height;
@@ -183,7 +183,7 @@ async function compressSameType(file: File, opts: CompressOpts): Promise<Blob> {
   draw(baseW, baseH);
   URL.revokeObjectURL(img.src);
 
-  const mime = file.type || "image/jpeg";
+  const mime = targetMime || file.type || "image/jpeg";
 
   // For non-png: try quality loop
     const tryQualityLoop = async (targetKB: number): Promise<Blob | null> => {
@@ -227,21 +227,22 @@ async function compressSameType(file: File, opts: CompressOpts): Promise<Blob> {
 }
 
 export async function compressImage(file: File): Promise<Blob> {
-    if (file.size <= COMPRESS_THRESHOLD_BYTES) {
+    // If it's already a small JPG, no need to do anything
+    if (file.size <= COMPRESS_THRESHOLD_BYTES && file.type === "image/jpeg") {
         return file;
     }
 
-    if (file.type === "image/png") {
-        try {
-            return await compressPngTarget(file, COMPRESS_PREF);
-        } catch {
-            return await convertToPng(file, COMPRESS_PREF);
+    // Always attempt to convert to JPG for maximum efficiency and social media compatibility
+    try {
+        const result = await compressToType(file, { ...COMPRESS_PREF, maxSizeKB: NON_PNG_TARGET_KB }, "image/jpeg");
+        
+        // Only return the result if it's actually smaller or if the original wasn't a JPG
+        if (result.size < file.size || file.type !== "image/jpeg") {
+            return result;
         }
-    } else {
-        try {
-            return await compressSameType(file, { ...COMPRESS_PREF, maxSizeKB: NON_PNG_TARGET_KB });
-        } catch {
-            return await convertToPng(file, COMPRESS_PREF);
-        }
+    } catch (err) {
+        console.error("Compression failed, falling back to original:", err);
     }
+    
+    return file;
 }
