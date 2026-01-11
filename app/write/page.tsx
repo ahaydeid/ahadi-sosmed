@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import RichTextEditor from "@/app/components/Editor/RichTextEditor";
+import HashtagInput from "@/app/components/HashtagInput";
 
 export default function WritePage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [hashtags, setHashtags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);
 
@@ -103,6 +105,22 @@ export default function WritePage() {
         alert("Gagal menyimpan konten post.");
         return;
       }
+
+      // Save hashtags if any
+      if (hashtags.length > 0) {
+        const hashtagResponse = await fetch("/api/posts/hashtags", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ postId: newPost.id, hashtags }),
+        });
+
+        const hashtagData = await hashtagResponse.json();
+        if (!hashtagData.success) {
+          console.error("Failed to save hashtags:", hashtagData.message);
+          // Don't block post creation, just log the error
+        }
+      }
+
       alert("Tulisan berhasil dikirim!");
       router.push(`/post/${slug}`);
     } catch (err) {
@@ -129,6 +147,15 @@ export default function WritePage() {
 
         <div className="border border-gray-200 rounded-md focus:ring-1 focus:ring-gray-600">
           <RichTextEditor content={content} onChange={setContent} placeholder="Tulis opini kamu di sini..." />
+        </div>
+
+        {/* Hashtag Input */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <HashtagInput
+            selectedHashtags={hashtags}
+            onHashtagsChange={setHashtags}
+            maxHashtags={10}
+          />
         </div>
 
         <button type="submit" disabled={loading} className="w-full bg-black text-white font-bold py-4 rounded-md hover:bg-gray-900 transition disabled:opacity-50">

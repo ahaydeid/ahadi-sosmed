@@ -34,7 +34,7 @@ export async function getPublicPosts(limit = 100) {
     supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", Array.from(userIds)),
     // For reposts, we need the original author ID to fetch THEIR profile next
     repostIds.length > 0 ? supabase.from("post").select("id, created_at, user_id").in("id", repostIds) : Promise.resolve({ data: [] }),
-    repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image").in("post_id", repostIds) : Promise.resolve({ data: [] })
+    repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", repostIds) : Promise.resolve({ data: [] })
   ]);
 
   const profileMap = new Map(profilesRes.data?.map((p) => [p.id, p]));
@@ -73,6 +73,7 @@ export async function getPublicPosts(limit = 100) {
 
                 repostNode = {
                     id: p.repost_of,
+                    slug: (originContent.slug || p.repost_of) as string,
                     title: originContent.title,
                     description: originContent.description,
                     author: originProfile.display_name,
@@ -102,7 +103,7 @@ export async function getPublicPosts(limit = 100) {
       views: 0,
       likes: 0,
       comments: 0,
-      slug: content?.slug ?? null,
+      slug: (content?.slug || p.id) as string,
       verified: profile?.verified ?? false,
       repost_of: repostNode
     };

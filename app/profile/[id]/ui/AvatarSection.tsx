@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { UserPlus, BadgeCheck } from "lucide-react";
+import { UserPlus, BadgeCheck, Forward, MessageCircle } from "lucide-react";
 
 interface AvatarSectionProps {
   displayName: string;
@@ -13,9 +13,10 @@ interface AvatarSectionProps {
   onToggleFollow: () => void;
   onSecondary: () => void;
   children?: React.ReactNode;
+  savedLink?: React.ReactNode;
 }
 
-export default function AvatarSection({ displayName, avatarUrl, verified, bio, isOwnProfile, isFollowing, mainFollowLabel, showUserPlusIcon, onToggleFollow, onSecondary, children }: AvatarSectionProps) {
+export default function AvatarSection({ displayName, avatarUrl, verified, bio, isOwnProfile, isFollowing, mainFollowLabel, showUserPlusIcon, onToggleFollow, onSecondary, children, savedLink }: AvatarSectionProps) {
   return (
     <div className="flex flex-col items-center text-center pt-6">
       <div className="relative w-24 h-24 mb-3">
@@ -23,8 +24,8 @@ export default function AvatarSection({ displayName, avatarUrl, verified, bio, i
           {avatarUrl ? <Image src={avatarUrl} alt={displayName} width={96} height={96} className="object-cover w-24 h-24" /> : <div className="w-12 h-12 rounded-full bg-gray-300" />}
         </div>
         {verified && (
-          <div className="absolute bottom-0 -right-2 bg-white rounded-full border border-gray-200">
-            <BadgeCheck className="w-8 h-8 text-sky-500" />
+          <div className="absolute bottom-0 -right-1">
+            <BadgeCheck className="w-7 h-7 text-sky-500 fill-white" />
           </div>
         )}
       </div>
@@ -48,9 +49,20 @@ export default function AvatarSection({ displayName, avatarUrl, verified, bio, i
             {mainFollowLabel}
           </button>
         )}
-        <button onClick={onSecondary} className="bg-gray-100 border border-gray-300 min-w-[120px] text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition">
-          {isOwnProfile ? "Bagikan profil saya" : "Kirim pesan"}
+        <button onClick={onSecondary} className="bg-gray-100 border border-gray-300 min-w-[120px] text-gray-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition flex items-center justify-center gap-2">
+          {isOwnProfile ? (
+            <>
+              <Forward className="w-4 h-4" />
+              <span>Bagikan profil saya</span>
+            </>
+          ) : (
+            <>
+              <MessageCircle className="w-4 h-4" />
+              <span>Kirim pesan</span>
+            </>
+          )}
         </button>
+        {savedLink}
       </div>
     </div>
   );

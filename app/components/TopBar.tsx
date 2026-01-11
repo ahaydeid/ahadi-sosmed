@@ -182,30 +182,32 @@ function TopBarInner() {
         </div>
 
         <div className="flex items-center space-x-4">
+          {/* Search - Always visible */}
+          <div className="relative">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setOpenSearch(true);
+                }}
+                onFocus={() => setOpenSearch(true)}
+                onKeyDown={handleKeyDown}
+                placeholder="Cari"
+                className="bg-transparent outline-none text-sm w-15 md:w-40"
+              />
+            </div>
+          </div>
+
+          {/* Login/Post buttons - Conditional */}
           {mounted && !isLoggedIn ? (
             <button onClick={handleGoLogin} className="bg-gray-50 hover:bg-gray-100 text-gray-500 border border-gray-300 text-sm font-medium px-3 py-1.5 rounded transition-colors">
               Login
             </button>
           ) : (
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
-                  <Search className="w-4 h-4 text-gray-400" />
-                  <input
-                    ref={inputRef}
-                    value={query}
-                    onChange={(e) => {
-                      setQuery(e.target.value);
-                      setOpenSearch(true);
-                    }}
-                    onFocus={() => setOpenSearch(true)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Cari"
-                    className="bg-transparent outline-none text-sm w-15 md:w-40"
-                  />
-                </div>
-              </div>
-
+            <>
               {canPost ? (
                 <Link href="/write" className="flex items-center px-4 py-2 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition">
                   <Pencil className="w-4 h-4 text-white" />
@@ -220,7 +222,7 @@ function TopBarInner() {
                   <span className="text-sm font-medium text-white">Ajukan Poster</span>
                 </Link>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>

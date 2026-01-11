@@ -33,6 +33,8 @@ export default async function proxyMiddleware(req: NextRequest) {
     currentPath.startsWith("/auth") ||
     currentPath === "/post" ||
     currentPath.startsWith("/post/") ||
+    currentPath.startsWith("/profile/") ||
+    currentPath.startsWith("/topic/") ||
     currentPath.startsWith("/kebijakan/") ||
     currentPath === "/marah-marah"
   ) {

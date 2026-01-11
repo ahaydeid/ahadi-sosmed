@@ -47,8 +47,8 @@ export default function FollowModal({ followTab, setShowFollowModal, follow }: F
                       <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                         {u.avatar_url ? <Image src={u.avatar_url} alt={u.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <div className="w-6 h-6 rounded-full bg-gray-300" />}
                         {u.verified && (
-                          <div className="absolute bottom-0 right-0 bg-white rounded-full p-0.5">
-                            <BadgeCheck className="w-3 h-3 text-sky-500" />
+                          <div className="absolute bottom-0 -right-0.5">
+                            <BadgeCheck className="w-4 h-4 text-sky-500 fill-white" />
                           </div>
                         )}
                       </div>

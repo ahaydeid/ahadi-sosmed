@@ -3,6 +3,8 @@ import Feed from "./components/Feed";
 import TopBar from "./components/TopBar";
 import TrendingPosts from "./components/TrendingPosts";
 import SuggestedUsers from "./components/SuggestedUsers";
+import FeaturedSection from "./components/FeaturedSection";
+import TopicsCarousel from "./components/TopicsCarousel";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -24,24 +26,37 @@ export default async function Page() {
     return <p className="text-center text-gray-500 mt-10">Gagal memuat postingan</p>;
   }
 
+  // Get top 5 posts for featured section (by views + likes), exclude reposts
+  const featuredPosts = [...initialPosts]
+    .filter((post) => !post.repost_of)
+    .sort((a, b) => (b.views + b.likes * 10) - (a.views + a.likes * 10))
+    .slice(0, 5);
+
   return (
     <div className="min-h-screen bg-gray-50/10">
       <TopBar />
       
-      <div className="max-w-7xl mx-auto px-2 md:px-4 md:py-4 py-1">
-        <div className="flex gap-6 items-start justify-center">
-          {/* Main Feed Content */}
-          <div className="flex-1 min-w-0 max-w-4xl">
+      <div className="max-w-7xl mx-auto md:px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-8">
+            {/* Featured Posts Section */}
+            <FeaturedSection posts={featuredPosts} />
+            
+            {/* Topics Carousel */}
+            <TopicsCarousel />
+            
+            {/* Main Feed */}
             <Feed initialPosts={initialPosts} />
           </div>
 
-          {/* Sidebar - Desktop Only */}
-          <aside className="hidden lg:block w-[350px] shrink-0">
-            <div className="sticky top-24 space-y-6">
+          {/* Sidebar */}
+          <div className="lg:col-span-4">
+            <div className="sticky top-6 space-y-6">
               <TrendingPosts />
               <SuggestedUsers />
             </div>
-          </aside>
+          </div>
         </div>
       </div>
     </div>

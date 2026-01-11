@@ -90,6 +90,7 @@ export function useProfileData(profileId?: string) {
                 if (originContent && originProfile) {
                     repostNode = {
                         id: p.repost_of,
+                        slug: (originContent.slug || p.repost_of) as string,
                         author: originProfile.display_name,
                         authorImage: originProfile.avatar_url,
                         title: originContent.title,
@@ -104,6 +105,7 @@ export function useProfileData(profileId?: string) {
 
         return {
           id: p.id,
+          slug: (c?.slug || p.id) as string,
           author: profile.display_name ?? "Pengguna",
           authorImage: c?.author_image ?? profile.avatar_url ?? null,
           title: c?.title ?? "(Tanpa judul)",

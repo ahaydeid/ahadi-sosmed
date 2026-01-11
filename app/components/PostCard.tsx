@@ -1,12 +1,14 @@
 import Image from "next/image";
-import { CalendarDays, Eye, Heart, MessageCircle, X, User, BadgeCheck, MoreVertical, Edit, Trash, Repeat2 } from "lucide-react";
+import { CalendarDays, Eye, Heart, MessageCircle, X, User, BadgeCheck, MoreVertical, Edit, Trash, Repeat2, Clock, MinusCircle } from "lucide-react";
 import { PostCardData } from "@/lib/types/post";
 import { formatCompact } from "@/lib/formatCompact";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import BookmarkButton from "./BookmarkButton";
 
 import { extractFirstImage, extractPreviewText } from "@/lib/utils/html";
 import { deletePostAction } from "@/lib/actions/postActions";
+import { formatReadingTime } from "@/lib/utils/readingTime";
 
 interface PostCardProps {
   post: PostCardData & { verified?: boolean };
@@ -150,6 +152,10 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
         {/* Meta info */}
         <div className="flex flex-wrap items-center mt-3 gap-4 text-gray-500 text-sm">
           <div className="flex items-center gap-1">
+            <Clock className="w-4 h-4" />
+            <span className="text-xs">{formatReadingTime(post.description)}</span>
+          </div>
+          <div className="flex items-center gap-1">
             <CalendarDays className="w-4 h-4" />
             <span className="text-xs">{post.date}</span>
           </div>
@@ -164,6 +170,19 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
           <div className="flex items-center gap-1">
             <MessageCircle className="w-4 h-4" />
             <span title={String(post.comments)}>{formatCompact(post.comments)}</span>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {!isOwner && (
+              <button 
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition" 
+                aria-label="Collapse" 
+                title="Sembunyikan posting ini" 
+                onClick={handleCollapse}
+              >
+                <MinusCircle className="w-4 h-4" />
+              </button>
+            )}
+            <BookmarkButton postId={post.id} size="sm" />
           </div>
         </div>
       </div>
@@ -182,17 +201,16 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
         </div>
       )}
 
-      {/* Tombol Option (Menu) */}
-      <div className="absolute top-1 right-1">
-        {isOwner ? (
-          <>
-            <button 
-              className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition" 
-              onClick={handleMenuToggle}
-              title="Opsi"
-            >
-              <MoreVertical className="w-5 h-5" />
-            </button>
+      {/* Tombol Option (Menu) - Only for owner */}
+      {isOwner && (
+        <div className="absolute top-1 right-1">
+          <button 
+            className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition" 
+            onClick={handleMenuToggle}
+            title="Opsi"
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
             
             {showMenu && (
                <div className="absolute right-0 top-7 w-32 bg-white shadow-lg rounded-md border border-gray-100 z-50">
@@ -226,13 +244,8 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
                 setShowMenu(false);
               }} />
             )}
-          </>
-        ) : (
-          <button className="text-gray-400 hover:text-gray-600 p-1" aria-label="Collapse" title="Sembunyikan posting ini" onClick={handleCollapse}>
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
+        </div>
+      )}
       {/* Modal Konfirmasi Hapus */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={(e) => {

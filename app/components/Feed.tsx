@@ -64,7 +64,7 @@ export default function Feed({ initialPosts }: FeedProps) {
         supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", postIds),
         supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", followingIds),
         repostIds.length > 0 ? supabase.from("post").select("id, created_at, user_id").in("id", repostIds) : Promise.resolve({ data: [] }),
-        repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image").in("post_id", repostIds) : Promise.resolve({ data: [] })
+        repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", repostIds) : Promise.resolve({ data: [] })
       ]);
 
       const contentMap = new Map(contentsRes.data?.map((c) => [c.post_id, c]));
@@ -96,6 +96,7 @@ export default function Feed({ initialPosts }: FeedProps) {
                      const firstImage = imgMatch ? imgMatch[1] : null;
                      repostNode = {
                         id: p.repost_of,
+                        slug: originContent.slug ?? p.repost_of,
                         title: originContent.title,
                         description: originContent.description,
                         author: originProfile.display_name,
@@ -122,7 +123,7 @@ export default function Feed({ initialPosts }: FeedProps) {
           views: 0,
           likes: 0,
           comments: 0,
-          slug: content?.slug ?? null,
+          slug: content?.slug ?? p.id,
           verified: profile?.verified ?? false,
           repost_of: repostNode
         };

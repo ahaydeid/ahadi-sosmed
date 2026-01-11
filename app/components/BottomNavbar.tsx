@@ -246,7 +246,7 @@ export default function BottomNavbar() {
             href={profileHref}
             icon={profile?.avatar_url ? undefined : User}
             avatar={profile?.avatar_url}
-            label={profile?.display_name ? profile.display_name.split(" ")[0] : "Profil"}
+            label={profile?.display_name ? profile.display_name.split(" ")[0] : "Login"}
             isActive={profileActive}
             isCollapsed={isCollapsed}
           />

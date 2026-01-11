@@ -38,7 +38,7 @@ export default function VerifyPage() {
             }
 
             // Check for existing request
-            const { data: request } = await supabase
+            const res = await supabase
                 .from("verification_requests")
                 .select("status, rejection_reason")
                 .eq("user_id", user.id)
@@ -47,6 +47,11 @@ export default function VerifyPage() {
                 .limit(1)
                 .maybeSingle();
 
+            const { data: request, error: statusError } = res;
+
+            if (statusError && statusError.code !== "PGRST116") {
+                console.error("Error checking verification status:", statusError.message, statusError.details);
+            }
             if (request) {
                 setStatus(request.status as any);
                 if (request.rejection_reason) setRejectionReason(request.rejection_reason);

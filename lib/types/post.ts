@@ -1,6 +1,7 @@
 // lib/types/post.ts
 export interface PostCardData {
   id: string;
+  slug: string;
   author: string;
   authorImage: string | null; 
   title: string;

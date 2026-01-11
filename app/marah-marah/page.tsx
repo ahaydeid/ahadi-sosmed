@@ -94,7 +94,7 @@ const MarahMarahPage = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full bg-white shadow-sm sticky top-0 z-50">
+      <div className="w-full bg-white shadow-xs sticky top-0 z-50">
         <div className="flex items-center justify-between p-4 mx-auto w-full">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-1">
