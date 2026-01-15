@@ -10,6 +10,9 @@ interface BookmarkButtonProps {
   initialSaved?: boolean;
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
+  label?: string;
+  activeLabel?: string;
+  className?: string;
   onToggle?: (isSaved: boolean) => void;
 }
 
@@ -18,6 +21,9 @@ export default function BookmarkButton({
   initialSaved = false,
   size = "md",
   showLabel = false,
+  label = "Bookmark",
+  activeLabel = "Bookmark",
+  className,
   onToggle,
 }: BookmarkButtonProps) {
   const [isSaved, setIsSaved] = useState(initialSaved);
@@ -118,12 +124,12 @@ export default function BookmarkButton({
     <button
       onClick={handleToggle}
       disabled={isLoading}
-      className={`
+      className={className || `
         flex items-center gap-1.5 transition-all
-        ${isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-110"}
-        ${isSaved ? "text-sky-500" : "text-gray-500 hover:text-sky-500"}
+        ${isLoading ? "opacity-50 cursor-not-allowed" : "hover:text-sky-400"}
+        ${isSaved ? "text-sky-500" : "text-gray-500"}
       `}
-      title={isSaved ? "Remove bookmark" : "Save for later"}
+      title={isSaved ? "Hapus bookmark" : "Simpan tulisan ini"}
     >
       <Bookmark
         className={`${sizeClasses[size]} transition-all ${
@@ -131,8 +137,8 @@ export default function BookmarkButton({
         }`}
       />
       {showLabel && (
-        <span className="text-sm font-medium">
-          {isSaved ? "Saved" : "Save"}
+        <span className="text-sm">
+          {isSaved ? activeLabel : label}
         </span>
       )}
     </button>

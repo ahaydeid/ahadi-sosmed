@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Star, Eye, Heart, MessageCircle, Share2, Repeat2, Link2 } from "lucide-react";
+import { Star, Heart, MessageCircle, Share2, Repeat2, Link2 } from "lucide-react";
+import BookmarkButton from "../BookmarkButton";
 
 interface Props {
+  postId: string;
   hasApresiasi: boolean;
   likeCount: number;
   views: number;
@@ -12,7 +14,7 @@ interface Props {
   onRepost: () => void; // New prop
 }
 
-export default function PostActions({ hasApresiasi, likeCount, views, comments, onApresiasi, onShowLikes, onShare, onRepost }: Props) {
+export default function PostActions({ postId, hasApresiasi, likeCount, views, comments, onApresiasi, onShowLikes, onShare, onRepost }: Props) {
   const [showShareMenu, setShowShareMenu] = useState(false);
 
   return (
@@ -27,17 +29,24 @@ export default function PostActions({ hasApresiasi, likeCount, views, comments, 
       </button>
 
       <div className="flex items-center gap-3 border-gray-200 border rounded px-3 py-2 w-fit">
-        <div className="flex items-center gap-1 text-gray-700 text-sm">
-          <Eye className="w-4 h-4" />
-          <span>{views}</span>
-        </div>
-        <button onClick={onShowLikes} className="flex cursor-pointer hover:text-sky-400 items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2" aria-label="Lihat yang menyukai">
+        <button onClick={onShowLikes} className="flex cursor-pointer hover:text-sky-400 items-center gap-1 text-gray-700 text-sm" aria-label="Lihat yang menyukai">
           <Heart className="w-4 h-4" />
           <span>{likeCount}</span>
         </button>
         <div className="flex items-center gap-1 text-gray-700 text-sm border-l border-gray-200 pl-2">
           <MessageCircle className="w-4 h-4" />
           <span>{comments}</span>
+        </div>
+        
+        <div className="flex items-center border-l border-gray-200 pl-2">
+            <BookmarkButton 
+                postId={postId} 
+                size="sm" 
+                showLabel 
+                label="Simpan" 
+                activeLabel="Bookmark" 
+                className="flex items-center gap-1 cursor-pointer hover:text-sky-400 text-gray-700 text-sm"
+            />
         </div>
         
         {/* Share/Repost Dropdown */}

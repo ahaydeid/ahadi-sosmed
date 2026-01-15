@@ -340,6 +340,7 @@ export default function PostDetailPage({ initialPostId, initialSlug }: { initial
       {/* Aksi post */}
       {/* Aksi post */}
       <PostActions 
+        postId={post.id}
         hasApresiasi={hasApresiasi} 
         likeCount={likeCount} 
         views={post.views} 
