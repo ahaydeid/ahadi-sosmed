@@ -18,7 +18,7 @@ export default function FeaturedSection({ posts }: FeaturedSectionProps) {
   if (!posts || posts.length === 0) return null;
 
   return (
-    <section className="mb-5 px-4">
+    <section className="px-4">
       {/* Section Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Postingan Populer</h2>
@@ -26,7 +26,7 @@ export default function FeaturedSection({ posts }: FeaturedSectionProps) {
       </div>
 
       {/* Featured Posts - Horizontal Scroll */}
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+      <div className="flex gap-4 overflow-x-auto md:pb-4 pb-1 scrollbar-hide">
         {posts.map((post) => {
           const image = post.imageUrl || extractFirstImage(post.description);
           const preview = extractPreviewText(post.description);
