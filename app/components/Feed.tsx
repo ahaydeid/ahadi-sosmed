@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import useSWRInfinite from "swr/infinite";
 import { supabase } from "@/lib/supabase/client";
 import { PostCardData } from "@/lib/types/post";
 import PostCard from "./PostCard";
@@ -11,10 +12,9 @@ import { getPublicPosts } from "@/lib/services/postService";
 
 interface FeedProps {
   initialPosts: (PostCardData & {
-    slug?: string | null;
-    verified?: boolean;
+    verified: boolean;
     created_at: string;
-    user_id?: string;
+    user_id: string;
   })[];
 }
 
@@ -27,48 +27,49 @@ const PENALTY_VALUE = 100;
 export default function Feed({ initialPosts }: FeedProps) {
   const searchParams = useSearchParams();
   const tab = (searchParams.get("tab") as "teratas" | "followed") || "teratas";
-
-  const [rawPosts, setRawPosts] = useState<(PostCardData & { created_at: string })[]>([]);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [penaltyTick, setPenaltyTick] = useState(0);
-  const [isFollowedLoading, setIsFollowedLoading] = useState(false);
-  
-  const observerTarget = useRef(null);
 
-  // Initialize or Reset
-  useEffect(() => {
-    if (tab === "teratas") {
-      setRawPosts(initialPosts);
-      setOffset(initialPosts.length);
-      setHasMore(initialPosts.length >= 10);
+  // SWR key generator
+  const getKey = (pageIndex: number, previousPageData: any[]) => {
+    if (previousPageData && !previousPageData.length) return null;
+    return `feed-${tab}-${pageIndex}`;
+  };
+
+  // SWR fetcher
+  const fetcher = async (key: string) => {
+    const [, currentTab, indexStr] = key.split("-");
+    const pageIndex = parseInt(indexStr);
+    const currentOffset = pageIndex * 10;
+
+    if (currentTab === "teratas") {
+      // For first page of 'teratas', we could return initialPosts, 
+      // but SWR handles fallbackData better
+      return await getPublicPosts(10, currentOffset, "latest");
     } else {
-      setRawPosts([]);
-      setOffset(0);
-      setHasMore(true);
-      fetchFollowed(0);
+      return await fetchFollowed(currentOffset);
     }
-  }, [tab, initialPosts]);
+  };
+
+  const { data, size, setSize, isLoading, isValidating } = useSWRInfinite(getKey, fetcher, {
+    fallbackData: tab === "teratas" ? [initialPosts] : undefined,
+    revalidateFirstPage: false,
+    revalidateOnFocus: false,
+    persistSize: true,
+  });
+
+  const rawPosts = useMemo(() => (data ? data.flat() : []), [data]);
+  const hasMore = data ? data[data.length - 1]?.length === 10 : true;
+  const isLoadingMore = isLoading || (size > 0 && data && typeof data[size - 1] === "undefined");
 
   const fetchFollowed = async (currentOffset: number) => {
-    if (isFollowedLoading) return;
-    setIsFollowedLoading(true);
-    
     try {
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user?.id ?? null;
-      if (!uid) {
-        setHasMore(false);
-        return;
-      }
+      if (!uid) return [];
 
       const { data: follows } = await supabase.from("user_followers").select("following_id").eq("follower_id", uid);
       const followingIds = (follows ?? []).map((f) => String(f.following_id));
-      if (followingIds.length === 0) {
-        setHasMore(false);
-        return;
-      }
+      if (followingIds.length === 0) return [];
 
       const { data: followedPosts } = await supabase
         .from("post")
@@ -78,10 +79,7 @@ export default function Feed({ initialPosts }: FeedProps) {
         .order("created_at", { ascending: false })
         .range(currentOffset, currentOffset + 9);
 
-      if (!followedPosts || followedPosts.length === 0) {
-        setHasMore(false);
-        return;
-      }
+      if (!followedPosts || followedPosts.length === 0) return [];
 
       const postIds = followedPosts.map(p => p.id);
       const repostIds = followedPosts.map(p => p.repost_of).filter(Boolean);
@@ -105,7 +103,9 @@ export default function Feed({ initialPosts }: FeedProps) {
           repostAuthorMap = new Map(originalProfiles?.map(p => [p.id, p]));
       }
 
-      const nextPosts = followedPosts.map((p) => {
+      const { extractPreviewText, extractFirstImage } = await import("@/lib/utils/html");
+
+      return followedPosts.map((p) => {
         const content = contentMap.get(p.id);
         const profile = profileMap.get(p.user_id);
 
@@ -116,29 +116,32 @@ export default function Feed({ initialPosts }: FeedProps) {
             if (originPost && originContent) {
                 const originProfile: any = repostAuthorMap.get(originPost.user_id);
                 if (originProfile) {
-                     const imgMatch = originContent.description?.match(/<img[^>]+src="([^">]+)"/);
                      repostNode = {
                         id: p.repost_of,
                         slug: originContent.slug ?? p.repost_of,
                         title: originContent.title,
                         description: originContent.description,
-                        author: originProfile.display_name,
-                        authorImage: originProfile.avatar_url,
-                        date: new Date(originPost.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-                        imageUrl: imgMatch ? imgMatch[1] : null,
+                        excerpt: extractPreviewText(originContent.description),
+                        imageUrl: extractFirstImage(originContent.description),
+                        verified: originProfile.verified ?? false,
+                        isRepost: false,
+                        repost_of: null,
                         views: 0, likes: 0, comments: 0
                      };
                 }
             }
         }
 
+        const description = content?.description ?? "";
         return {
           id: p.id,
           user_id: p.user_id,
           author: profile?.display_name ?? "Anonim",
           authorImage: content?.author_image ?? profile?.avatar_url ?? null,
           title: content?.title ?? "(Tanpa judul)",
-          description: content?.description ?? "",
+          description: description,
+          excerpt: extractPreviewText(description),
+          imageUrl: extractFirstImage(description),
           date: new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
           created_at: p.created_at,
           views: 0, likes: 0, comments: 0,
@@ -148,71 +151,25 @@ export default function Feed({ initialPosts }: FeedProps) {
           repost_of: repostNode
         };
       });
-
-      setRawPosts(prev => [...prev, ...nextPosts]);
-      setOffset(prev => prev + followedPosts.length);
-      if (followedPosts.length < 10) setHasMore(false);
-
     } catch (e) {
       console.error(e);
-    } finally {
-      setIsFollowedLoading(false);
+      return [];
     }
   };
 
-  const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore) return;
-    setIsLoadingMore(true);
-
-    try {
-      if (tab === "teratas") {
-        const nextPosts = await getPublicPosts(10, offset, 'latest');
-        if (nextPosts.length === 0) {
-          setHasMore(false);
-        } else {
-          setRawPosts(prev => [...prev, ...nextPosts]);
-          setOffset(prev => prev + nextPosts.length);
-          if (nextPosts.length < 10) setHasMore(false);
-        }
-      } else {
-        await fetchFollowed(offset);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [tab, offset, hasMore, isLoadingMore]);
-
-  // Observer Logic
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isFollowedLoading) {
-          loadMore();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
-    return () => observer.disconnect();
-  }, [loadMore, hasMore, isLoadingMore, isFollowedLoading]);
+  const observerTarget = useRef(null);
 
   // Scoring logic
   const posts = useMemo(() => {
     let collapsedSet = new Set<string>();
     try {
-      const raw = localStorage.getItem(COLLAPSE_KEY);
+      const raw = typeof window !== "undefined" ? localStorage.getItem(COLLAPSE_KEY) : null;
       collapsedSet = new Set(raw ? JSON.parse(raw) : []);
     } catch { }
 
     const now = Date.now();
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-    const RECENT_BOOST = 1_000_000; // Boost sangat besar untuk post < 7 hari
+    const RECENT_BOOST = 1_000_000; 
 
     const enriched = rawPosts.map((p) => {
         const v = p.views || 0;
@@ -225,24 +182,36 @@ export default function Feed({ initialPosts }: FeedProps) {
         const timeBoost = BASE_TIME_BOOST * Math.pow(TIME_DECAY_PER_HOUR, hours);
         const isRecent = ageMs < SEVEN_DAYS_MS;
 
-        // Base Popularity Score
         let score = v * WEIGHTS.view + l * WEIGHTS.like + c * WEIGHTS.comment + timeBoost;
-        
-        // Add huge boost if post is < 7 days old
         if (isRecent) score += RECENT_BOOST;
-        
         if (collapsedSet.has(p.id)) score -= PENALTY_VALUE;
 
         return { ...p, score };
     });
 
     if (tab === "teratas") {
-      // Sekarang kita sort lagi di client-side karena urutan DB (latest) 
-      // berbeda dengan urutan keinginan kita (7 hari terbaru di atas)
       return enriched.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     }
     return enriched;
   }, [rawPosts, penaltyTick, tab]);
+
+  // Observer Logic
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          setSize(size + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, size, setSize]);
 
   // Dengarkan event collapse
   useEffect(() => {
@@ -251,9 +220,7 @@ export default function Feed({ initialPosts }: FeedProps) {
     return () => window.removeEventListener("post:penalize", onPenalize as EventListener);
   }, []);
 
-  const initialLoading = tab === "followed" && rawPosts.length === 0 && isFollowedLoading;
-
-  if (initialLoading) return (
+  if (isLoading && rawPosts.length === 0) return (
     <div className="flex flex-col w-full">
       <PostSkeleton />
       <PostSkeleton />
@@ -261,19 +228,19 @@ export default function Feed({ initialPosts }: FeedProps) {
     </div>
   );
 
-  if (posts.length === 0 && !isFollowedLoading) return <p className="text-center py-5 text-gray-500">Belum ada postingan</p>;
+  if (posts.length === 0 && !isLoading) return <p className="text-center py-5 text-gray-500">Belum ada postingan</p>;
 
   return (
     <div className="space-y-1 md:space-y-3 md:px-0">
       {posts.map((post) => (
         <Link key={`${post.id}-${tab}`} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100">
-          <PostCard post={post} />
+          <PostCard post={post as any} />
         </Link>
       ))}
       
       {/* Trigger lazy load */}
       <div ref={observerTarget} className="h-10 flex items-center justify-center">
-        {(isLoadingMore || isFollowedLoading) && (
+        {isLoadingMore && (
           <div className="w-full">
             <PostSkeleton />
           </div>

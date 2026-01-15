@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { PostCardData } from "@/lib/types/post";
 import { formatPostDate } from "./formatDate";
-import { extractFirstImage } from "@/lib/utils/html";
+import { extractFirstImage, extractPreviewText } from "@/lib/utils/html";
 import useSWR from "swr";
 import type { Route } from "next";
 
@@ -38,7 +38,7 @@ export function useProfileData(profileId?: string) {
     if (!profile) return null;
 
     const [{ data: postData }, { count: followersCnt }, { count: followingCnt }, { count: savedCnt }] = await Promise.all([
-      supabase.from("post").select("id, created_at, repost_of").eq("user_id", profileId).order("created_at", { ascending: false }),
+      supabase.from("post").select("id, created_at, repost_of, likes_count, comments_count, views_count").eq("user_id", profileId).order("created_at", { ascending: false }),
       supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("following_id", profileId),
       supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
       profileId === currentUserId 
@@ -58,7 +58,7 @@ export function useProfileData(profileId?: string) {
       let originalProfilesMap = new Map(); // user_id -> { display_name, avatar_url }
 
       if (repostIds.length > 0) {
-          const { data: originals } = await supabase.from("post").select("id, user_id, created_at").in("id", repostIds);
+          const { data: originals } = await supabase.from("post").select("id, user_id, created_at, likes_count, comments_count, views_count").in("id", repostIds);
           if (originals) {
               originals.forEach(o => originalPostsMap.set(o.id, o));
               const originalUserIds = originals.map(o => o.user_id);
@@ -73,16 +73,9 @@ export function useProfileData(profileId?: string) {
       const { data: contents } = await supabase.from("post_content").select("*").in("post_id", allContentIds);
       const contentMap = new Map((contents ?? []).map((c) => [c.post_id, c]));
 
-      formattedPosts = await Promise.all((postData || []).map(async (p) => {
+      formattedPosts = (postData || []).map((p) => {
         const c = contentMap.get(p.id);
         
-        // Fetch stats for the post (including reposts)
-        const [viewsRes, likesRes, commentsRes] = await Promise.all([
-             supabase.from("post_views").select("views").eq("post_id", p.id).maybeSingle(),
-             supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", p.id),
-             supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id)
-        ]);
-
         // Construct Repost Data if exists
         let repostNode = null;
         if (p.repost_of) {
@@ -98,8 +91,11 @@ export function useProfileData(profileId?: string) {
                         authorImage: originProfile.avatar_url,
                         title: originContent.title,
                         description: originContent.description,
+                        excerpt: extractPreviewText(originContent.description),
                         date: formatPostDate(origin.created_at),
-                        views: 0, likes: 0, comments: 0, // original stats ignored by UI for subcard
+                        views: origin.views_count || 0,
+                        likes: origin.likes_count || 0,
+                        comments: origin.comments_count || 0,
                         imageUrl: extractFirstImage(originContent.description)
                     };
                 }
@@ -113,13 +109,14 @@ export function useProfileData(profileId?: string) {
           authorImage: c?.author_image ?? profile.avatar_url ?? null,
           title: c?.title ?? "(Tanpa judul)",
           description: c?.description ?? "",
+          excerpt: extractPreviewText(c?.description ?? ""),
           date: formatPostDate(p.created_at),
-          views: viewsRes?.data?.views ?? 0,
-          likes: likesRes?.count ?? 0,
-          comments: commentsRes?.count ?? 0,
+          views: p.views_count || 0,
+          likes: p.likes_count || 0,
+          comments: p.comments_count || 0,
           repost_of: repostNode
         };
-      }));
+      });
     }
 
     return {

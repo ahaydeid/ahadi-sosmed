@@ -6,7 +6,7 @@ import { PostCardData } from "@/lib/types/post";
 export async function getPublicPosts(limit = 10, offset = 0, sortBy: 'latest' | 'popular' = 'latest') {
   const supabase = await createClient();
 
-  // 1. Fetch posts, contents, AND repost_of in one join
+  // 1. Fetch posts with denormalized counts
   let query = supabase
     .from("post")
     .select(`
@@ -15,14 +15,15 @@ export async function getPublicPosts(limit = 10, offset = 0, sortBy: 'latest' | 
       user_id, 
       visibility,
       repost_of,
-      post_content ( title, description, author_image, slug ),
-      post_views ( views )
+      likes_count,
+      comments_count,
+      views_count,
+      post_content ( title, description, author_image, slug )
     `)
     .eq("visibility", "public");
 
   if (sortBy === 'popular') {
-    // Note: This requires a foreign key relationship between post and post_views
-    query = query.order('post_views(views)', { ascending: false, nullsFirst: false });
+    query = query.order('views_count', { ascending: false, nullsFirst: false });
   } else {
     query = query.order('created_at', { ascending: false });
   }
@@ -33,108 +34,81 @@ export async function getPublicPosts(limit = 10, offset = 0, sortBy: 'latest' | 
     throw new Error(error?.message || "Gagal memuat postingan");
   }
 
-  // 2. Collect IDs for profiles and reposts
-  const userIds = new Set(posts.map((p) => p.user_id).filter(Boolean));
-  const repostIds = posts.map(p => p.repost_of).filter(Boolean);
-
-  // 3. Fetch data in parallel
-  const [profilesRes, repostsOriginalRes, repostsContentRes, viewsRes, likesRes, commentsRes] = await Promise.all([
+  // 2. Identify remaining data needed (Profiles & Reposts)
+  const userIds = new Set(posts.map(p => p.user_id).filter(Boolean) as string[]);
+  const repostIds = posts.map(p => p.repost_of).filter(Boolean) as string[];
+  
+  const [profilesRes, repostsInfoRes, parsingUtils] = await Promise.all([
     supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", Array.from(userIds)),
-    // For reposts, we need the original author ID to fetch THEIR profile next
-    repostIds.length > 0 ? supabase.from("post").select("id, created_at, user_id").in("id", repostIds) : Promise.resolve({ data: [] }),
-    repostIds.length > 0 ? supabase.from("post_content").select("post_id, title, description, author_image, slug").in("post_id", repostIds) : Promise.resolve({ data: [] }),
-    // Bulk fetch views, likes, and comments
-    supabase.from("post_views").select("post_id, views").in("post_id", posts.map(p => p.id)),
-    supabase.from("post_likes").select("post_id").in("post_id", posts.map(p => p.id)).eq("liked", true),
-    supabase.from("comments").select("post_id").in("post_id", posts.map(p => p.id))
+    repostIds.length > 0 ? supabase.from("post").select(`
+        id, created_at, user_id,
+        likes_count, comments_count, views_count,
+        post_content ( title, description, author_image, slug )
+    `).in("id", repostIds) : Promise.resolve({ data: [] }),
+    import("@/lib/utils/html")
   ]);
 
-  const profileMap = new Map(profilesRes.data?.map((p) => [p.id, p]));
-  const repostOriginalMap = new Map(repostsOriginalRes.data?.map(p => [p.id, p]));
-  const repostContentMap = new Map(repostsContentRes.data?.map(c => [c.post_id, c]));
-  
-  // Stats Maps
-  const viewsMap = new Map(viewsRes.data?.map(v => [v.post_id, v.views]));
-  
-  // Manually count likes and comments per post since Supabase JS doesn't do group-by-count easily in one query
-  const likesCountMap = new Map<string, number>();
-  likesRes.data?.forEach(l => {
-    likesCountMap.set(l.post_id, (likesCountMap.get(l.post_id) || 0) + 1);
-  });
-  
-  const commentsCountMap = new Map<string, number>();
-  commentsRes.data?.forEach(c => {
-    commentsCountMap.set(c.post_id, (commentsCountMap.get(c.post_id) || 0) + 1);
-  });
+  const { extractPreviewText, extractFirstImage } = parsingUtils;
+  const profileMap = new Map(profilesRes.data?.map(p => [p.id, p]));
+  const repostDataMap = new Map(repostsInfoRes.data?.map((p: any) => [p.id, p]));
 
-  // 4. Fetch profiles for ORIGINAL authors of reposted content
-  let repostAuthorMap = new Map();
-  if (repostsOriginalRes.data && repostsOriginalRes.data.length > 0) {
-      const originalUserIds = Array.from(new Set(repostsOriginalRes.data.map(p => p.user_id)));
-      const { data: originalProfiles } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", originalUserIds);
-      repostAuthorMap = new Map(originalProfiles?.map(p => [p.id, p]));
+  // 3. Fetch profiles for repost authors if missing
+  const repostUserIds = Array.from(new Set(repostsInfoRes.data?.map((p: any) => p.user_id).filter((id: string) => id && !profileMap.has(id)) || [])) as string[];
+  if (repostUserIds.length > 0) {
+      const { data: extraProfiles } = await supabase.from("user_profile").select("id, display_name, avatar_url, verified").in("id", repostUserIds);
+      extraProfiles?.forEach(p => profileMap.set(p.id, p));
   }
 
-  const formattedPosts: (PostCardData & {
-    slug?: string | null;
-    verified?: boolean;
-    created_at: string;
-    user_id: string;
-  })[] = posts.map((p) => {
-    const content = p.post_content as { title?: string; description?: string; author_image?: string | null; slug?: string | null } | null;
-    const profile = profileMap.get(p.user_id);
-
-    // Construct Repost Node
+  const formattedPosts = posts.map((p: any) => {
+    const content = p.post_content;
+    const authorProf = profileMap.get(p.user_id);
+    
     let repostNode = null;
     if (p.repost_of) {
-        const originPost = repostOriginalMap.get(p.repost_of);
-        const originContent = repostContentMap.get(p.repost_of);
-        
-        if (originPost && originContent) {
-            const originProfile = repostAuthorMap.get(originPost.user_id);
-            if (originProfile) {
-                // Determine image from description simply
-                const imgMatch = originContent.description?.match(/<img[^>]+src="([^">]+)"/);
-                const firstImage = imgMatch ? imgMatch[1] : null;
-
+        const origin = repostDataMap.get(p.repost_of);
+        if (origin) {
+            const originContent = origin.post_content;
+            const originAuthor = profileMap.get(origin.user_id);
+            if (originContent && originAuthor) {
                 repostNode = {
                     id: p.repost_of,
                     slug: (originContent.slug || p.repost_of) as string,
                     title: originContent.title,
                     description: originContent.description,
-                    author: originProfile.display_name,
-                    authorImage: originContent.author_image || originProfile.avatar_url, // Use custom author image if exists
-                    date: new Date(originPost.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long" }),
-                    imageUrl: firstImage,
-                    views: viewsMap.get(p.repost_of) || 0,
-                    likes: likesCountMap.get(p.repost_of) || 0,
-                    comments: commentsCountMap.get(p.repost_of) || 0
+                    excerpt: extractPreviewText(originContent.description),
+                    imageUrl: extractFirstImage(originContent.description),
+                    author: originAuthor.display_name,
+                    authorImage: originContent.author_image || originAuthor.avatar_url,
+                    date: new Date(origin.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long" }),
+                    views: origin.views_count || 0,
+                    likes: origin.likes_count || 0,
+                    comments: origin.comments_count || 0
                 };
             }
         }
     }
 
+    const description = content?.description ?? "";
     return {
       id: p.id,
       user_id: p.user_id,
-      author: profile?.display_name ?? "Anonim",
-      authorImage: content?.author_image ?? profile?.avatar_url ?? null,
+      author: authorProf?.display_name ?? "Anonim",
+      authorImage: content?.author_image ?? authorProf?.avatar_url ?? null,
       title: content?.title ?? "(Tanpa judul)",
-      description: content?.description ?? "",
-      date: new Date(p.created_at).toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-      }),
+      description: description,
+      excerpt: extractPreviewText(description),
+      imageUrl: extractFirstImage(description),
+      date: new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
       created_at: p.created_at,
-      views: viewsMap.get(p.id) || 0,
-      likes: likesCountMap.get(p.id) || 0,
-      comments: commentsCountMap.get(p.id) || 0,
+      views: p.views_count || 0,
+      likes: p.likes_count || 0,
+      comments: p.comments_count || 0,
       slug: (content?.slug || p.id) as string,
-      verified: profile?.verified ?? false,
+      verified: authorProf?.verified ?? false,
       isRepost: !!p.repost_of,
       repost_of: repostNode
     };
   });
 
-  return formattedPosts;
+  return formattedPosts as (PostCardData & { verified: boolean; created_at: string; user_id: string })[];
 }

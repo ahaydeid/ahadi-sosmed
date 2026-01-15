@@ -6,11 +6,12 @@ export interface PostCardData {
   authorImage: string | null; 
   title: string;
   description: string;
+  excerpt: string; // Made required
   imageUrl?: string | null; 
   date: string;
   views: number;
   likes: number;
   comments: number;
-  repost_of?: PostCardData | null;
+  repost_of?: (PostCardData & { excerpt: string }) | null;
   isRepost?: boolean;
 }

@@ -21,11 +21,14 @@ export default async function Page() {
   let initialPosts: any[] = [];
   let featuredPosts: any[] = [];
   try {
-    // 1. Ambil 10 postingan terbaru untuk Feed utama
-    initialPosts = await getPublicPosts(10, 0, 'latest');
+    // Parallelize fetches to reduce initial load time
+    const [latestPosts, popularPosts] = await Promise.all([
+      getPublicPosts(10, 0, 'latest'),
+      getPublicPosts(5, 0, 'popular')
+    ]);
     
-    // 2. Ambil 5 postingan terpopuler untuk Featured Section
-    featuredPosts = await getPublicPosts(5, 0, 'popular');
+    initialPosts = latestPosts;
+    featuredPosts = popularPosts;
   } catch (error) {
     console.error("Error loading posts:", error);
   }

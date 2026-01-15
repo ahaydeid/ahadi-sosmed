@@ -20,10 +20,10 @@ interface PostCardProps {
 const COLLAPSE_KEY = "collapsedPosts";
 
 export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardProps) {
-  // Use utility functions to clean up component logic
-  const derivedImage = post.imageUrl || extractFirstImage(post.description);
+  // Use pre-computed values from server
+  const derivedImage = post.imageUrl;
   const hasImage = !!derivedImage;
-  const plainTextDescription = extractPreviewText(post.description);
+  const plainTextDescription = post.excerpt || post.description;
 
   const handleCollapse: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     e.preventDefault();
@@ -112,7 +112,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
               {plainTextDescription}
             </p>
 
-            {/* Repost Content - Quote Style */}
+                  {/* Repost Content - Quote Style */}
             {post.repost_of && (
               <div className="mt-3 mb-2 mx-2 pl-4 border-l-4 border-gray-900 flex gap-4 transition cursor-pointer group" onClick={(e) => {
                   e.preventDefault();
@@ -133,15 +133,15 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
                       
                       <p className="font-bold text-base text-gray-900 leading-snug mb-1 line-clamp-1">{post.repost_of.title}</p>
                       <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 md:line-clamp-3">
-                          {extractPreviewText(post.repost_of.description)}
+                          {post.repost_of.excerpt || post.repost_of.description}
                       </p>
                   </div>
 
                    {/* Thumbnail Image if exists */}
-                   {extractFirstImage(post.repost_of.description || "") && (
+                   {post.repost_of.imageUrl && (
                       <div className="w-16 h-16 md:w-24 md:h-24 shrink-0 overflow-hidden bg-gray-100 block">
                           <img 
-                              src={extractFirstImage(post.repost_of.description || "")!} 
+                              src={post.repost_of.imageUrl} 
                               alt={post.repost_of.title} 
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                           />
