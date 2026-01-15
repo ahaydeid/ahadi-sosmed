@@ -1,7 +1,6 @@
 "use client";
 
 import NotificationLists from "../components/NotificationLists";
-import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function NotificationsPage() {
@@ -38,9 +37,6 @@ export default function NotificationsPage() {
     <div suppressHydrationWarning className="min-h-screen py-4">
       <header suppressHydrationWarning className="sticky top-0 z-40 bg-white py-2 flex items-center justify-between">
         <h1 className="text-2xl px-4 font-bold">Notifikasi</h1>
-        <button aria-label="Cari notifikasi" className="p-2">
-          <Search className="w-6 h-6 text-black" />
-        </button>
       </header>
       <NotificationLists />
     </div>
