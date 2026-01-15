@@ -265,40 +265,42 @@ export default function ChatDetailPage() {
       </div>
 
       {/* CHAT CONTENT */}
-      <div suppressHydrationWarning className="flex-1 overflow-y-auto px-3 pt-4 pb-4 bg-white flex flex-col gap-2">
-        {messages.length === 0 ? (
-          <p className="text-center text-gray-500 text-sm mt-10">
-            Belum ada pesan. Mulailah percakapan dengan <span className="font-semibold">{partner?.display_name ?? "Pengguna"}</span>.
-          </p>
-        ) : (
-          messages.map((msg) => {
-            const isCurrentUser = msg.sender_id === currentUserId;
-            const createdAt = new Date(msg.created_at);
-            const now = new Date();
-            const isToday = createdAt.toDateString() === now.toDateString();
+      <div suppressHydrationWarning className="flex-1 overflow-y-auto px-3 pt-4 pb-4 bg-white flex flex-col">
+        <div className="flex flex-col gap-2">
+          {messages.length === 0 ? (
+            <p className="text-center text-gray-500 text-sm mt-10">
+              Belum ada pesan. Mulailah percakapan dengan <span className="font-semibold">{partner?.display_name ?? "Pengguna"}</span>.
+            </p>
+          ) : (
+            messages.map((msg) => {
+              const isCurrentUser = msg.sender_id === currentUserId;
+              const createdAt = new Date(msg.created_at);
+              const now = new Date();
+              const isToday = createdAt.toDateString() === now.toDateString();
 
-            const time = isToday ? createdAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : createdAt.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit" });
+              const time = isToday ? createdAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : createdAt.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
-            return (
-              <div suppressHydrationWarning key={msg.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
-                <div suppressHydrationWarning className={`rounded-xl px-3 py-2 min-w-12 max-w-[85%] flex flex-col ${isCurrentUser ? "bg-green-200 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
-                  <div suppressHydrationWarning>
-                    {msg.text && <p className="text-sm">{msg.text}</p>}
-                    {msg.image_url && <Image src={msg.image_url} alt="gambar" width={400} height={300} className="rounded-md mt-1 max-w-full h-auto" />}
-                  </div>
-                  <div suppressHydrationWarning className="self-end text-[11px]">
-                    <span suppressHydrationWarning className={`${isCurrentUser ? "text-gray-600" : "text-gray-500"}`}>{time}</span>
+              return (
+                <div suppressHydrationWarning key={msg.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
+                  <div suppressHydrationWarning className={`rounded-xl px-3 py-2 min-w-12 max-w-[85%] flex flex-col ${isCurrentUser ? "bg-green-200 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
+                    <div suppressHydrationWarning>
+                      {msg.text && <p className="text-sm">{msg.text}</p>}
+                      {msg.image_url && <Image src={msg.image_url} alt="gambar" width={400} height={300} className="rounded-md mt-1 max-w-full h-auto" />}
+                    </div>
+                    <div suppressHydrationWarning className="self-end text-[11px]">
+                      <span suppressHydrationWarning className={`${isCurrentUser ? "text-gray-600" : "text-gray-500"}`}>{time}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
         <div suppressHydrationWarning ref={bottomRef} />
       </div>
 
       {/* CHAT INPUT */}
-      <div suppressHydrationWarning className="bg-white px-3 pb-3 pt-2 border-t border-gray-100 shadow-sm">
+      <div suppressHydrationWarning className="bg-white px-3 pb-2 pt-2 border-t border-gray-100 shadow-sm">
         <ChatInput receiverId={partner?.id ?? ""} messageRoomId={messageRoomId} currentUserId={currentUserId} setMessageRoomId={setMessageRoomId} />
       </div>
 
