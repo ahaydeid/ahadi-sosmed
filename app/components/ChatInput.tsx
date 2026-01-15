@@ -25,6 +25,7 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
   };
 
   const handleSend = async () => {
+    if (sending) return;
     const el = textareaRef.current;
     if (!el || !currentUserId) return;
     const text = el.value.trim();
@@ -98,6 +99,9 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
       el.value = "";
       el.style.height = "auto";
       el.style.overflowY = "hidden";
+      
+      // 4️⃣ Fokuskan kembali agar keyboard tidak tertutup di mobile
+      el.focus();
     } catch (err) {
       console.error("❌ Error tak terduga:", err);
       alert(err instanceof Error ? err.message : JSON.stringify(err));
@@ -121,7 +125,6 @@ export default function ChatInput({ receiverId, messageRoomId, currentUserId, se
               handleSend();
             }
           }}
-          disabled={sending}
         />
         <ImageIcon className="w-5 h-5 text-gray-700 cursor-pointer shrink-0 ml-2" />
       </div>

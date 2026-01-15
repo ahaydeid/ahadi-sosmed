@@ -210,35 +210,37 @@ export default function ChatDetailPage() {
   }
 
   return (
-    <div suppressHydrationWarning className="h-[100dvh] bg-white flex flex-col overflow-hidden relative">
+    <div suppressHydrationWarning className="fixed inset-0 z-[60] bg-white flex flex-col md:relative md:inset-auto md:z-0 md:h-[100dvh] overflow-hidden">
       {/* HEADER */}
-      <div suppressHydrationWarning className="sticky top-0 z-40 bg-white/80 backdrop-blur-md flex items-center justify-between px-3 pb-3 border-b border-gray-100">
-        <div suppressHydrationWarning className="flex items-center gap-3 pt-3 flex-1 min-w-0">
-          {/* Tombol Kembali (Tetap terpisah) */}
-          <ArrowLeft className="w-6 h-6 text-gray-800 cursor-pointer shrink-0" onClick={() => router.back()} />
+      <div suppressHydrationWarning className="bg-white flex items-center justify-between px-3 py-2 border-b border-gray-100 shrink-0">
+        <div suppressHydrationWarning className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Tombol Kembali */}
+          <button onClick={() => router.back()} className="p-1 -ml-1 rounded-full hover:bg-gray-100 transition-colors">
+            <ArrowLeft className="w-6 h-6 text-gray-800 shrink-0" />
+          </button>
 
-          {/* Area Profil yang Dapat Diklik */}
-          <Link href={`/profile/${partner?.id}`} className="flex items-center gap-3 cursor-pointer p-2 -m-2 flex-1 min-w-0">
+          {/* Area Profil */}
+          <Link href={`/profile/${partner?.id}`} className="flex items-center gap-3 cursor-pointer p-1 flex-1 min-w-0">
             {/* Avatar */}
-            <div suppressHydrationWarning className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
-              {partner?.avatar_url ? <Image src={partner.avatar_url} alt={partner.display_name} width={40} height={40} className="object-cover w-10 h-10" /> : <div suppressHydrationWarning className="w-6 h-6 text-gray-600 flex items-center justify-center"><User className="w-6 h-6" /></div>}
+            <div suppressHydrationWarning className="w-9 h-9 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
+              {partner?.avatar_url ? <Image src={partner.avatar_url} alt={partner.display_name} width={36} height={36} className="object-cover w-full h-full" /> : <div suppressHydrationWarning className="w-6 h-6 text-gray-600 flex items-center justify-center"><User className="w-6 h-6" /></div>}
             </div>
             {/* Nama Pengguna */}
             <div className="flex items-center gap-1 min-w-0">
-              <h1 className="font-semibold text-gray-800 truncate">{partner?.display_name ?? "Pengguna"}</h1>
-              {partner?.verified && <VerifiedBadge className="w-4 h-4" />}
+              <h1 className="font-semibold text-gray-800 truncate text-base">{partner?.display_name ?? "Pengguna"}</h1>
+              {partner?.verified && <VerifiedBadge className="w-3.5 h-3.5" />}
             </div>
           </Link>
         </div>
 
         {/* Dropdown Menu */}
-        <div suppressHydrationWarning className="relative pt-3" ref={dropdownRef}>
-          <button onClick={() => setShowDropdown(!showDropdown)} className="p-2 -mr-2 rounded-full hover:bg-gray-100 transition-colors">
+        <div suppressHydrationWarning className="relative" ref={dropdownRef}>
+          <button onClick={() => setShowDropdown(!showDropdown)} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
             <MoreVertical className="w-5 h-5 text-gray-600" />
           </button>
 
           {showDropdown && (
-            <div suppressHydrationWarning className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div suppressHydrationWarning className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[70]">
               <button
                 onClick={() => {
                   setShowDropdown(false);
@@ -265,8 +267,8 @@ export default function ChatDetailPage() {
       </div>
 
       {/* CHAT CONTENT */}
-      <div suppressHydrationWarning className="flex-1 overflow-y-auto px-3 pt-4 pb-4 bg-white flex flex-col">
-        <div className="flex flex-col gap-2">
+      <div suppressHydrationWarning className="flex-1 overflow-y-auto px-3 py-4 bg-white flex flex-col">
+        <div className="flex flex-col gap-3">
           {messages.length === 0 ? (
             <p className="text-center text-gray-500 text-sm mt-10">
               Belum ada pesan. Mulailah percakapan dengan <span className="font-semibold">{partner?.display_name ?? "Pengguna"}</span>.
@@ -282,13 +284,13 @@ export default function ChatDetailPage() {
 
               return (
                 <div suppressHydrationWarning key={msg.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
-                  <div suppressHydrationWarning className={`rounded-xl px-3 py-2 min-w-12 max-w-[85%] flex flex-col ${isCurrentUser ? "bg-green-200 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
+                  <div suppressHydrationWarning className={`rounded-xl px-3 py-2 min-w-[60px] max-w-[85%] flex flex-col ${isCurrentUser ? "bg-green-100 text-gray-800" : "bg-gray-100 text-gray-800"}`}>
                     <div suppressHydrationWarning>
-                      {msg.text && <p className="text-sm">{msg.text}</p>}
+                      {msg.text && <p className="text-sm leading-relaxed">{msg.text}</p>}
                       {msg.image_url && <Image src={msg.image_url} alt="gambar" width={400} height={300} className="rounded-md mt-1 max-w-full h-auto" />}
                     </div>
-                    <div suppressHydrationWarning className="self-end text-[11px]">
-                      <span suppressHydrationWarning className={`${isCurrentUser ? "text-gray-600" : "text-gray-500"}`}>{time}</span>
+                    <div suppressHydrationWarning className="self-end text-[10px] mt-1 opacity-70">
+                      <span>{time}</span>
                     </div>
                   </div>
                 </div>
@@ -296,13 +298,15 @@ export default function ChatDetailPage() {
             })
           )}
         </div>
-        <div suppressHydrationWarning ref={bottomRef} />
+        <div suppressHydrationWarning ref={bottomRef} className="h-4" />
       </div>
 
       {/* CHAT INPUT */}
-      <div suppressHydrationWarning className="bg-white px-3 pb-2 pt-2 border-t border-gray-100 shadow-sm">
+      <div suppressHydrationWarning className="bg-white px-3 pb-3 pt-2 border-t border-gray-100 shrink-0">
         <ChatInput receiverId={partner?.id ?? ""} messageRoomId={messageRoomId} currentUserId={currentUserId} setMessageRoomId={setMessageRoomId} />
       </div>
+
+      {/* Modals ... */}
 
       {/* Confirmation Modals */}
       <ConfirmModal
