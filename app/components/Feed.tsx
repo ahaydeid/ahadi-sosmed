@@ -4,7 +4,6 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { incrementPostViews } from "@/lib/actions/incrementViews";
 import { PostCardData } from "@/lib/types/post";
 import PostCard from "./PostCard";
 import { PostSkeleton } from "./Skeleton";
@@ -253,7 +252,7 @@ export default function Feed({ initialPosts }: FeedProps) {
   return (
     <div className="space-y-1 md:space-y-3 md:px-0">
       {posts.map((post) => (
-        <Link key={`${post.id}-${tab}`} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
+        <Link key={`${post.id}-${tab}`} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100">
           <PostCard post={post} />
         </Link>
       ))}

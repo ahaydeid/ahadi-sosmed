@@ -8,7 +8,6 @@ import { Search, User } from "lucide-react";
 import VerifiedBadge from "./ui/VerifiedBadge";
 import Image from "next/image";
 import Link from "next/link";
-import { incrementPostViews } from "@/lib/actions/incrementViews";
 
 type TabKey = "teratas" | "followed";
 type SearchItem = { type: "user"; id: string; label: string; avatarUrl?: string | null; verified?: boolean } | { type: "post"; id: string; label: string; thumbnailUrl?: string | null };
@@ -145,7 +144,6 @@ function TopBarInner() {
 
   const handlePick = async (item: SearchItem & { post_id?: string }) => {
     if (item.type === "post") {
-      if (item.post_id) await incrementPostViews(item.post_id);
       router.push(`/post/${item.id}`);
     } else {
       router.push(`/profile/${item.id}`);

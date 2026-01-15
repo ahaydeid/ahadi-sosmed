@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import PostCard from "@/app/components/PostCard";
 import { PostCardData } from "@/lib/types/post";
-import { incrementPostViews } from "@/lib/actions/incrementViews";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 
@@ -67,7 +66,6 @@ export default function PostList({ posts, loading, isOwner, canPost }: PostListP
           <div
             key={post.id}
             onClick={() => {
-              incrementPostViews(post.id);
               router.push(`/post/${post.slug || post.id}`);
             }}
             className="block transition hover:bg-gray-100 cursor-pointer"

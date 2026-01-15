@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import useSWR from "swr";
 
 import { extractFirstImage } from "@/lib/utils/html";
+import { incrementPostViews } from "@/lib/actions/incrementViews";
 
 export interface PostDetailData {
   id: string;
@@ -75,6 +76,19 @@ export function usePostDetailData(initialPostId?: string, initialSlug?: string) 
       data.subscription.unsubscribe();
     };
   }, []);
+
+  // Increment Views with session protection
+  useEffect(() => {
+    if (!postId || typeof window === "undefined") return;
+
+    const sessionKey = `viewed-${postId}`;
+    const alreadyViewed = sessionStorage.getItem(sessionKey);
+
+    if (!alreadyViewed) {
+      incrementPostViews(postId);
+      sessionStorage.setItem(sessionKey, "true");
+    }
+  }, [postId]);
 
   // SWR Fetcher
   const fetcher = async () => {
