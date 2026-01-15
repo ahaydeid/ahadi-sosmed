@@ -166,7 +166,7 @@ export default function Feed({ initialPosts }: FeedProps) {
 
     try {
       if (tab === "teratas") {
-        const nextPosts = await getPublicPosts(10, offset, 'popular');
+        const nextPosts = await getPublicPosts(10, offset, 'latest');
         if (nextPosts.length === 0) {
           setHasMore(false);
         } else {
@@ -211,19 +211,36 @@ export default function Feed({ initialPosts }: FeedProps) {
     } catch { }
 
     const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const RECENT_BOOST = 1_000_000; // Boost sangat besar untuk post < 7 hari
+
     const enriched = rawPosts.map((p) => {
         const v = p.views || 0;
         const l = p.likes || 0;
         const c = p.comments || 0;
-        const hours = Math.max(0, (now - (Date.parse(p.created_at) || now)) / 3_600_000);
+        const createdAtMs = Date.parse(p.created_at) || now;
+        const ageMs = now - createdAtMs;
+        const hours = Math.max(0, ageMs / 3_600_000);
+        
         const timeBoost = BASE_TIME_BOOST * Math.pow(TIME_DECAY_PER_HOUR, hours);
+        const isRecent = ageMs < SEVEN_DAYS_MS;
 
+        // Base Popularity Score
         let score = v * WEIGHTS.view + l * WEIGHTS.like + c * WEIGHTS.comment + timeBoost;
+        
+        // Add huge boost if post is < 7 days old
+        if (isRecent) score += RECENT_BOOST;
+        
         if (collapsedSet.has(p.id)) score -= PENALTY_VALUE;
 
         return { ...p, score };
     });
 
+    if (tab === "teratas") {
+      // Sekarang kita sort lagi di client-side karena urutan DB (latest) 
+      // berbeda dengan urutan keinginan kita (7 hari terbaru di atas)
+      return enriched.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    }
     return enriched;
   }, [rawPosts, penaltyTick, tab]);
 

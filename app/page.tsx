@@ -18,19 +18,17 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export default async function Page() {
-  let initialPosts = [];
+  let initialPosts: any[] = [];
+  let featuredPosts: any[] = [];
   try {
-    initialPosts = await getPublicPosts(10, 0, 'popular');
+    // 1. Ambil 10 postingan terbaru untuk Feed utama
+    initialPosts = await getPublicPosts(10, 0, 'latest');
+    
+    // 2. Ambil 5 postingan terpopuler untuk Featured Section
+    featuredPosts = await getPublicPosts(5, 0, 'popular');
   } catch (error) {
     console.error("Error loading posts:", error);
-    return <p className="text-center text-gray-500 mt-10">Gagal memuat postingan</p>;
   }
-
-  // Get top 5 posts for featured section (by views + likes), exclude reposts
-  const featuredPosts = [...initialPosts]
-    .filter((post) => !post.repost_of)
-    .sort((a, b) => (b.views + b.likes * 10) - (a.views + a.likes * 10))
-    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gray-50/10">

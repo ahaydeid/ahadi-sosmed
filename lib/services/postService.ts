@@ -103,7 +103,7 @@ export async function getPublicPosts(limit = 10, offset = 0, sortBy: 'latest' | 
                     title: originContent.title,
                     description: originContent.description,
                     author: originProfile.display_name,
-                    authorImage: originProfile.avatar_url, // Using camelCase
+                    authorImage: originContent.author_image || originProfile.avatar_url, // Use custom author image if exists
                     date: new Date(originPost.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long" }),
                     imageUrl: firstImage,
                     views: viewsMap.get(p.repost_of) || 0,

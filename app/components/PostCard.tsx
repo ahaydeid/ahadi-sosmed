@@ -81,7 +81,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
   };
 
   return (
-    <div className="relative bg-white p-7 py-7 flex flex-col hover:shadow-sm transition-shadow rounded-xs border-b border-gray-100">
+    <div className="relative bg-white p-4 py-8 flex flex-col hover:shadow-sm transition-shadow rounded-xs border-b border-gray-100">
       <div className="flex flex-row w-full">
         {/* KIRI: teks */}
         <div className="flex-1 min-w-0 pr-4 flex flex-col">
@@ -114,7 +114,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
 
             {/* Repost Content - Quote Style */}
             {post.repost_of && (
-              <div className="mt-3 mx-2 pl-4 border-l-4 border-gray-900 flex gap-4 transition cursor-pointer group" onClick={(e) => {
+              <div className="mt-3 mb-2 mx-2 pl-4 border-l-4 border-gray-900 flex gap-4 transition cursor-pointer group" onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   router.push(`/post/${post.repost_of!.slug || post.repost_of!.id}`); 
@@ -168,7 +168,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
       </div>
 
       {/* Baris Bawah: Meta info */}
-      <div className="flex flex-row items-center mt-4 text-gray-500 text-sm">
+      <div className="flex flex-row items-center mt-1 text-gray-500 text-sm">
         <div className="flex items-center gap-x-4">
           <div className="flex items-center gap-1 shrink-0">
             <Clock className="w-3.5 h-3.5" />
