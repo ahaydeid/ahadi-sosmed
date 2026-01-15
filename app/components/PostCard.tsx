@@ -81,7 +81,7 @@ export default function PostCard({ post, isOwner, onDeleteSuccess }: PostCardPro
   };
 
   return (
-    <div className="relative bg-white p-7 py-10 flex flex-col hover:shadow-sm transition-shadow rounded-xs border-b border-gray-100">
+    <div className="relative bg-white p-7 py-7 flex flex-col hover:shadow-sm transition-shadow rounded-xs border-b border-gray-100">
       <div className="flex flex-row w-full">
         {/* KIRI: teks */}
         <div className="flex-1 min-w-0 pr-4 flex flex-col">
