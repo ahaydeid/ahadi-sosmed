@@ -20,7 +20,7 @@ export const revalidate = 60;
 export default async function Page() {
   let initialPosts = [];
   try {
-    initialPosts = await getPublicPosts(10);
+    initialPosts = await getPublicPosts(10, 0, 'popular');
   } catch (error) {
     console.error("Error loading posts:", error);
     return <p className="text-center text-gray-500 mt-10">Gagal memuat postingan</p>;

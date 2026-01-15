@@ -3,11 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { PostCardData } from "@/lib/types/post";
 
-export async function getPublicPosts(limit = 10, offset = 0) {
+export async function getPublicPosts(limit = 10, offset = 0, sortBy: 'latest' | 'popular' = 'latest') {
   const supabase = await createClient();
 
   // 1. Fetch posts, contents, AND repost_of in one join
-  const { data: posts, error } = await supabase
+  let query = supabase
     .from("post")
     .select(`
       id, 
@@ -15,11 +15,19 @@ export async function getPublicPosts(limit = 10, offset = 0) {
       user_id, 
       visibility,
       repost_of,
-      post_content ( title, description, author_image, slug )
+      post_content ( title, description, author_image, slug ),
+      post_views ( views )
     `)
-    .eq("visibility", "public")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .eq("visibility", "public");
+
+  if (sortBy === 'popular') {
+    // Note: This requires a foreign key relationship between post and post_views
+    query = query.order('post_views(views)', { ascending: false, nullsFirst: false });
+  } else {
+    query = query.order('created_at', { ascending: false });
+  }
+
+  const { data: posts, error } = await query.range(offset, offset + limit - 1);
 
   if (error || !posts) {
     throw new Error(error?.message || "Gagal memuat postingan");

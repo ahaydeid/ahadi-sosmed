@@ -166,7 +166,7 @@ export default function Feed({ initialPosts }: FeedProps) {
 
     try {
       if (tab === "teratas") {
-        const nextPosts = await getPublicPosts(10, offset);
+        const nextPosts = await getPublicPosts(10, offset, 'popular');
         if (nextPosts.length === 0) {
           setHasMore(false);
         } else {
@@ -224,10 +224,7 @@ export default function Feed({ initialPosts }: FeedProps) {
         return { ...p, score };
     });
 
-    if (tab === "teratas") {
-      return enriched.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    }
-    return enriched; // Followed is already sorted by date from DB
+    return enriched;
   }, [rawPosts, penaltyTick, tab]);
 
   // Dengarkan event collapse
