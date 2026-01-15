@@ -23,7 +23,7 @@ const POPULAR_TOPICS: Topic[] = [
 
 export default function TopicsCarousel() {
   return (
-    <section className="bg-white p-7 py-5 border-b border-gray-100">
+    <section className="bg-white px-4 py-4 border-b border-gray-100">
       {/* Section Header */}
       <div className="flex items-center gap-2 mb-4">
         <TrendingUp className="w-5 h-5 text-sky-500" />

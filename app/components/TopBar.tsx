@@ -234,51 +234,50 @@ function TopBarInner() {
                 )}
               </div>
             </div>
+            {isSearching && (query.trim() !== "" || loading) && (
+              <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-gray-300 rounded-md shadow-lg overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="max-h-72 overflow-y-auto divide-y divide-gray-50 border-b border-gray-50">
+                  {loading && <div className="px-3 py-2 text-sm text-gray-500">Mencari…</div>}
+                  {!loading && results.length === 0 && query.trim().length > 0 && <div className="px-3 py-2 text-sm text-gray-500">Tidak ada hasil</div>}
+                  {!loading &&
+                    results.map((item) => (
+                      <Link 
+                        key={`${item.type}-${item.id}`} 
+                        href={item.type === "post" ? `/post/${item.id}` : `/profile/${item.id}` as any}
+                        onClick={() => handlePick(item as any)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm flex items-center gap-3"
+                      >
+                        {item.type === "user" ? (
+                          item.avatarUrl ? (
+                            <Image src={item.avatarUrl} alt={item.label} width={28} height={28} className="w-7 h-7 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <User className="w-6 h-6 text-gray-400 shrink-0" />
+                          )
+                        ) : item.thumbnailUrl ? (
+                          <Image src={item.thumbnailUrl} alt={item.label} width={40} height={24} className="w-10 h-6 rounded object-cover shrink-0" />
+                        ) : null}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1">
+                            <div className="font-medium text-gray-900 truncate">{item.label}</div>
+                            {item.type === "user" && item.verified && <VerifiedBadge className="w-3 h-3" />}
+                          </div>
+                          <div className="text-gray-500 text-xs">{item.type === "user" ? "Pengguna" : "Post"}</div>
+                        </div>
+                      </Link>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
 
         </div>
       </div>
 
-      {isSearching && (query.trim() !== "" || loading) && (
-        <div className="px-4 flex justify-end" onMouseDown={(e) => e.stopPropagation()}>
-          <div className="relative w-full md:w-[50%]">
-            <div className="border border-gray-300 rounded-md overflow-hidden absolute z-10 w-full bg-white shadow-lg">
-              <div className="max-h-72 overflow-y-auto divide-y border-b border-b-gray-50 divide-gray-50">
-                {loading && <div className="px-3 py-2 text-sm text-gray-500">Mencari…</div>}
-                {!loading && results.length === 0 && query.trim().length > 0 && <div className="px-3 py-2 text-sm text-gray-500">Tidak ada hasil</div>}
-                {!loading &&
-                  results.map((item) => (
-                    <Link 
-                      key={`${item.type}-${item.id}`} 
-                      href={item.type === "post" ? `/post/${item.id}` : `/profile/${item.id}` as any}
-                      onClick={() => handlePick(item as any)}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm flex items-center gap-3"
-                    >
-                      {item.type === "user" ? (
-                        item.avatarUrl ? (
-                          <Image src={item.avatarUrl} alt={item.label} width={28} height={28} className="w-7 h-7 rounded-full object-cover shrink-0" />
-                        ) : (
-                          <User className="w-6 h-6 text-gray-400 shrink-0" />
-                        )
-                      ) : item.thumbnailUrl ? (
-                        <Image src={item.thumbnailUrl} alt={item.label} width={40} height={24} className="w-10 h-6 rounded object-cover shrink-0" />
-                      ) : null}
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1">
-                          <div className="font-medium text-gray-900 truncate">{item.label}</div>
-                          {item.type === "user" && item.verified && <VerifiedBadge className="w-3 h-3" />}
-                        </div>
-                        <div className="text-gray-500 text-xs">{item.type === "user" ? "Pengguna" : "Post"}</div>
-                      </div>
-                    </Link>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
+
     </div>
   );
 }

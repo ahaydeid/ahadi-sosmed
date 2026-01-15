@@ -16,7 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (error) {
       console.error('Sitemap: Error fetching posts:', error);
     } else if (posts) {
-      postEntries = posts.map((p) => {
+      postEntries = posts.map((p: any) => {
         const postData = p.post as unknown as { created_at: string };
         return {
           url: `${baseUrl}/post/${p.slug}`,

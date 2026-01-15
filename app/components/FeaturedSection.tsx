@@ -18,7 +18,7 @@ export default function FeaturedSection({ posts }: FeaturedSectionProps) {
   if (!posts || posts.length === 0) return null;
 
   return (
-    <section className="mb-12 px-4">
+    <section className="mb-5 px-4">
       {/* Section Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Postingan Populer</h2>
