@@ -45,20 +45,24 @@ export default function ProfilePage() {
         onSecondary={profile.handleSecondary}
         savedLink={
           profile.isOwnProfile && (
-            <Link
-              href="/profile/saved"
-              className="flex items-center justify-center gap-2 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition whitespace-nowrap"
-            >
-              <Bookmark className="w-4 h-4 text-sky-500" />
-              <span>Postingan Tersimpan</span>
-            </Link>
+           <Link
+            href="/profile/saved"
+            className="flex items-center justify-center gap-2 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition whitespace-nowrap"
+          >
+            <Bookmark className="w-4 h-4 text-sky-500" />
+            <h1>Post Tersimpan
+              <span className="font-normal ml-1 text-gray-600">
+                ({profile.savedCount})
+              </span>
+            </h1>
+          </Link>
           )
         }
       >
         <StatsSection posts={profile.posts} followersCount={profile.followersCount} followingCount={profile.followingCount} onOpenFollowers={follow.openFollowersModal} onOpenFollowing={follow.openFollowingModal} />
       </AvatarSection>
 
-      <PostList posts={profile.posts} loading={profile.loading} isOwner={profile.isOwnProfile} />
+      <PostList posts={profile.posts} loading={profile.loading} isOwner={profile.isOwnProfile} canPost={profile.canPost} />
 
       {showFollowModal && <FollowModal followTab={followTab} setShowFollowModal={setShowFollowModal} follow={follow} />}
       

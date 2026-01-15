@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
 import { ArrowLeft, Heart } from "lucide-react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import VerifiedBadge from "./ui/VerifiedBadge";
 import ModalLikes from "@/app/components/ModalLikes";
 
@@ -87,6 +88,16 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorId: string | null; authorName: string; level: number } | null>(null);
   const [text, setText] = useState("");
   const [meId, setMeId] = useState<string | null>(null);
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const redirectToLogin = () => {
+    const qs = searchParams?.toString() ?? "";
+    const current = pathname ? pathname + (qs ? `?${qs}` : "") : "/";
+    router.push(`/login?redirectedFrom=${encodeURIComponent(current)}`);
+  };
 
   const textareaRef = useRef<HTMLTextAreaElement>(null!);
   useAutosizeTextArea(textareaRef, text);
@@ -228,8 +239,10 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
   const activeTarget = useMemo(() => (replyingTo ? replyingTo : rootItem ? { id: rootItem.id, authorId: rootItem.authorId, authorName: rootItem.authorName, level: 0 } : null), [replyingTo, rootItem]);
 
   useEffect(() => {
-    if (!loading && rootItem && !replyingTo) requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [loading, rootItem, replyingTo]);
+    if (!loading && rootItem && !replyingTo && meId) {
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    }
+  }, [loading, rootItem, replyingTo, meId]);
 
   const handleStartReply = (target: Item) => {
     setReplyingTo({ id: target.id, authorId: target.authorId, authorName: target.authorName, level: target.level });
@@ -362,19 +375,38 @@ export default function RepliesModal({ postId, rootCommentId, onClose }: Replies
         </div>
 
         <div className="border-t border-gray-200 pb-16 p-3">
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              className="flex-1 border border-gray-300 rounded-sm p-2 text-sm outline-none resize-none min-h-8 max-h-[150px]"
-              placeholder={activeTarget ? (activeTarget.level === 0 ? "Balas komentar..." : `Balas ${activeTarget.authorName}...`) : "Tulis balasan..."}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <button onClick={handleSubmit} className="shrink-0 px-4 py-2 rounded-sm bg-sky-600 text-white text-sm disabled:opacity-50" disabled={!meId || !text.trim() || !activeTarget}>
-              Kirim
+          {meId ? (
+            <div className="flex items-center gap-2">
+              <textarea
+                ref={textareaRef}
+                className="flex-1 resize-none rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                placeholder={activeTarget ? (activeTarget.level === 0 ? "Balas komentar..." : `Balas ${activeTarget.authorName}...`) : "Tulis balasan..."}
+                rows={1}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                style={{ maxHeight: "150px" }}
+              />
+              <div className="flex self-center">
+                <button
+                  onClick={handleSubmit}
+                  className="flex max-h-10 rounded-full bg-sky-600 p-3 text-white disabled:opacity-50 hover:bg-sky-600 transition"
+                  disabled={!text.trim() || !activeTarget}
+                  aria-label="Kirim balasan"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={redirectToLogin}
+              className="w-full text-left px-4 py-2 text-sky-600 hover:bg-sky-50 rounded transition text-sm"
+            >
+              Login untuk membalas komentar
             </button>
-          </div>
-          {!meId && <div className="text-xs text-gray-500 mt-2">Login untuk membalas</div>}
+          )}
         </div>
       </div>
 

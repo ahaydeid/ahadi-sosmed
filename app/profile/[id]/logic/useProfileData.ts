@@ -31,16 +31,19 @@ export function useProfileData(profileId?: string) {
 
     const { data: profile } = await supabase
       .from("user_profile")
-      .select("display_name, avatar_url, verified, bio")
+      .select("display_name, avatar_url, verified, bio, can_post")
       .eq("id", profileId)
       .single();
 
     if (!profile) return null;
 
-    const [{ data: postData }, { count: followersCnt }, { count: followingCnt }] = await Promise.all([
+    const [{ data: postData }, { count: followersCnt }, { count: followingCnt }, { count: savedCnt }] = await Promise.all([
       supabase.from("post").select("id, created_at, repost_of").eq("user_id", profileId).order("created_at", { ascending: false }),
       supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("following_id", profileId),
       supabase.from("user_followers").select("*", { count: "exact", head: true }).eq("follower_id", profileId),
+      profileId === currentUserId 
+        ? supabase.from("user_saved_posts").select("*", { count: "exact", head: true }).eq("user_id", profileId)
+        : Promise.resolve({ count: 0 })
     ]);
 
     const ids = postData?.map((p) => p.id) || [];
@@ -126,14 +129,24 @@ export function useProfileData(profileId?: string) {
       bio: profile.bio || null,
       followersCount: followersCnt ?? 0,
       followingCount: followingCnt ?? 0,
+      savedCount: savedCnt ?? 0,
       posts: formattedPosts,
+      canPost: profile.can_post || false,
     };
   };
 
-  const { data, isLoading, mutate } = useSWR(profileId ? `profile-${profileId}` : null, fetcher, {
+  const { data, isLoading, mutate } = useSWR(profileId ? `profile-${profileId}-${currentUserId}` : null, fetcher, {
     revalidateOnFocus: false,
     revalidateOnMount: true,
   });
+
+  // Listen for global saved posts changes
+  useEffect(() => {
+    const handleRefresh = () => mutate();
+    window.addEventListener("saved-posts:refresh", handleRefresh);
+    return () => window.removeEventListener("saved-posts:refresh", handleRefresh);
+  }, [mutate]);
+
 
   // Following Status Fetcher
   const { data: followData, mutate: mutateFollow } = useSWR(
@@ -156,6 +169,8 @@ export function useProfileData(profileId?: string) {
   const bio = data?.bio || null;
   const followersCount = data?.followersCount || 0;
   const followingCount = data?.followingCount || 0;
+  const savedCount = data?.savedCount || 0;
+  const canPost = data?.canPost || false;
   const isFollowing = !!followData;
 
   const handleLogout = async () => {
@@ -215,11 +230,13 @@ export function useProfileData(profileId?: string) {
     isFollowing,
     followersCount,
     followingCount,
+    savedCount,
     handleLogout,
     handleToggleFollow,
     handleSecondary,
     mainFollowLabel: isFollowing ? "Mengikuti" : "Ikuti",
     showUserPlusIcon: !isFollowing,
     isOwnProfile: currentUserId === profileId,
+    canPost,
   };
 }

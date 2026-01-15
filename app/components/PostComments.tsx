@@ -36,11 +36,6 @@ export default function PostComments({ postId }: PostCommentsProps) {
             likeBusy={likeBusy.has(comment.id)}
             onLike={() => toggleLike(comment.id)}
             onReply={() => {
-              if (!authChecked) return;
-              if (!user) {
-                redirectToLogin();
-                return;
-              }
               setOpenRootId(comment.id);
             }}
             onShowLikes={() => setSelectedCommentId(comment.id)}

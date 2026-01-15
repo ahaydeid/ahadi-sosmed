@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import useSWR from "swr";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -9,6 +8,7 @@ import { incrementPostViews } from "@/lib/actions/incrementViews";
 import { PostCardData } from "@/lib/types/post";
 import PostCard from "./PostCard";
 import { PostSkeleton } from "./Skeleton";
+import { getPublicPosts } from "@/lib/services/postService";
 
 interface FeedProps {
   initialPosts: (PostCardData & {
@@ -29,38 +29,60 @@ export default function Feed({ initialPosts }: FeedProps) {
   const searchParams = useSearchParams();
   const tab = (searchParams.get("tab") as "teratas" | "followed") || "teratas";
 
+  const [rawPosts, setRawPosts] = useState<(PostCardData & { created_at: string })[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [penaltyTick, setPenaltyTick] = useState(0);
+  const [isFollowedLoading, setIsFollowedLoading] = useState(false);
+  
+  const observerTarget = useRef(null);
 
-  // Key untuk SWR, berubah kalau tab atau penalty berubah
-  const swrKey = `feed-${tab}-${penaltyTick}`;
+  // Initialize or Reset
+  useEffect(() => {
+    if (tab === "teratas") {
+      setRawPosts(initialPosts);
+      setOffset(initialPosts.length);
+      setHasMore(initialPosts.length >= 10);
+    } else {
+      setRawPosts([]);
+      setOffset(0);
+      setHasMore(true);
+      fetchFollowed(0);
+    }
+  }, [tab, initialPosts]);
 
-  const { data: postsData, isLoading: swrLoading } = useSWR(swrKey, async () => {
-    let filtered = [...initialPosts];
-
-    // === FILTER TAB "DIIKUTI" ===
-    if (tab === "followed") {
-      // ... followed tab logic remains similar but could be optimized later
-      // For now, let's keep it but ensure it doesn't do the individual stat fetching loop
-      // (I'll keep the existing followed logic for now but skip the loop)
+  const fetchFollowed = async (currentOffset: number) => {
+    if (isFollowedLoading) return;
+    setIsFollowedLoading(true);
+    
+    try {
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user?.id ?? null;
-      if (!uid) return [];
+      if (!uid) {
+        setHasMore(false);
+        return;
+      }
 
       const { data: follows } = await supabase.from("user_followers").select("following_id").eq("follower_id", uid);
       const followingIds = (follows ?? []).map((f) => String(f.following_id));
-      if (followingIds.length === 0) return [];
+      if (followingIds.length === 0) {
+        setHasMore(false);
+        return;
+      }
 
-      // Note: This followed tab should also ideally be moved to a server action 
-      // to benefit from bulk fetching. But for now we just optimize the loop.
       const { data: followedPosts } = await supabase
         .from("post")
         .select("id, created_at, user_id, visibility, repost_of")
         .in("user_id", followingIds)
         .eq("visibility", "public")
         .order("created_at", { ascending: false })
-        .limit(100);
+        .range(currentOffset, currentOffset + 9);
 
-      if (!followedPosts) return [];
+      if (!followedPosts || followedPosts.length === 0) {
+        setHasMore(false);
+        return;
+      }
 
       const postIds = followedPosts.map(p => p.id);
       const repostIds = followedPosts.map(p => p.repost_of).filter(Boolean);
@@ -74,11 +96,9 @@ export default function Feed({ initialPosts }: FeedProps) {
 
       const contentMap = new Map(contentsRes.data?.map((c) => [c.post_id, c]));
       const profileMap = new Map(profilesRes.data?.map((p) => [p.id, p]));
-      
       const repostOriginalMap = new Map(repostsOriginalRes.data?.map(p => [p.id, p]));
       const repostContentMap = new Map(repostsContentRes.data?.map(c => [c.post_id, c]));
 
-      // Fetch profiles for ORIGINAL authors of reposted content
       let repostAuthorMap = new Map();
       if (repostsOriginalRes.data && repostsOriginalRes.data.length > 0) {
           const originalUserIds = Array.from(new Set(repostsOriginalRes.data.map((p: any) => p.user_id)));
@@ -86,7 +106,7 @@ export default function Feed({ initialPosts }: FeedProps) {
           repostAuthorMap = new Map(originalProfiles?.map(p => [p.id, p]));
       }
 
-      filtered = followedPosts.map((p) => {
+      const nextPosts = followedPosts.map((p) => {
         const content = contentMap.get(p.id);
         const profile = profileMap.get(p.user_id);
 
@@ -98,7 +118,6 @@ export default function Feed({ initialPosts }: FeedProps) {
                 const originProfile: any = repostAuthorMap.get(originPost.user_id);
                 if (originProfile) {
                      const imgMatch = originContent.description?.match(/<img[^>]+src="([^">]+)"/);
-                     const firstImage = imgMatch ? imgMatch[1] : null;
                      repostNode = {
                         id: p.repost_of,
                         slug: originContent.slug ?? p.repost_of,
@@ -107,10 +126,8 @@ export default function Feed({ initialPosts }: FeedProps) {
                         author: originProfile.display_name,
                         authorImage: originProfile.avatar_url,
                         date: new Date(originPost.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-                        imageUrl: firstImage,
-                        views: 0,
-                        likes: 0,
-                        comments: 0
+                        imageUrl: imgMatch ? imgMatch[1] : null,
+                        views: 0, likes: 0, comments: 0
                      };
                 }
             }
@@ -125,18 +142,69 @@ export default function Feed({ initialPosts }: FeedProps) {
           description: content?.description ?? "",
           date: new Date(p.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
           created_at: p.created_at,
-          views: 0,
-          likes: 0,
-          comments: 0,
+          views: 0, likes: 0, comments: 0,
           slug: content?.slug ?? p.id,
           verified: profile?.verified ?? false,
           isRepost: !!p.repost_of,
           repost_of: repostNode
         };
       });
+
+      setRawPosts(prev => [...prev, ...nextPosts]);
+      setOffset(prev => prev + followedPosts.length);
+      if (followedPosts.length < 10) setHasMore(false);
+
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFollowedLoading(false);
+    }
+  };
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+
+    try {
+      if (tab === "teratas") {
+        const nextPosts = await getPublicPosts(10, offset);
+        if (nextPosts.length === 0) {
+          setHasMore(false);
+        } else {
+          setRawPosts(prev => [...prev, ...nextPosts]);
+          setOffset(prev => prev + nextPosts.length);
+          if (nextPosts.length < 10) setHasMore(false);
+        }
+      } else {
+        await fetchFollowed(offset);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [tab, offset, hasMore, isLoadingMore]);
+
+  // Observer Logic
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isFollowedLoading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
     }
 
-    // === COLLAPSE STATE, SCORING & SORTING ===
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, isLoadingMore, isFollowedLoading]);
+
+  // Scoring logic
+  const posts = useMemo(() => {
     let collapsedSet = new Set<string>();
     try {
       const raw = localStorage.getItem(COLLAPSE_KEY);
@@ -144,8 +212,7 @@ export default function Feed({ initialPosts }: FeedProps) {
     } catch { }
 
     const now = Date.now();
-    // NO MORE Promise.all LOOP HERE
-    const enriched = filtered.map((p) => {
+    const enriched = rawPosts.map((p) => {
         const v = p.views || 0;
         const l = p.likes || 0;
         const c = p.comments || 0;
@@ -158,16 +225,11 @@ export default function Feed({ initialPosts }: FeedProps) {
         return { ...p, score };
     });
 
-    return enriched.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  }, {
-    fallbackData: tab === "teratas" ? initialPosts.map(p => ({ ...p, score: 0 })) : undefined,
-    revalidateOnFocus: false,
-    revalidateOnMount: false, // Trust fallbackData (initialPosts) on first mount
-    dedupingInterval: 60000 // Cache for 1 minute
-  });
-
-  const posts = postsData || [];
-  const loading = swrLoading && posts.length === 0;
+    if (tab === "teratas") {
+      return enriched.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    }
+    return enriched; // Followed is already sorted by date from DB
+  }, [rawPosts, penaltyTick, tab]);
 
   // Dengarkan event collapse
   useEffect(() => {
@@ -176,23 +238,39 @@ export default function Feed({ initialPosts }: FeedProps) {
     return () => window.removeEventListener("post:penalize", onPenalize as EventListener);
   }, []);
 
+  const initialLoading = tab === "followed" && rawPosts.length === 0 && isFollowedLoading;
 
-  if (loading) return (
+  if (initialLoading) return (
     <div className="flex flex-col w-full">
       <PostSkeleton />
       <PostSkeleton />
       <PostSkeleton />
     </div>
   );
-  if (!posts || posts.length === 0) return <p className="text-center py-5 text-gray-500">Belum ada postingan</p>;
+
+  if (posts.length === 0 && !isFollowedLoading) return <p className="text-center py-5 text-gray-500">Belum ada postingan</p>;
 
   return (
     <div className="space-y-1 md:space-y-3 md:px-0">
       {posts.map((post) => (
-        <Link key={post.id} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
+        <Link key={`${post.id}-${tab}`} href={{ pathname: `/post/${post.slug ?? post.id}` }} className="block transition hover:bg-gray-100" onClick={() => incrementPostViews(post.id)}>
           <PostCard post={post} />
         </Link>
       ))}
+      
+      {/* Trigger lazy load */}
+      <div ref={observerTarget} className="h-10 flex items-center justify-center">
+        {(isLoadingMore || isFollowedLoading) && (
+          <div className="w-full">
+            <PostSkeleton />
+          </div>
+        )}
+      </div>
+
+      {!hasMore && posts.length > 0 && (
+        <p className="text-center py-5 text-xs text-gray-400">Kamu telah mencapai akhir</p>
+      )}
     </div>
   );
 }
+

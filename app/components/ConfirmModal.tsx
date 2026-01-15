@@ -38,37 +38,32 @@ export default function ConfirmModal({
         <div className="p-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-            <button 
-              onClick={onClose}
-              className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
           </div>
           
           <p className="text-gray-600 mb-8 leading-relaxed">
             {message}
           </p>
           
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={onConfirm}
-              className={`w-full py-3 rounded font-semibold text-white transition-all active:scale-[0.98] ${
-                isDanger 
-                  ? "bg-red-500 shadow-xs"
-                  : "bg-black shadow-xs"
-              }`}
-            >
-              {confirmLabel}
-            </button>
-            <button
-              onClick={onClose}
-              className="w-full py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              {cancelLabel}
-            </button>
-          </div>
+         <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 cursor-pointer rounded-full font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`flex-1 py-2 cursor-pointer rounded font-semibold text-white transition-all active:scale-[0.98] ${
+              isDanger 
+                ? "bg-red-500 hover:bg-red-600 rounded-full shadow-xs"
+                : "bg-black hover:bg-gray-800 rounded-full shadow-xs"
+            }`}
+          >
+            {confirmLabel}
+          </button>
+
         </div>
+      </div>
       </div>
     </div>
   );

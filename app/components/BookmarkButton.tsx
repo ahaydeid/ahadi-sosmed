@@ -92,9 +92,11 @@ export default function BookmarkButton({
         onToggle(!previousState);
       }
 
-      // Refresh router to update any server components
+      // Refresh router and broadcast event
       router.refresh();
-
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("saved-posts:refresh"));
+      }
     } catch (error) {
       console.error("Error toggling bookmark:", error);
       // Revert on error

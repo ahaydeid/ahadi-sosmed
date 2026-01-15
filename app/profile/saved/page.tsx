@@ -73,8 +73,11 @@ export default function SavedPostsPage() {
 
       if (!response.ok) throw new Error("Failed to unsave");
       
-      // Revalidate to ensure sync with server
+      // Revalidate and broadcast
       mutate(`/api/posts/saved?page=${page}&limit=20`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("saved-posts:refresh"));
+      }
     } catch (error) {
       console.error("Error unsaving post:", error);
       // Revert on error

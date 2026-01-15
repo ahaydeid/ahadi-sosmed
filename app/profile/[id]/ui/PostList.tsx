@@ -5,14 +5,17 @@ import { useState, useEffect } from "react";
 import PostCard from "@/app/components/PostCard";
 import { PostCardData } from "@/lib/types/post";
 import { incrementPostViews } from "@/lib/actions/incrementViews";
+import Link from "next/link";
+import { Pencil } from "lucide-react";
 
 interface PostListProps {
   posts: PostCardData[];
   loading: boolean;
   isOwner?: boolean;
+  canPost?: boolean;
 }
 
-export default function PostList({ posts, loading, isOwner }: PostListProps) {
+export default function PostList({ posts, loading, isOwner, canPost }: PostListProps) {
   const router = useRouter();
   const [postList, setPostList] = useState(posts);
 
@@ -30,9 +33,32 @@ export default function PostList({ posts, loading, isOwner }: PostListProps) {
         <hr className="border border-gray-200 max-w-[95%] mx-auto" />
       </div>
 
-      <h2 className="text-lg font-semibold text-gray-800 ms-5 mt-4">
-        Tulisan <span className="font-normal text-gray-600">({postList.length})</span>
-      </h2>
+      <div className="flex items-center justify-between px-5 mt-4 mb-2">
+        <h2 className="text-lg font-semibold text-gray-800">
+          Tulisan <span className="font-normal text-gray-600">({postList.length})</span>
+        </h2>
+
+        {isOwner && (
+          <div>
+            {canPost ? (
+              <Link
+                href="/write"
+                className="flex items-center px-4 h-9 rounded-lg space-x-2 bg-black hover:bg-gray-800 transition whitespace-nowrap"
+              >
+                <Pencil className="w-4 h-4 text-white" />
+                <span className="text-sm font-medium text-white">Buat tulisan</span>
+              </Link>
+            ) : (
+              <Link
+                href="/poster"
+                className="flex items-center px-4 h-9 rounded-lg bg-black hover:bg-gray-800 transition whitespace-nowrap"
+              >
+                <span className="text-sm font-medium text-white">Ajukan Poster</span>
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
 
       {loading && <p className="text-center py-5 text-gray-500">Memuat tulisan...</p>}
       {!loading && postList.length === 0 && <p className="text-center py-5 text-gray-500">Belum ada tulisan</p>}

@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PostCardData } from "@/lib/types/post";
 
-export async function getPublicPosts(limit = 100) {
+export async function getPublicPosts(limit = 10, offset = 0) {
   const supabase = await createClient();
 
   // 1. Fetch posts, contents, AND repost_of in one join
@@ -19,7 +19,7 @@ export async function getPublicPosts(limit = 100) {
     `)
     .eq("visibility", "public")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (error || !posts) {
     throw new Error(error?.message || "Gagal memuat postingan");
