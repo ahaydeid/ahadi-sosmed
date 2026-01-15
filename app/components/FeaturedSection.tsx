@@ -20,7 +20,7 @@ export default function FeaturedSection({ posts }: FeaturedSectionProps) {
     <section className="px-4">
       {/* Section Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold text-gray-900">Postingan Populer</h2>
+        <h2 className="text-lg font-bold text-gray-900">Tulisan Populer</h2>
         <div className="h-px flex-1 bg-gradient-to-r from-gray-300 to-transparent ml-4"></div>
       </div>
 

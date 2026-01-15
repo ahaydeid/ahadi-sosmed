@@ -50,7 +50,7 @@ export default function ProfilePage() {
             className="flex items-center justify-center gap-2 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition whitespace-nowrap"
           >
             <Bookmark className="w-4 h-4 text-sky-500" />
-            <h1>Post Tersimpan
+            <h1>Tulisan Disimpan
               <span className="font-normal ml-1 text-gray-600">
                 ({profile.savedCount})
               </span>
